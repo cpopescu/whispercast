@@ -1,0 +1,51 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>Example 1</title>
+
+  <!-- whisperCast common -->
+  <link rel="stylesheet" type="text/css" href="css/whispercast.css">
+  <script type="text/javascript" src="js/whispercast.js"></script>
+  <!-- whisperCast player -->
+  <script type="text/javascript" src="js/swfobject.js"></script>
+  <script type="text/javascript" src="js/player/player.js"></script>
+  <!-- whisperCast local -->
+  <script type="text/javascript">
+    whispercast.local = {};
+    whispercast.local.onload = function() {
+      try {
+        whispercast.local.player =
+        new whispercast.player.Player('swf/', 'player', 480, 292, '000000',
+          {
+            url0: 'rtmp://'  + window.location.hostname + ':8935/whispercast/livecam/live1'
+          }
+        );
+        whispercast.local.player.create();
+      } catch(e) {
+        alert(e.message);
+      }
+    }
+    whispercast.local.onunload = function() {
+      try {
+        whispercast.local.player.destroy();
+      } catch(e) {
+      }
+    }
+  </script>
+</head>
+<body onload="whispercast.local.onload()" onunload="whispercast.local.onunload()">
+
+<p>Here we published stream:</p>
+<ul>
+  <li>If you push to whispercast (via Adobe Flash Media Live Encoder or from your browser to the whispercast host, port 8935 on path 'live/livestream/live1' (ie. application='live' stream='livestream/live1', you can see your stream here).
+</ul>
+<hr/>
+
+<div id="player_container">
+<div id="player"><div>You need <a href="http://www.macromedia.com/go/getflashplayer" target="_blank">Flash Player</a>.</div></div>
+</div>
+
+</body>
+</html>

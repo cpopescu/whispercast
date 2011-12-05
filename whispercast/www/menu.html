@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15">
+<title>Menu</title>
+</head>
+<body>
+<image src="whispercast_logo_m.png">
+<ul>
+  <li><a href="welcome.html" target="content">Welcome</a>
+  <li><a href="http://www.whispercast.org/" target="_blank">http://www.whispercast.org</a> - Documentation and goodies</li
+  <li><a href="example1.html" target="content">Example 1</a> - Simple File Play</li>
+  <li><a href="example2.html" target="content">Example 2</a> - Plays 16 seconds of Example 1</li>
+  <li><a href="example3.html" target="content">Example 3</a> - Simple File Play w/ no seek</li>
+  <li><a href="example4.html" target="content">Example 4</a> - Plays a global playlist (starts independently of the user)</li>
+  <li><a href="example5.html" target="content">Example 5</a> - Plays a local playlist (starts for each user)</li>
+  <li><a href="example6.html" target="content">Example 6</a> - Picture in picture for two global playlists</li>
+  <li><a href="example7.html" target="content">Example 7</a> - Plays some stream, but during pause displays a slowly updating stream</li>
+  <li><a href="example8.html" target="content">Example 8</a> - Plays a live generated test signal. (You also need to have the <b>whisperer</b> demo on the same machine as the <b>whiseprCast</b> demo).</li>
+  <li><a href="example9.html" target="content">Example 9</a> - If you connect a V4L2 camera to your demo machine, you will see here the live stream captured by the camera.  (You also need to have the <b>whisperer</b> demo on the same machine as the <b>whiseprCast</b> demo).</li>
+  <li><a href="example10.html" target="content">Example 10</a> - Same as <b>Example 9</b>, but the data is pushed from <b>whisperer</b> to <b>whisperCast</b>.</li>
+  <li><a href="example11.html" target="content">Example 11</a> - An RTMP published stream (via browser and so on).</li>
+  <li><a href="example12.html" target="content">Example 12</a> - Publish your camera here (use example 11 to view).</li>
+</ul>
+  <hr>
+  <h1>Administration Links</h1>
+  <p class="important">Make sure you read documentation from <a href="http://www.whispercast.org/" target="_blank">http://www.whispercast.org</a> (especially: <a href="http://www.whispercast.org/trac/wiki/whisperCast/Configure" target="_blank">whispercast Configuration</a> and <a href="http://www.whispercast.org/trac/wiki/whisperer/Configure" target="_blank">whisperer Configuration</a> before getting lost in the admin pages.</b>
+  <p>Authentication: <code>admin</code>, password: <code>test</code>.</p>
+<ul>
+  <script type="text/javascript">
+  url_admin = 'http://'  + window.location.hostname + ':8881/__admin__';
+  url_whisperer = 'http://'  + window.location.hostname + ':8882/rpc-config/MediaProviderService/__forms';
+  document.write('<li><a href="'  + url_admin    + '" target="admin">whispercast Admin Interface</a> - Automatically generated from RPC specs</li>');
+  document.write('<li><a href="' + url_whisperer + '" target="admin">whisperer Admin Interface</a> - Automatically generated from RPC specs</li>');
+  </script>
+</ul>
+
+</body> </html>

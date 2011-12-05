@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15">
+<title>Welcome to whisperCast</title>
+</head>
+
+<body>
+<h1>Welcome to <a href="http://www.whispercast.org" target="_blank">whisperCast</a></h1>
+
+<p>Please use one of the items on the left to go through some examples.</p>
+<p>The root of these examples is at:<br/>
+<code>$INSTALL_DIR/whispercast/media/www</code></p>
+<p>The flags for running the demo applications are to be found under:<br/>
+<code>$INSTALL_DIR/whispercast/etc/ini/demo/</code><br/>
+The runtime configuration files for the demo applications are to be found under:<br/>
+<code>$INSTALL_DIR/whispercast/etc/config/demo/</code>
+</p>
+There are several configuration files:
+<ul>
+  <li>The demo configuration file can be found at:<br/>
+<code>$INSTALL_DIR/whispercast/etc/config/demo/whispercast.config</code><br/>
+<code>$INSTALL_DIR/whispercast/etc/config/demo/whisperer.config</code><br/>
+Use the <a href="/__admin__">admin interface</a> to modify these elements (user: <code>admin</code>, password: <code>test</code>).</li>
+  <li>The flags for running the demo can be found at:<br/>
+<code>$INSTALL_DIR/whispercast/etc/ini/demo/whispercast.ini</code><br/>
+<code>$INSTALL_DIR/whispercast/etc/ini/demo/whisperer.ini</code><br/>
+  Please feel free to experiment with the various options here (run: <code>$INSTALL_DIR/whispercast/bin/whispercast --help</code> or <code>$INSTALL_DIR/whispercast/bin/whisperer --help</code> for a full list of all command line flags).</li>
+</ul>
+Random notes:
+<ul>
+<li>The data in the runtime configuration files is JSON encoded, so be careful with all the braces, slashes and escaping when modifying them.</li>
+<li>In order to change the admin password you should modify the <code>--admin_passwd</code> flag.</li>
+<li>To disable the auto-generated admin interface, remove the <code>--rpc_js_form_path</code> flag.</li>
+<li>By default, the ports on which <b>whispercast</b> is listening are:<br/>
+<code>8880 - HTTP</code><br/>
+<code>8935 - RTMP</code><br/>
+The port on which <b>whisperer</b> is listening is:<br/>
+<code>8881 - HTTP</code>
+</li>
+</ul>
+<hr>
+<p>In order to view the current element configuration, you should go to <a href="/__admin__" target="admin">admin interface</a>, choose <a href="/rpc-config/MediaElementService/__forms" target="admin">Global Config</a> and inside there are three important parts to figure out the config:
+<ul>
+  <li><a href="/rpc-config/MediaElementService/__form_GetElementConfig" target="admin">GetElementConfig</a> - to figure out the elements in the configuration (use <i>Send Command</i> button to get a JSON encoded version of the curent config)</li>
+  <li><a href="/rpc-config/MediaElementService/__form_GetElementExports" target="admin">GetElementExports</a> - to find out what media names are exported (http & rtmp)</li>
+  <li><a href="/rpc-config/MediaElementService/__form_GetSavesConfig" target="admin">GetSavesConfig</a> - to check what savers are configured (none should be in the standard demo cofiguration)</li>
+</ul>
+</body> </html>

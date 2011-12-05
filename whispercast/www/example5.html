@@ -1,0 +1,53 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>Example 2</title>
+
+  <!-- whisperCast common -->
+  <link rel="stylesheet" type="text/css" href="css/whispercast.css">
+  <script type="text/javascript" src="js/whispercast.js"></script>
+  <!-- whisperCast player -->
+  <script type="text/javascript" src="js/swfobject.js"></script>
+  <script type="text/javascript" src="js/player/player.js"></script>
+  <!-- whisperCast local -->
+  <script type="text/javascript">
+    whispercast.local = {};
+    whispercast.local.onload = function() {
+      try {
+        whispercast.local.player =
+        new whispercast.player.Player('swf/', 'player', 480, 292, '000000',
+          {
+            url0: 'rtmp://' + window.location.hostname + ':8935/whispercast/s1_t',
+          }
+        );
+        whispercast.local.player.create();
+      } catch(e) {
+        alert(e.message);
+      }
+    }
+    whispercast.local.onunload = function() {
+      try {
+        whispercast.local.player.destroy();
+      } catch(e) {
+      }
+    }
+  </script>
+</head>
+<body onload="whispercast.local.onload()" onunload="whispercast.local.onunload()">
+
+<p>Here we play several files in a playlist:</p>
+<ul>
+  <li>A global <a href="http://whispercast.org/trac/wiki/whisperCast/Elements/FileElement">FileElement</a> (named '<i>examplek</i>') reads the files, the playlist is determined by policy <i>playlist1</i> which drives the <u><b>NON-global</b></u> <a href="http://whispercast.org/trac/wiki/whisperCast/Elements/SwitchingElement">SwitchingElement</a> named '<i>s1t</i>'. Being non-global makes client to see its own start of the playlist.</li>
+  <li>One cannot search in individual files, and the bar indicates the progress in the current clip of the playlist.
+  <li>The media is RTMP exported to the user via a <a href="http://whispercast.org/trac/wiki/whisperCast/Elements/NormalizingElement">NormalizingElement</a>.</li>
+</ul>
+<hr/>
+
+<div id="player_container">
+<div id="player"><div>You need <a href="http://www.macromedia.com/go/getflashplayer" target="_blank">Flash Player</a>.</div></div>
+</div>
+
+</body>
+</html>

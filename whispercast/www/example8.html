@@ -1,0 +1,52 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>Example 2</title>
+
+  <!-- whisperCast common -->
+  <link rel="stylesheet" type="text/css" href="css/whispercast.css">
+  <script type="text/javascript" src="js/whispercast.js"></script>
+  <!-- whisperCast player -->
+  <script type="text/javascript" src="js/swfobject.js"></script>
+  <script type="text/javascript" src="js/player/player.js"></script>
+  <!-- whisperCast local -->
+  <script type="text/javascript">
+    whispercast.local = {};
+    whispercast.local.onload = function() {
+      try {
+        whispercast.local.player =
+        new whispercast.player.Player('swf/', 'player', 480, 292, '000000',
+          {
+            url0: 'rtmp://'  + window.location.hostname + ':8935/whispercast/live/test'
+//          url0: 'http://'  + window.location.hostname + ':8881/media/test?encoder=flv'
+          }
+        );
+        whispercast.local.player.create();
+      } catch(e) {
+        alert(e.message);
+      }
+    }
+    whispercast.local.onunload = function() {
+      try {
+        whispercast.local.player.destroy();
+      } catch(e) {
+      }
+    }
+  </script>
+</head>
+<body onload="whispercast.local.onload()" onunload="whispercast.local.onunload()">
+
+<ul>
+  <li>This is a test signal encoded by <b>whisperer</b> and exposed via HTTP to <b>whispercast</b>. <b>whispercast</b> retrieves the data through HTTP/GET using a <a href="http://whispercast.org/trac/wiki/whisperCast/Elements/HttpClientElement">HttpClientElement</a> and exports it as RTMP through a <a href="http://whispercast.org/trac/wiki/whisperCast/Elements/NormalizingElement">NormalizingElement</a>.</li>
+  <li>You need to start your local demo <b>whisperer</b>, by running <b>$INSTALL_DIR/bin/start_whisperer.sh</b> on your demo machine (same where you started whispercast), connect a V4L2 camera and a microphone to your demo machine.</li>
+</ul>
+<hr/>
+
+<div id="player_container">
+<div id="player"><div>You need <a href="http://www.macromedia.com/go/getflashplayer" target="_blank">Flash Player</a>.</div></div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>Example 1</title>
+
+  <!-- whisperCast common -->
+  <link rel="stylesheet" type="text/css" href="css/whispercast.css">
+  <script type="text/javascript" src="js/whispercast.js"></script>
+  <!-- whisperCast player -->
+  <script type="text/javascript" src="js/swfobject.js"></script>
+  <script type="text/javascript" src="js/player/player.js"></script>
+  <!-- whisperCast local -->
+</head>
+<body onload="whispercast.local.onload()" onunload="whispercast.local.onunload()">
+
+<p>Here you can publish yourself:</p>
+<ul>
+  <li>You can use to publish yourself to whispercast (if you have an attached camera). Just 'Allow' the flash object to capture your camera, the check yourself from the stream at <a href="example11.html">example 11</a>.
+</ul>
+NOTE: you will need to modify this file to set your server address..
+<hr/>
+
+<div id="player_container">
+  <object width="320" height="300">
+  <param name="movie" value="swf/LiveStreams.swf?host=192.168.2.18&stream=livestream/live1">
+  <embed src="swf/LiveStreams.swf?host=192.168.2.18&stream=livestream/live1" width="320" height="300">
+  </embed>
+  </object>
+</div>
+
+</body>
+</html>
