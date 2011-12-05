@@ -1,0 +1,231 @@
+// Copyright (c) 2009, Whispersoft s.r.l.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+// * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+// * Neither the name of Whispersoft s.r.l. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Catalin Popescu
+//
+//////////////////////////////////////////////////////////////////////
+
+Verbatim cc {
+#include <whisperstreamlib/base/auto/request_types.h>
+}
+
+Verbatim Python {
+from request import *
+}
+
+//////////////////////////////////////////////////////////////////////
+//
+// Definitions related to elements and policies
+//
+
+// Definition of an element
+
+Type MediaElementSpecs {
+  string type_;        // typename of the element (should be provided by a lib)
+  string name_;        // name of the element (unique in the system)
+  bool is_global_;     // is the element global for all users (vs created
+                       // per each user.
+  optional bool disable_rpc_;
+                       // if this is on, the elements that would register
+                       // themselves on rpc will no longer do so..
+  string params_;      // parameters for element creation (depends on the
+                       // element - normally a JSON encoding of some stuff)
+}
+
+// Definition of a policy
+Type PolicySpecs {
+  string type_;        // typename of the policy (should be provided by a lib)
+  string name_;        // name of the policy (unique in the system)
+  string params_;      // parameters for element creation (depends on the
+                       // policy - normally a JSON encoding of some stuff)
+}
+
+// Definition of an authorizer
+Type AuthorizerSpecs {
+  string type_;        // typename of the authorizer
+  string name_;        // name of the authorizer (unique in the system)
+  string params_;      // parameters for creating the authorizer
+}
+
+// Specifies the entire configuration of the elements and policies available
+// in server config.
+Type ElementConfigurationSpecs {
+  optional array<MediaElementSpecs> elements_;
+  optional array<PolicySpecs>       policies_;
+  optional array<AuthorizerSpecs>   authorizers_;
+}
+
+//////////////////////////////////////////////////////////////////////
+//
+// Definitiaons related to media savers
+//
+
+Type DaySpec {
+  int year_;
+  int month_;
+  int day_;
+}
+Type TimeSpec {
+  int start_minute_;
+  int start_hour_;
+  optional int start_second_;
+
+  // use one of these:
+  optional array<DaySpec> dates_;
+  optional array<int> weekdays_;   // 0/7-> Sunday, 1->monday etc..
+
+  int duration_in_seconds_;
+}
+
+Type MediaSaverSpec {
+  string name_;
+  string media_name_;
+
+  // when to start recording (if empty -> on command)
+  array< TimeSpec > timespecs_;
+  bool accepts_manual_commands_;
+}
+
+Type MediaSaverState {
+  string name_;
+  bigint last_start_time_;     // -1 - not started..
+  bool started_on_command_;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+// Authorization structures (translations from request.h)
+
+Type RpcAuthorizerRequest {
+  string user_;
+  string passwd_;
+  string token_;
+  string net_address_;
+  string resource_;
+  string action_;
+  bigint action_performed_ms_;
+}
+
+Type RpcAuthorizerReply {
+  bool allowed_;
+  int reauthorize_interval_ms_;
+  int time_limit_ms_;
+}
+
+//////////////////////////////////////////////////////////////////////
+//
+// Interface for setting a configuration
+//
+
+// What server can return on configuration commands.
+Type MediaOperationErrorData {
+  int error_;                           // 0 -> OK
+  optional string description_;
+}
+
+Type MediaHostAliasSpec {
+  string alias_name_;
+  string alias_ip_;
+}
+
+Type MediaAliasSpec {
+  string alias_name_;
+  string media_name_;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+// Interface of a server that maintains a configuration of elements.
+Service MediaElementService {
+  MediaOperationErrorData    AddPolicySpec(PolicySpecs spec);
+  MediaOperationErrorData    DeletePolicySpec(string name);
+
+  MediaOperationErrorData    AddElementSpec(MediaElementSpecs spec);
+  MediaOperationErrorData    DeleteElementSpec(string name);
+
+  MediaOperationErrorData    AddAuthorizerSpec(AuthorizerSpecs spec);
+  MediaOperationErrorData    DeleteAuthorizerSpec(string name);
+
+  MediaOperationErrorData    StartExportElement(ElementExportSpec spec);
+  MediaOperationErrorData    StopExportElement(string protocol,
+                                               string path);
+
+  MediaOperationErrorData    AddElementSaver(MediaSaverSpec spec);
+  MediaOperationErrorData    DeleteElementSaver(string name);
+
+  MediaOperationErrorData    StartSaver(string name, string description);
+  MediaOperationErrorData    StopSaver(string name);
+
+  array<string>              ListMedia(string media_name);
+
+  string                     GetHttpExportRoot();
+  ElementConfigurationSpecs  GetAllElementConfig();
+  ElementConfigurationSpecs  GetElementConfig(string element);
+
+  array<ElementExportSpec>     GetElementExports();
+
+  array<MediaSaverState>     GetCurrentSaves();
+  array<MediaSaverSpec>      GetSavesConfig();
+
+  bool                       SaveConfig();
+
+  MediaOperationErrorData    SetMediaAlias(string alias_name,
+                                           string media_name);
+  string                     GetMediaAlias(string alias_name);
+  array<MediaAliasSpec>      GetAllMediaAliases();
+
+  MediaOperationErrorData    AddHostAlias(string alias_name, string alias_ip);
+  MediaOperationErrorData    DeleteHostAlias(string alias_name);
+  array<MediaHostAliasSpec>  GetHostAliases();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+Type MediaRequestSpec {
+  string media_;
+  optional MediaRequestInfoSpec spec_;
+}
+
+Type MediaRequestConfigSpec {
+  int error_;    // 0 -> OK
+  optional string description_;
+
+  optional array<MediaElementSpecs> persistent_element_specs_;
+  optional array<PolicySpecs> persistent_policy_specs_;
+
+  optional array<MediaElementSpecs> request_element_specs_;
+  optional array<PolicySpecs> request_policy_specs_;
+}
+
+Service ElementConfigService {
+  MediaRequestConfigSpec GetElementConfig(MediaRequestSpec req);
+  ElementExportSpec GetMediaDetails(string protocol, string path);
+}
+
+//////////////////////////////////////////////////////////////////////

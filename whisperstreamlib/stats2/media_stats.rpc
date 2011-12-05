@@ -1,0 +1,209 @@
+// Copyright (c) 2009, Whispersoft s.r.l.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+// * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+// * Neither the name of Whispersoft s.r.l. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Catalin Popescu
+//
+// Events loggable related to people consuming media (from sources:)
+//
+
+//////////////////////////////////////////////////////////////////////
+
+// Issued when a connection for geting some media is initialized
+// i.e rtmp connection accepted / http request received
+Type ConnectionBegin {
+  string connection_id_;       // this is an ID of the connection -
+                               // unique for server_id_ / server_instance_
+  bigint timestamp_utc_ms_;    // milliseconds since Epoch
+
+  string remote_host_;         // the remote IP address e.g. "192.123.12.1"
+  int remote_port_;            // the port of the remote client
+  string local_host_;          // the local IP address
+  int local_port_;             // the port of the local server
+
+  string protocol_;            // "http" / "rtmp" etc.
+}
+
+// TODO: Expand / formalize
+Type ConnectionResult {
+  string result_;
+}
+
+// Issued when a connection got closed (for various reasons).
+Type ConnectionEnd {
+  string connection_id_;      // same ID as above
+  bigint timestamp_utc_ms_;   // milliseconds since Epoch
+
+  bigint bytes_up_;           // number of bytes sent to the server by client
+  bigint bytes_down_;         // number of bytes sent to the client by server
+
+  ConnectionResult result_;   // how the connection ended
+}
+
+//////////////////////////////////////////////////////////////////////
+
+// Issued when the rtmp::play command is executed.
+// (i.e. uses started consuming a media source - which can be composed).
+// The term "stream" here identifies a client stream: the data flow from
+//  server to a unique client.
+// Every client(viewer/listener) has a stream like this.
+// The stream request, coming from the player, looks like:
+//  rtmp://whispercast1.ro/whispercast/radiolynx/flv/normal?client_id=123&
+//      session_id=abc2d&affiliate_id=ele.ro
+
+Type StreamBegin {
+  string stream_id_;             // an ID specific - unique for
+                                 // server_id_ / server_instance_
+  bigint timestamp_utc_ms_;      // milliseconds since Epoch
+  
+  ConnectionBegin connection_;   // Connection where the stream is flowing
+
+  // parameters from stream request
+  string session_id_;
+  string client_id_;
+  string affiliate_id_;
+  string user_agent_;
+}
+
+// TODO: Expand / formalize
+Type StreamResult {
+  optional string result_;
+}
+
+Type StreamEnd {
+  string stream_id_;              // Same as in StreamBegin
+  bigint timestamp_utc_ms_;       // milliseconds since Epoch
+  StreamResult result_;           // how the stream ended
+}
+
+//////////////////////////////////////////////////////////////////////
+
+Type MediaBegin {
+  string media_id_;               // an ID for the media request
+                                  // unique for server_id_ / server_instance_
+                                  // (contains connection_id_ + play_id_)
+                                  
+  bigint timestamp_utc_ms_;       // milliseconds since Epoch
+                                    
+  StreamBegin stream_;            // The Stream on which the media is played
+
+  string content_id_;             // This identifies the content played
+  bigint content_time_ms_;        // The content seek time
+  bigint stream_time_ms_;         // Time in the stream when this happened
+}
+
+// TODO: Expand / formalize
+Type MediaResult {
+  optional string result_;
+}
+
+Type MediaEnd {
+  string media_id_;               // an ID for the media request (from above)
+  
+  bigint timestamp_utc_ms_;       // milliseconds since Epoch
+
+  bigint duration_in_ms_;         // duration of media sent to the
+                                  // client (this may be different from the
+                                  // physical time difference between the
+                                  // MediaBegin and MediaEnd event)
+                                  // e.g. On a poor connection a client may 
+                                  //      watch 3 min of media in 5 min 
+                                  //      physical time (2 min spent on 
+                                  //      buffering)
+
+  bigint bytes_up_;               // # of bytes sent to the server by client
+  bigint bytes_down_;             // # of bytes sent to the client by server
+
+  bigint video_frames_;           // total number of video frames to be sent
+  bigint video_frames_dropped_;   // how many of these were dropped
+  bigint audio_frames_;           // total number of audio frames to be sent
+  bigint audio_frames_dropped_;   // how many of these were dropped
+  
+  MediaResult result_;            // how the media ended
+                                  // (EOS, play stop, server crash, ... )
+}
+
+//////////////////////////////////////////////////////////////////////
+
+Type MediaStatEvent {
+  string server_id_;               // a server identifier - one per instance
+  bigint server_instance_;         // basically the start time of the server
+
+  // Only one of these must be set !
+  optional ConnectionBegin connection_begin_;
+  optional ConnectionEnd   connection_end_;
+  optional StreamBegin     stream_begin_;
+  optional StreamEnd       stream_end_;
+  optional MediaBegin      media_begin_;
+  optional MediaEnd        media_end_;
+}
+
+
+//////////////////////////////////////////////////////////////////////
+
+// The term "stream" here identifies a server stream.
+// Such a stream is consumed by multiple clients (viewers/listeners).
+// e.g. radiolynx/flv/normal
+//      events/2009_07_iaa_marketing
+
+Type MediaStreamStats {
+  int count_;
+  optional float bandwidth_up_;
+  optional float bandwidth_up_min_;
+  optional float bandwidth_up_max_;
+  optional float bandwidth_up_avg_;
+  optional float bandwidth_down_;
+  optional float bandwidth_down_min_;
+  optional float bandwidth_down_max_;
+  optional float bandwidth_down_avg_;
+  optional bigint duration_min_;
+  optional bigint duration_max_;
+  optional bigint duration_avg_;
+}
+
+Type MediaStreamsStats {
+  int count_;
+  optional float bandwidth_up_avg_;
+  optional float bandwidth_down_avg_;
+  optional bigint duration_avg_;
+  map<string, MediaStreamStats> streams_;
+}
+
+Type MediaBeginEnd {
+  MediaBegin begin_;
+  MediaEnd end_;
+}
+
+Service MediaStats {
+  MediaStreamsStats GetStreamsStats(array<string> stream_ids);
+  // returns map of: stream name -> client count
+  map<string, int> GetAllStreamIds();
+  // Get detailed media stats (per connection).
+  // Returns max 'limit' stats starting with connection at index 'start'. 
+  map<string, MediaBeginEnd> GetDetailedMediaStats(int start, int limit);
+}

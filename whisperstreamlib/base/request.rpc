@@ -1,0 +1,104 @@
+// Copyright (c) 2009, Whispersoft s.r.l.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+// * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+// * Neither the name of Whispersoft s.r.l. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Catalin Popescu
+
+//
+// The serialized request information
+//
+
+
+Type MediaAuthorizerRequestSpec {
+  string user_;
+  string passwd_;
+  string token_;
+  string net_address_;   // normally the ip
+
+  string resource_;
+
+  string action_;
+  bigint action_performed_ms_;
+}
+
+Type MediaRequestInfoSpec {
+  bigint  seek_pos_ms_;
+  bigint  media_origin_pos_ms_;
+  bigint  limit_ms_;
+
+  string session_id_;
+  string affiliate_id_;
+  string client_id_;
+
+  string remote_address_;
+  string local_address_;
+
+  int ip_class_;
+  string path_;
+  string internal_id_;
+
+  optional MediaAuthorizerRequestSpec auth_req_;
+
+  bool is_internal_;
+}
+
+//////////////////////////////////////////////////////////////////////
+//
+// Definitions related to exporting media
+//
+Type ExtraHeaders {
+  string name_;
+  string value_;
+}
+Type AccessStruct {
+  string remote_user_;
+  string remote_password_;
+}
+
+Type ElementExportSpec {
+  string media_name_;   // as can be resolved by an ElementMapper
+  string protocol_;     // protocol to export on (now "http" or "rtmp"
+  string path_;         // path on which to export (for http start w/ an '/')
+
+  optional string content_type_;
+                        // optional specify for http the content type that
+                        // is exported
+  optional array<ExtraHeaders> extra_headers_;
+                        // any extra headers to send (for http makes sense)
+  optional string authorizer_name_;
+                        // you may limit the access to guys authorized by
+                        // this guy
+  optional int flow_control_total_ms_;
+  optional int flow_control_video_ms_;
+                        // the flow control values for video/total
+  optional int flavour_mask_;
+                        // We impose this flavour mask on requests
+                        // made for media
+  // the maximum number of clients for this export
+  optional int max_clients_;
+}
