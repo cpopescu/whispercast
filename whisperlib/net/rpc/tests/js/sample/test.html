@@ -1,0 +1,350 @@
+<html>
+<head>
+
+<script type="text/javascript" src="base/log.js"></script>
+<script type="text/javascript" src="base/rpc_types.js"></script>
+<script type="text/javascript" src="base/rpc_json.js"></script>
+<script type="text/javascript" src="base/rpc_connection.js"></script>
+<script type="text/javascript" src="auto/types.js"></script>
+<script type="text/javascript" src="auto/wrappers.js"></script>
+
+</head>
+<body>
+
+<h3> To be run against Client+Server-sample/bin/rpc_http_server_sample </h3>
+<div id='LOGAREA'>Log: </div>
+
+
+<script type="text/javascript">
+
+LOG_LEVEL = LDEBUG;
+
+function EqualObjects(a, b)
+{
+  if(a == b) return true;
+  if(a == undefined && b == undefined) return true;
+  if(typeof(a) == 'function' && typeof(b) == 'function') return true;
+  if(typeof(a) == 'number' && typeof(b) == 'number') return Math.abs(a-b) < 0.0001;
+  
+  if(typeof(a) != 'object' || typeof(b) != 'object')
+  {
+    return false;
+  }
+  if(InstanceOfArray(a) && InstanceOfArray(b))
+  {
+    if(a.length != b.length) 
+    { 
+      LOG_ERROR("EqualObjects: Arrays differ in lenght: " + a.length + " != " + b.length); 
+      return false;
+    }
+    for(var i = 0; i < a.length; i++)
+    {
+      if(!EqualObjects(a[i], b[i])) 
+      { 
+        LOG_ERROR("EqualObjects: Arrays differ at index " + i); 
+        return false;
+      }
+    }
+  }
+  for(var attr in a)
+  {
+    if(a[attr] == undefined && b[attr] == undefined) continue;
+    if(b[attr] == undefined)
+    {
+      var b_attribs = new Array();
+      for(var i in b) b_attribs.push(i + " = " + (typeof(b[i]) == 'function' ? 'function' : b[i]));
+      var a_attribs = new Array();
+      for(var i in a) a_attribs.push(i + " = " + (typeof(b[i]) == 'function' ? 'function' : a[i]));
+      LOG_ERROR("EqualObjects: b does not have attribute: \"" + attr + "\". b[\"" + attr + "\"] = " + b[attr] + ". Instead b contains: " + b_attribs + " and a contains: " + a_attribs);
+      return false
+    }
+    if(!EqualObjects(a[attr], b[attr]))
+    {
+      LOG_ERROR("EqualObjects: Objects differ on attribute: " + attr + " : " + a[attr] + " != " + b[attr]);
+      return false;
+    }
+  }
+  return true;
+}
+function ExpectedSuccess(userData, result)
+{
+  var expected = userData;
+  var success = EqualObjects(expected, result);
+  /*
+  if(!success && typeof(expected) == 'object' && typeof(result) == 'object')
+  {
+    return "<span style=\"color: orange\"> INCONCLUSIVE </span>";
+  }
+  */
+  return success ? "<span style=\"color: green\"> PASS result=" + result + " </span>" : 
+                   "<span style=\"color: red\"> FAIL expected=" + userData + " result=" + result + " </span>";
+}
+
+function AsynRetGigelDoSomething(callStatus, result)
+{
+  LOG_INFO("AsynRetGigelDoSomething: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsynRetGigelDoSomethingElse(callStatus, result)
+{
+  LOG_INFO("AsynRetGigelDoSomethingElse: " + ExpectedSuccess(callStatus.userData_, result));
+}
+var url = "http://localhost/myrpc";
+var gigel = new RPCServiceWrapperGigel(new RPCHttpXmlConnection(url), "gigel");
+gigel.DoSomething(1, 3.14, AsynRetGigelDoSomething, 4);
+gigel.DoSomething(-1, 2.71, AsynRetGigelDoSomething, 1);
+gigel.DoSomething(-3, 2.71, AsynRetGigelDoSomething, -1);
+gigel.DoSomethingElse(AsynRetGigelDoSomethingElse, null);
+
+function AsyncRetMiticaInitialize(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaInitialize: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetMiticaFinish(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaFinish: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetMiticaTestMe(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaFoo: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetMiticaFoo(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaFoo: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetMiticaSetPerson(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaSetPerson: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetMiticaGetPerson(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaGetPerson: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetMiticaSetFamily(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaSetFamily: " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetMiticaGetChildren(callStatus, result)
+{
+  LOG_INFO("AsynRetMiticaGetChildren: " + ExpectedSuccess(callStatus.userData_, result));
+}
+
+var mitica = new RPCServiceWrapperMitica(new RPCHttpXmlConnection(url), "mitica");
+mitica.Initialize("acasa pe stanga", 7, AsyncRetMiticaInitialize, true);
+mitica.Finish(AsyncRetMiticaFinish, null);
+mitica.Initialize("acasa pe stanga", 7, AsyncRetMiticaInitialize, true);
+mitica.TestMe(3, 5.79, "prepelita ciripeste", AsyncRetMiticaTestMe, 8);
+mitica.TestMe(3, -5.79, "prepelita ciripeste", AsyncRetMiticaTestMe, -2);
+mitica.Foo(new Date(), AsyncRetMiticaFoo, "acasa pe stanga");
+
+person = new Person();
+person.name_ = "MyName1";
+person.age_ = 71;
+mitica.SetPerson(person, AsyncRetMiticaSetPerson, null);
+mitica.GetPerson(AsyncRetMiticaGetPerson, person);
+
+person = new Person();
+person.name_ = "MyName2";
+person.age_ = 71;
+person.height_ = 1.71;
+person.married_ = false;
+mitica.SetPerson(person, AsyncRetMiticaSetPerson, null);
+mitica.GetPerson(AsyncRetMiticaGetPerson, person);
+
+// ! RACE !
+// Because RPC executes asynchronously, the call execution may be: 
+//   SetPerson(MyName1..), 
+//   SetPerson(MyName2..), 
+//   GetPerson(expecting MyName1..), //fails! receiving MyName2.. 
+//   ... 
+
+
+mother = new Person();
+mother.name_ = "MotherA";
+mother.age_ = 256;
+mother.height_ = -1.75;
+mother.married_ = true;
+father = new Person();
+father.name_ = "FatherB";
+father.age_ = -3;
+father.height_ = 1.75;
+father.married_ = false;
+children = new Array();
+children.push(mother);
+children.push(father);
+family = new Family();
+family.mother_ = mother;
+family.father_ = father;
+family.children_ = children;
+mitica.SetFamily(mother, father, children, AsyncRetMiticaSetFamily, family);
+mitica.GetChildren(AsyncRetMiticaGetChildren, children);
+mitica.Finish(AsyncRetMiticaFinish, null);
+
+/*
+function AsyncRetGlobalGetTribeByPosition(callStatus, result)
+{
+  LOG_INFO("AsynRetGlobalGetTribeByPosition: result=" + result + "  " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetGlobalAddTribe(callStatus, result)
+{
+  LOG_INFO("AsynRetGlobalAddTribe: result=" + result + "  " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetGlobalCreateTribe(callStatus, result)
+{
+  LOG_INFO("AsynRetGlobalCreateTribe: result=" + result + "  " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetGlobalSetTribeHead(callStatus, result)
+{
+  LOG_INFO("AsynRetGlobalSetTribeHead: result=" + result + "  " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetGlobalGetTribeVillager(callStatus, result)
+{
+  LOG_INFO("AsynRetGlobalGetTribeVillager: result=" + result + "  " + ExpectedSuccess(callStatus.userData_, result));
+}
+function AsyncRetGlobalClear(callStatus, result)
+{
+  LOG_INFO("AsynRetGlobalClear: result=" + result + "  " + ExpectedSuccess(callStatus.userData_, result));
+}
+
+nullTribe = new Tribe();
+nullTribe.name_ = "";
+nullTribe.people_ = new Array();
+  
+nullVillager = Villager();
+nullVillager.ID_ = 0;
+nullVillager.name_ = "";
+
+nullPeople = new Array();
+
+aVillager0 = new Villager()
+aVillager0.ID_ = 123;
+aVillager0.name_ = "a person 123";
+
+aVillager1 = new Villager();
+aVillager1.ID_ = 321;
+aVillager1.name_ = "a person 321";
+aVillager1.height_ = 1.7;
+aVillager1.parentID_ = aVillager0.ID_;
+
+aVillager2 = new Villager();
+aVillager2.ID_ = 456;
+aVillager2.name_ = "a person 456";
+aVillager2.height_ = 1.9;
+aVillager2.childrenIDs_ = new Array(2);
+aVillager2.childrenIDs_[0] = aVillager0.ID_;
+aVillager2.childrenIDs_[1] = aVillager1.ID_;
+
+aTribe = new Tribe();
+aTribe.name_ = "tribe a";
+RPCMap<RPCBigInt, Villager> & aPeopleMap = aTribe.people_.Ref();
+aPeopleMap[aVillager0.ID_.Get()] = aVillager0;
+aPeopleMap[aVillager1.ID_.Get()] = aVillager1;
+aPeopleMap[aVillager2.ID_.Get()] = aVillager2;
+
+RPCArray<Villager> aPeopleArray(3);
+aPeopleArray[0] = aVillager0;
+aPeopleArray[1] = aVillager1;
+aPeopleArray[2] = aVillager2;
+
+Tribe saTribe = aTribe;
+saTribe.name_ = RPCString("tribe second a");
+
+Tribe bTribe;
+bTribe.name_ = RPCString("tribe b");
+bTribe.people_.Ref();
+
+Tribe sbTribe = bTribe;
+sbTribe.name_ = RPCString("tribe second b");
+
+// create tribe 'c'
+Villager & cVillager0 = aVillager2;
+Tribe cTribe;
+cTribe.name_ = RPCString("tribe c");
+cTribe.people_.Ref()[cVillager0.ID_.Get()] = cVillager0;
+RPCArray<Villager> cPeopleArray(1);
+cPeopleArray[0] = cVillager0;
+
+///////////////////////////////////////////////
+// by global result callbacks
+//
+RPCServiceWrapperGlobal wGlobal(rpcConnection);
+
+ASYNC_TEST_GLOBAL_CALLBACK(Global, Clear, RPCVoid()); // always start with a clean world
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, nullTribe, RPCInt(1),RPCInt(3));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, nullTribe, RPCInt(-1), RPCInt(-3));
+
+// Add tribe "a"
+ASYNC_TEST_GLOBAL_CALLBACK(Global, AddTribe, RPCBool(true ), aTribe, RPCInt(1), RPCInt(3));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, AddTribe, RPCBool(false), aTribe, RPCInt(1), RPCInt(3));
+
+// Verify tribe 'a' exists
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, aTribe, RPCInt(1), RPCInt(3));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, nullTribe,RPCInt(1),RPCInt(2));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, aTribe, RPCInt(1), RPCInt(3));
+
+// Verify tribe 'a' persons
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, nullVillager, RPCString("tribe aa"), aVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, nullVillager, RPCString("tribe a"), RPCBigInt(-2));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, aVillager0, RPCString("tribe a"), aVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, aVillager1, RPCString("tribe a"), aVillager1.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, aVillager2, RPCString("tribe a"), aVillager2.ID_.Get());
+
+// Create a duplicate 'a' tribe. 
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, nullTribe, RPCString("tribe new a"), nullPeople, RPCInt(1), RPCInt(3)); // position already taken
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, nullTribe, RPCString("tribe a"), nullPeople, RPCInt(1), RPCInt(2)); // name already taken
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, saTribe, RPCString("tribe second a"), aPeopleArray, RPCInt(1), RPCInt(2)); // success
+
+// Verify tribe 'second a' persons
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, nullVillager, RPCString("tribe second aa"), aVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, nullVillager, RPCString("tribe second a"), RPCBigInt(-2));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, aVillager0, RPCString("tribe second a"), aVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, aVillager1, RPCString("tribe second a"), aVillager1.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, aVillager2, RPCString("tribe second a"), aVillager2.ID_.Get());
+
+// Add tribe "b"
+ASYNC_TEST_GLOBAL_CALLBACK(Global, AddTribe, RPCBool(true ), bTribe, RPCInt(-2), RPCInt(-5));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, AddTribe, RPCBool(false), bTribe, RPCInt(-2), RPCInt(-5));
+
+// Verify tribe 'b' exists
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, bTribe, RPCInt(-2), RPCInt(-5));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, nullTribe,RPCInt(-2),RPCInt(-2));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, bTribe, RPCInt(-2), RPCInt(-5));
+
+// Create a duplicate 'b' tribe.
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, nullTribe, RPCString("tribe new b"), nullPeople, RPCInt(-2), RPCInt(-5)); // position already taken
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, nullTribe, RPCString("tribe b"), nullPeople, RPCInt(-2), RPCInt(-3)); // name already taken
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, sbTribe, RPCString("tribe second b"), nullPeople, RPCInt(-2), RPCInt(-3)); // success
+
+// set head of tribe 'a'
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, RPCBigInt(-1), RPCString("tribe aa"), aVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, RPCBigInt(-1), RPCString("tribe a"), RPCBigInt(-1));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, RPCBigInt(0), RPCString("tribe a"), aVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, aVillager0.ID_.Ref(), RPCString("tribe a"), aVillager1.ID_.Get());
+
+// Verify tribe 'a' correctness
+aTribe.head_id_ = aVillager1.ID_; // !!! set it also local. Don't forget to roll back!
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, aTribe, RPCInt(1), RPCInt(3));
+aTribe.head_id_ = 0; // roll back
+
+// create tribe 'c'
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, nullTribe, RPCString("tribe a"), cPeopleArray, RPCInt(3), RPCInt(3));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, nullTribe, RPCString("tribe second b"), cPeopleArray, RPCInt(3), RPCInt(3));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, CreateTribe, cTribe, cTribe.name_.Get(), cPeopleArray, RPCInt(3), RPCInt(3));
+
+// set tribe 'c' head 
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, RPCBigInt(-1), RPCString("tribe cc"), cVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, RPCBigInt(-1), RPCString("tribe c"), RPCBigInt(-1));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, RPCBigInt(0), RPCString("tribe c"), cVillager0.ID_.Get());
+ASYNC_TEST_GLOBAL_CALLBACK(Global, SetTribeHead, cVillager0.ID_.Ref(), RPCString("tribe c"), cVillager0.ID_.Get());
+
+// Verify tribe 'c' correctness
+cTribe.head_id_ = cVillager0.ID_; // !!! set it also local. Don't forget to roll back!
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeByPosition, cTribe, RPCInt(3), RPCInt(3));
+ASYNC_TEST_GLOBAL_CALLBACK(Global, GetTribeVillager, cVillager0, RPCString("tribe c"), cVillager0.ID_.Get());
+cTribe.head_id_.Reset(); // roll back
+*/
+
+</script>
+
+
+</body>
+</html>

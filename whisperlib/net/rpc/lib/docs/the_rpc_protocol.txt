@@ -1,0 +1,257 @@
+This is a simple Remote Procedure Call protocol which offers the following capabilities:
+- the server can implement remote methods and group them into services.
+- the service term is pretty similar to namespace. For now, it's used only to group methods together. If you still wish to start/stop/initialize a service somehow, define custom "Start/Stop/Initialize" methods part of that service and invoke them as you would do with any other custom method.
+- the client is able to invoke server remote methods on the defined services.
+- custom types can be defined and used as remote call parameters. The same types must be available to both client & server.
+- the server must answer to every invoke with a response. Either a success response, or an error response.
+? the server is able to send notification messages
+
+
+Asynchronous calls:
+The server is free to execute the calls in paralel and should send back every result as soon as the call finishes execution.
+The results may not arrive back to client in the same order as the invokes were sent.
+If the client needs some actions in sync, it should wait for every single result before issuing the next invoke.
+Every RPC packet has a transaction id. The server will respond with a result having the same transaction id.
+
+
+The standard procedures:
+ - "__test_existence__" this method can be invoked on any service to test service existance.
+    The server always returns status SUCCESS and the result is a boolean object: true if the service exists, false if not.
+ - The client can invoke custom methods in that services, by specifing:
+    - service name
+    - method name
+    - array of parameters
+   The server executes the specified method and returns it's result.
+
+######################################################################
+RPC Handshake:
+It's a 3 way handshake. Every handshake packet has a header of 5 bytes with the following format:
+ <"rpc"><versHi><versLo>
+  - 3 bytes: the ASCII chars "rpc"
+  - 1 byte: rpc-protocol-version HI byte
+  - 1 byte: rpc-protocol-version LO byte
+
+The involved packets are as follows:
+1. client -> server
+  - 3 bytes: "rpc"
+  - 2 bytes: rpc-protocol-version
+  - 32 bytes: client random generated data.
+2. server -> client
+  - 3 bytes: "rpc"
+  - 2 bytes: rpc-protocol-version. Should match the client version. Otherwise don't send this packet and drop the handshake.
+  - 32 bytes: server random generated data. Different from the client data.
+  - 32 bytes: repeat client data.
+3. client -> server
+  - 3 bytes: "rpc"
+  - 2 bytes: rpc-protocol-version. Should match the server version. Otherwise don't send this packet and drop the handshake.
+  - 32 bytes: repeat server data.
+
+Every party has the chance to drop the handshake on the following cases:
+ - malformed handshake packet;
+ - different rpc protocol version; the party may chose to log an error msg.
+If any of the parties receives a malformed handshake or the advertised protocol version differes, 
+it should drop the connection immediately, without replying anything.
+
+By successfully completing the handshake both parties agree on RPC version.
+
+Example successfull connect:
+ 1. client -> server, "rpc\0x01\0x00abcdefghijabcdefghijabcdefghijab"
+ 2. server -> client, "rpc\0x01\0x0001234567890123456789012345678901abcdefghijabcdefghijabcdefghijab"
+ 3. client -> server, "rpc\0x01\0x0001234567890123456789012345678901"
+After a successfull handshake all the following data comprises RPC Packets
+ 
+######################################################################
+RPC Packet format:
+
+HEADER:
+  - 3 bytes: the ASCII characters "rpc"
+  - 2 bytes: rpc-protocol-version: hi byte, low byte;
+  - 4 bytes: transaction id (xid) // can be anything here (suggestion: int in LITTLE ENDIAN format)
+  - 1 byte: message type: 0x00 CALL   (client invoking a method on the server)
+                          0x01 REPLY  (server delivering a result)
+                        ? 0x02 NOTIFY ?
+  - 4 bytes: body length // unsigned long LITTLE ENDIAN
+BODY:
+ The body is a simple sequence of RPCObject based types. For a description of those types see the next section.
+ The body is basically a union, depending on the message type:
+ switch (msg_type mtype) 
+     {
+       case CALL:  CallBody  cbody;
+       case REPLY: ReplyBody rbody;
+     } body;
+ 
+struct CallBody
+{
+ RPCString service; // the service name
+ RPCString method;  // the method name
+ RPCMixedArray parameters; // parameters passed on method call. Every parameter is a distinct object based on RPCObject; there are no type constraints.
+}
+
+struct ReplyBody
+{
+  RPCUInt8 replyStatus; // a code describing execution status.
+  RPCObject result;     // the returned value. Can be any rpc-type, basic or custom.
+}
+
+The reply status values:
+  RPC_SUCCESS       = 0, /* RPC executed successfully.                */
+  RPC_BAD_INSTANCE  = 1, /* invalid instance value in query/RealeaseInstance. */
+  RPC_CLASS_UNAVAIL = 2, /* Cannot instantiate an object of the given class. The class is not exported. */
+  RPC_PROC_UNAVAIL  = 3, /* No such procedure on the given class.     */
+  RPC_GARBAGE_ARGS  = 4, /* Illegal number of params                  */
+                         /* or wrong types for 1 or more params.      */
+  RPC_SYSTEM_ERR    = 5, /* Errors like memory allocation failure.    */
+
+######################################################################
+RPC basic types
+
+The following basic type codes are defined: (4 byte values)
+
+Language            Code
+-------------------------------------------------------------------------------
+VOID                RPC_OBJECT_VOID = 0,        // used for void returns
+BOOL                RPC_OBJECT_BOOL = 1,
+INT8                RPC_OBJECT_INT8 = 2,
+UINT8               RPC_OBJECT_UINT8 = 3,
+INT16               RPC_OBJECT_INT16 = 4,
+UINT16              RPC_OBJECT_UINT16 = 5,
+INT32               RPC_OBJECT_INT32 = 6,
+UINT32              RPC_OBJECT_UINT32 = 7,
+INT64               RPC_OBJECT_INT64 = 8,
+UINT64              RPC_OBJECT_UINT64 = 9,
+FLOAT               RPC_OBJECT_FLOAT = 10,
+DOUBLE              RPC_OBJECT_DOUBLE = 11,
+STRING              RPC_OBJECT_STRING = 12,
+ADDRESS             RPC_OBJECT_ADDRESS = 13,
+DATE                RPC_OBJECT_DATE = 14,
+MIXED_ARRAY         RPC_OBJECT_MIXED_ARRAY = 15,     // array of (RPCObject)s. Can contain different types of RPCObjects.
+                                                     // ex: {RPCString("abcdef"), RPCUInt32(7), RPCFloat(2.3f)}
+                                                     // Usefull for creating list of function parameters.
+
+MIXED_MAP           RPC_OBJECT_MIXED_MAP = 16,       // generic map of [RPCObject, RPCObject] pairs. both keys&values can have different types.
+                                                     // ex: {{RPCString("name"), RPCString("abc")}, 
+                                                     //      {RPCUInt32(2), RPCFloat(1.2f)}}
+                                                     // Probably useless.
+
+MIXED_STRING_MAP    RPC_OBJECT_MIXED_STRINGMAP = 17, // string map of [RPCString, RPCObject] pairs. All keys are RPCStrings. The values can have different types.
+                                                     // ex: {{RPCString("address"),  RPCString("acasa..")}, 
+                                                     //      {RPCString("birthday"), RPCDate("11.12.1999")}, 
+                                                     //      {RPCString("height"),   RPCFloat(1.80f)}}
+                                                     // Usefull for sending generic objects as maps of [property-name, property-value] pairs.
+
+ARRAY<T>            RPC_OBJECT_ARRAY = 18,    // Where T is a known type(i.e. base type or previously defined custom type); all elements have the same type.
+                                              // ex: ARRAY<UINT16>
+                                              // translates to C++: RPCArray<RPCUInt16>
+                                              //               e.g. {RPCUInt16(3), RPCUInt16(7), RPCUInt16(5), RPCUInt16(4), RPCUInt16(1)}
+                                              // Usefull when you're expecting an homogeneous array (all elements have the same type) and you don't want to verify type & cast every element (as you would do for a RPC_OBJECT_MIXED_ARRAY)).
+
+MAP<K, V>           RPC_OBJECT_MAP = 19, // Where K and V are known types. All pairs have the same type.
+                                         // ex: MAP<STRING, UINT32>
+                                         // translates to C++: RPCMap<RPCString, RPCUInt32>
+                                         //               e.g. {{RPCString("width"),  RPCUInt32(7)},
+                                         //                     {RPCString("height"), RPCUInt32(8)},
+                                         //                     {RPCString("color"),  RPCUInt32(0x00aabbcc)}}
+
+the user is free to define other custom types. Careful on type codes conflict.
+
+# Encoding 
+
+All the RPC types shall have the following format:
+RPCObject:
+ - 4 bytes: type code. LITTLE_ENDIAN format.
+ - ? bytes: body. Interpreted according to the type code.
+
+All types transactioned are derived from RPCObject and share the same encoding: 4 bytes type code + body.
+
+The following basic type are defined: (All integer values are in LITTLE ENDIAN format.)
+- RPCVoid
+   4 bytes = RPC_OBJECT_VOID
+- RPCInt8
+   4 bytes = RPC_OBJECT_INT8
+   1 bytes = int value
+- RPCUInt8
+   4 bytes = RPC_OBJECT_UINT8
+   1 bytes = unsigned int value
+- RPCInt16
+   4 bytes = RPC_OBJECT_INT16
+   2 bytes = int value
+- RPCUInt16
+   4 bytes = RPC_OBJECT_UINT16
+   2 bytes = unsigned int value
+- RPCInt32
+   4 bytes = RPC_OBJECT_INT32
+   4 bytes = int value
+- RPCUInt32
+   4 bytes = RPC_OBJECT_UINT32
+   4 bytes = unsigned int value
+- RPCInt64
+   4 bytes = RPC_OBJECT_INT64
+   8 bytes = int value
+- RPCUInt64
+   4 bytes = RPC_OBJECT_UINT64
+   8 bytes = unsigned int value
+- RPCFloat
+   4 bytes = RPC_OBJECT_INT8
+   4 bytes = float value, defined by the standard ANSI C
+- RPCDouble
+   4 bytes = RPC_OBJECT_UINT8
+   8 bytes = double value, defined by the standard ANSI C
+- RPCString
+   4 bytes = RPC_OBJECT_STRING
+   4 bytes = unsigned int, string lenght.
+   "lenght" bytes = the actual ASCII characters. Not including the 0 end.
+- RPCAddress
+   4 bytes = RPC_OBJECT_ADDRESS
+   4 bytes = the IP address in network byte order. "\0xa1\0xa2\0xa3\0xa4" is for address a1.a2.a3.a4
+   2 bytes = the port, unsigned short int in LITTLE ENDIAN format.
+- RPCDate
+   4 bytes = RPC_OBJECT_DATE
+   8 bytes = unsigned int: the number of milliseconds since January 1, 1970, 00:00:00 GMT
+- RPCMixedArray
+   4 bytes = RPC_OBJECT_MIXED_ARRAY
+   4 bytes = unsigned int: n = the number of items in array.
+   n x items = every item is a complete RPC type.
+- RPCMixedMap
+   4 bytes = RPC_OBJECT_MIXED_MAP
+   4 bytes = unsigned int: n = the number of pairs in map.
+   n x consecutive pairs
+      - key = complete RPC type. Including the first 4 bytes which define the type code.
+      - value = complete RPC type.
+- RPCMixedStringMap
+   4 bytes = RPC_OBJECT_MIXED_STRINGMAP
+   4 bytes = unsigned int: n = the number of pairs in map.
+   n x
+     4 bytes unsigned int = string lenght
+     "lenght" bytes = the actual ASCII characters. The data does not end with 0.
+     1 RPC type = value
+- RPCArray
+   4 bytes = RPC_OBJECT_ARRAY
+   4 bytes = eType = inner element type
+   4 bytes = unsigned int: n = the number of items in array.
+   n x items = array items. Every item is a RPC type, of type eType, without the first 4 bytes type code.
+- RPCMap
+   4 bytes = RPC_OBJECT_MAP
+   4 bytes = inner key type = kType
+   4 bytes = inner value type = vType
+   4 bytes = unsigned int: n = the number of pairs in map.
+   n x consecutive pairs:
+       - key = RPC type body, for type kType.
+       - value = RPC type body, for type vType.
+
+######################################################################
+RPC Queries
+
+# Call
+Client: sends a Call type Packet using
+   - service = the service you wish to invoke
+   - method = the method you wish to call on the given service
+   - params = {..args..} Any kind of rpc objects in here.
+Server: responds with a Reply Packet containing:
+  1. on success
+     - status = RPC_SUCCESS
+     - result = method return value, RPCObject based type.
+                If the method returned void, RPCVoid is returned here. It is client job to ignore RPCVoid values.
+                An object is certainly returned here.
+  2. on failure
+     - status = failure status (one of: RPC_CLASS_UNAVAIL, RPC_SYSTEM_ERR, ..)
+     - result = Any rpc-object. Could be String containing a description of the error. Or a simple RPCVoid for lazy servers.

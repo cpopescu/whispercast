@@ -1,0 +1,131 @@
+<!-- This is just the LOG used in RPC auto forms, it's not a complete html -->
+
+<style type="text/css">
+<!--
+body {
+height: 100%;
+overflow: auto;
+padding: 10px;
+margin: 0;
+}
+div.log_body {
+width: 100%;
+overflow: visible;
+display: table;
+background-color: #eee;
+border: 1px solid red;
+}
+div.log_header {
+border: none;
+margin-bottom: 0.5em;
+}
+div.log_body pre {
+  margin-top: 0;
+}
+-->
+</style> 
+
+<script type="text/javascript">
+function PrettyLog() {
+  this.LogLine = function(level, text) {
+    this.level_ = level;
+    this.text_ = text;
+  }
+  this.escaped_lines_ = [];
+  this.unescaped_lines_ = [];
+  this.is_escaped_view_ = true;
+
+  this.Log = function(level, text) {
+    this.escaped_lines_.push(new this.LogLine(level, text));
+    this.unescaped_lines_.push(new this.LogLine(level, this.Unescape(text)));
+    this.UpdateView();
+  }
+  this.Clear = function() {
+    this.escaped_lines_ = [];
+    this.unescaped_lines_ = [];
+    this.UpdateView();
+  }
+  this.Unescape = function(text) {
+    var quote = false;
+    var esc = false;
+    var out = "";
+    for ( var i = 0; i < text.length; i++ ) {
+      var c = text.charAt(i);
+      if ( esc ) {
+        out += c;
+        esc = false;
+        continue;
+      }
+      if ( c == '"' ) {
+        quote = !quote;
+        continue;
+      }
+      if ( c == '\\' ) {
+        esc = true;
+        continue;
+      }
+      out += c;
+    }
+    // multiple unescape
+    return out.length == text.length ? out : this.Unescape(out);
+  }
+  this.UpdateView = function() {
+    var area = document.getElementById('LOGAREA');
+    while (area.childNodes.length > 0) {
+      area.removeChild(area.childNodes.item(0));
+    }
+
+    var lines = this.is_escaped_view_ ? this.escaped_lines_ : this.unescaped_lines_;
+    var log_text = "";
+    for ( var i = 0; i < lines.length; i++ ) {
+      var line = lines[i];
+      var pre = document.createElement('PRE');
+      if (document.all)
+        pre.innerText = LPREFIX[line.level_] + line.text_;
+      else
+        pre.textContent = LPREFIX[line.level_] + line.text_;
+      pre.style.color = LCOLORS[line.level_];
+      area.appendChild(pre);
+    }
+  }
+  this.SetEscape = function(escaped) {
+    this.is_escaped_view_ = escaped;
+    this.UpdateView();
+  }
+  this.SetScroll = function(scroll) {
+    var area = document.getElementById('LOGAREA');
+    if ( scroll ) {
+      area.style.overflow = 'scroll';
+      area.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+
+      this.Resize();
+    } else {
+      area.style.overflow = 'visible';
+      area.style.display = 'table';
+      document.body.style.overflow = 'auto';
+
+      window.onresize = null;
+    }
+  }
+  this.Resize = function() {
+    var d = document.getElementById('LOGAREA');
+    d.style.height = (d.parentNode.offsetHeight-d.offsetTop-30)+'px';
+    window.onresize = g_logger.Resize;
+  }
+}
+// replace the default logger with our "PrettyLog"
+g_logger = new PrettyLog();
+// resize log to fit window
+setTimeout(g_logger.Resize, 100);
+
+</script>
+
+<br/>
+<div class="log_header">
+  LOG:
+  <input type="button" onclick="ClearLog()" value="Clear"></input>
+  <input type="checkbox" CHECKED onClick="g_logger.SetEscape(this.checked);">Escape</input>
+</div>
+<div id="LOGAREA" class="log_body">
+

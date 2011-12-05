@@ -1,0 +1,87 @@
+// Copyright (c) 2009, Whispersoft s.r.l.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+// * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+// * Neither the name of Whispersoft s.r.l. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+
+Type A {
+  float value_;
+}
+
+Type B {
+  bool bBool_;
+  array<string> names_;
+}
+
+Type C {
+  A a_;
+  B b_;
+}
+
+Type D {
+  array<A> a_;
+  array<B> b_;
+  array<C> c_;
+}
+
+
+Service Service1 {
+
+  void   MirrorVoid();
+  bool   MirrorBool(bool);
+  float  MirrorFloat(float);
+  int    MirrorInt(int);
+  bigint MirrorBigInt(bigint);
+  string MirrorString(string);
+
+  array<int> MirrorArrayOfInt(array<int>);
+
+  array<string> MakeArray(string sz1, string sz2, string sz3);
+
+  array<map<string,array<int>>> MirrorArrayMapStringArrayInt(array<map<string,array<int>>>);
+}
+
+Service Service2 {
+
+  A MirrorA(A);
+
+  B MirrorB(B);
+
+  C MirrorC(C);
+
+  D MirrorD(D);
+
+  A BuildA(float);
+
+  B BuildB(bool, array<string>);
+
+  C BuildC(A a, B b);
+
+  array<C> BuildArrayC(array<A> a, array<B> b);
+
+  D BuildD(array<A> a, array<B> b);
+}

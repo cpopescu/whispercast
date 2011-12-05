@@ -1,0 +1,351 @@
+<html>
+<head>
+
+<script type="text/javascript" src="base/log.js"></script>
+<script type="text/javascript" src="base/rpc_types.js"></script>
+<script type="text/javascript" src="base/rpc_json.js"></script>
+<script type="text/javascript" src="base/rpc_connection.js"></script>
+<script type="text/javascript" src="auto/types.js"></script>
+<script type="text/javascript" src="auto/wrappers.js"></script>
+
+</head>
+<body>
+
+<h3> To be run against Client+Server-performance/bin/rpc_server_http_performance </h3>
+<div id='LOGAREA'>Log: </div>
+
+
+<script type="text/javascript">
+
+var LOG_LEVEL = LINFO;
+
+var x = new Object();
+LOG_DEBUG("x = " + x);
+LOG_DEBUG("typeof(x) = " + typeof(x));
+LOG_DEBUG("x.toString = " + x.toString);
+LOG_DEBUG("Object.toString = " + Object.toString);
+LOG_DEBUG("x.toString == Object.toString => " + (x.toString == Object.toString));
+
+function EqualObjects(a, b)
+{
+  if(a == b) return true;
+  if(a == undefined && b == undefined) return true;
+  if(typeof(a) == 'function' && typeof(b) == 'function') return true;
+  if(typeof(a) == 'number' && typeof(b) == 'number') return Math.abs(a-b) < 0.0001;
+  
+  if(typeof(a) != 'object' || typeof(b) != 'object')
+  {
+    return false;
+  }
+  if(InstanceOfArray(a) && InstanceOfArray(b))
+  {
+    if(a.length != b.length) 
+    { 
+      LOG_ERROR("EqualObjects: Arrays differ in lenght: " + a.length + " != " + b.length); 
+      return false;
+    }
+    for(var i = 0; i < a.length; i++)
+    {
+      if(!EqualObjects(a[i], b[i])) 
+      { 
+        LOG_ERROR("EqualObjects: Arrays differ at index " + i); 
+        return false;
+      }
+    }
+  }
+  for(var attr in a)
+  {
+    if(a[attr] == undefined && b[attr] == undefined) continue;
+    if(b[attr] == undefined)
+    {
+      var b_attribs = new Array();
+      for(var i in b) b_attribs.push(i + " = " + (typeof(b[i]) == 'function' ? 'function' : b[i]));
+      var a_attribs = new Array();
+      for(var i in a) a_attribs.push(i + " = " + (typeof(b[i]) == 'function' ? 'function' : a[i]));
+      LOG_ERROR("EqualObjects: b does not have attribute: \"" + attr + "\". b[\"" + attr + "\"] = " + b[attr] + ". Instead b contains: " + b_attribs + " and a contains: " + a_attribs);
+      return false
+    }
+    if(!EqualObjects(a[attr], b[attr]))
+    {
+      LOG_ERROR("EqualObjects: Objects differ on attribute: " + attr + " : " + a[attr] + " != " + b[attr]);
+      return false;
+    }
+  }
+  return true;
+}
+function EvaluateSuccess(callStatus, result)
+{
+  var expected = callStatus.userData_;
+  if(!callStatus.success_)
+  {
+    return "<span style=\"color: red\"> FAILED error = " + callStatus.error_ + "</span>";
+  }
+  return EqualObjects(expected, result) ?
+                "<span style=\"color: green\"> PASS result = " + result + "</span>" :
+                "<span style=\"color: red\"> FAILED expected: " + expected + " result = " + result + "</span>";
+}
+
+function RandomBool() {
+    return Math.random() < 0.5;
+}
+function Random(range) {
+    return Math.floor(range * Math.random());
+}
+function RandomFloat() {
+    return 1000 * Math.random();
+}
+function Random64(range) {
+    return Math.floor(range * Math.random());
+}
+function RandomString(size) {
+    var CHARS = "abcdefghijklmnopqrstuvwxyz"+
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"+
+                "0123456789"+
+                "~!@#$%^&*()_+-={}[]:;<>/?|\\\"\r\n";
+    var text = "";
+    for(var i = 0; i < size; i++)
+    {
+        var num = Random(CHARS.length);
+        var c = CHARS.charAt(num);
+        text += c;
+    }
+    return text;
+}
+function RandomLabel(size) {
+    CHECK(size > 0);
+    var CHARS = "abcdefghijklmnopqrstuvwxyz"+
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    var text = "";
+    for(var i = 0; i < size; i++)
+    {
+        var num = Random(CHARS.length);
+        var c = CHARS.charAt(num);
+        text += c;
+    }
+    return text;
+}
+function RandomArrayInt(size) {
+    var a = new Array(size);
+    for(var i = 0; i < size; i++)
+    {
+        a[i] = Random(0x7fffffff);
+    }
+    return a;
+}
+function RandomArrayFloat(size) {
+    var a = new Array(size);
+    for(var i = 0; i < size; i++)
+    {
+        a[i] = RandomFloat();
+    }
+    return a;
+}
+function RandomA()
+{
+  var a = new A();
+  a.value_ = RandomFloat();
+  return a;
+}
+
+function RandomB()
+{
+  var b = new B();
+  b.bBool_ = RandomBool();
+  var nBSize = Random(5);
+  b.names_ = new Array(nBSize);
+  for(var i = 0; i < nBSize; i++)
+  {
+    b.names_[i] = RandomString(128);
+  }
+  return b;
+}
+
+rpcVoid = null;
+rpcBool = RandomBool();
+rpcFloat = RandomFloat();
+rpcInt = Random(1024);
+rpcBigInt = Random64(10241024);
+rpcString = RandomString(Random(128));
+rpcArrayInt = RandomArrayInt(Random(128));
+
+rpcArrayString = new Array(3);
+rpcArrayString[0] = RandomString( Random(128) );
+rpcArrayString[1] = RandomString( Random(128) );
+rpcArrayString[2] = RandomString( Random(128) );
+
+var aaai = Random(5);
+rpcArrayMapStringArrayInt = new Array(aaai);
+for(var i = 0; i < aaai; i++)
+{
+  rpcArrayMapStringArrayInt[i] = new Object();
+  var aaaj = Random(5);
+  for(var j = 0; j < aaaj; j++)
+  {
+    rpcArrayMapStringArrayInt[i][RandomLabel(16)] = RandomArrayInt(Random(128));
+  }
+}
+
+a = RandomA();
+b = RandomB();
+c = new C();
+c.a_ = a;
+c.b_ = b;
+d = new D();
+nSize = Random(5);
+d.a_ = new Array(nSize);
+d.b_ = new Array(nSize);
+d.c_ = new Array(nSize);
+for(var i = 0; i < nSize; i++)
+{
+  d.a_[i] = RandomA();
+  d.b_[i] = RandomB();
+  d.c_[i] = new C();
+  d.c_[i].a_ = d.a_[i];
+  d.c_[i].b_ = d.b_[i];
+}
+arrayA = new Array(nSize);
+arrayB = new Array(nSize);
+arrayC = new Array(nSize);
+for(var i = 0; i < nSize; i++)
+{
+  arrayA[i] = RandomA();
+  arrayB[i] = RandomB();
+  arrayC[i] = new C();
+  arrayC[i].a_ = arrayA[i];
+  arrayC[i].b_ = arrayB[i];
+}
+d2 = new D();
+d2.a_ = arrayA;
+d2.b_ = arrayB;
+d2.c_ = arrayC;
+
+var nAnswers = 0;
+var nFailed = 0;
+var nQueries = 0;
+var nRestarts = 17;
+var nRestart = 1;
+var tsStart = undefined; // timestamp
+var tsStop = undefined;  // timestamp
+function AnswerReceived(strMethod, callStatus, result) {
+  if(!callStatus.success_)
+  {
+    nFailed++;
+  }
+  LOG_DEBUG(strMethod + " : " + EvaluateSuccess(callStatus, result));
+  nAnswers++;
+  
+  if(nAnswers == nQueries)
+  {
+    if(nRestart < nRestarts)
+    {
+      nRestart++;
+	  LOG_INFO("Test in progress.. " + Math.floor(100 * nRestart/nRestarts) + "%");
+	  Restart();
+	  return;
+    }
+    tsStop = new Date();
+    var msElapsed = tsStop.getTime() - tsStart.getTime();
+    var tsElapsed = new Date();
+    tsElapsed.setTime(msElapsed);
+    var strElapsed = "" + tsElapsed.getUTCHours() + "h " 
+                        + tsElapsed.getUTCMinutes() + "' "
+                        + tsElapsed.getUTCSeconds() + "''"
+                        + tsElapsed.getUTCMilliseconds();
+    var nCallsPerSec = 1.0 * nAnswers / (msElapsed/1000);
+    LOG_WARNING("Done. nQueries=" + nQueries + " nAnswers=" + nAnswers + "(" + nFailed + " failed)" + " elapsed=" + strElapsed + "  performance = " + nCallsPerSec + " calls/sec");
+  }
+}
+function AsyncRetService1MirrorVoid(callStatus, result) { 
+  AnswerReceived("AsyncRetService1MirrorVoid", callStatus, result);
+}
+function AsyncRetService1MirrorBool(callStatus, result) {
+  AnswerReceived("AsyncRetService1MirrorBool", callStatus, result);
+}
+function AsyncRetService1MirrorFloat(callStatus, result) {
+  AnswerReceived("AsyncRetService1MirrorFloat", callStatus, result);
+}
+function AsyncRetService1MirrorInt(callStatus, result) {
+  AnswerReceived("AsyncRetService1MirrorInt", callStatus, result);
+}
+function AsyncRetService1MirrorBigInt(callStatus, result) {
+  AnswerReceived("AsyncRetService1MirrorBigInt", callStatus, result);
+}
+function AsyncRetService1MirrorString(callStatus, result) {
+  AnswerReceived("AsyncRetService1MirrorString", callStatus, result);
+}
+function AsyncRetService1MirrorArrayOfInt(callStatus, result) { 
+  AnswerReceived("AsyncRetService1MirrorArrayOfInt", callStatus, result);
+}
+function AsyncRetService1MakeArray(callStatus, result) { 
+  AnswerReceived("AsyncRetService1MakeArray", callStatus, result);
+}
+function AsyncRetService1MirrorArrayMapStringArrayInt(callStatus, result) { 
+  AnswerReceived("AsyncRetService1MirrorArrayMapStringArrayInt", callStatus, result);
+}      
+function AsyncRetService2MirrorA(callStatus, result) { 
+  AnswerReceived("AsyncRetService2MirrorA", callStatus, result);
+}
+function AsyncRetService2MirrorB(callStatus, result) { 
+  AnswerReceived("AsyncRetService2MirrorB", callStatus, result);
+}
+function AsyncRetService2MirrorC(callStatus, result) { 
+  AnswerReceived("AsyncRetService2MirrorC", callStatus, result);
+}
+function AsyncRetService2MirrorD(callStatus, result) { 
+  AnswerReceived("AsyncRetService2MirrorD", callStatus, result);
+}
+function AsyncRetService2BuildA(callStatus, result) { 
+  AnswerReceived("AsyncRetService2BuildA", callStatus, result);
+}
+function AsyncRetService2BuildB(callStatus, result) { 
+  AnswerReceived("AsyncRetService2BuildB", callStatus, result);
+}
+function AsyncRetService2BuildC(callStatus, result) { 
+  AnswerReceived("AsyncRetService2BuildC", callStatus, result);
+}
+function AsyncRetService2BuildArrayC(callStatus, result) { 
+  AnswerReceived("AsyncRetService2BuildArrayC", callStatus, result);
+}
+function AsyncRetService2BuildD(callStatus, result) { 
+  AnswerReceived("AsyncRetService2BuildD", callStatus, result);
+}
+
+var url = "http://192.168.2.199/myrpc";
+
+service1 = new RPCServiceWrapperService1(new RPCHttpXmlConnection(url));
+service2 = new RPCServiceWrapperService2(new RPCHttpXmlConnection(url));
+
+function Restart() {
+  nQueries += 9;
+  service1.MirrorVoid(AsyncRetService1MirrorVoid, rpcVoid);
+  service1.MirrorBool(rpcBool, AsyncRetService1MirrorBool, rpcBool);
+  service1.MirrorFloat(rpcFloat, AsyncRetService1MirrorFloat, rpcFloat);
+  service1.MirrorInt(rpcInt, AsyncRetService1MirrorInt, rpcInt);
+  service1.MirrorBigInt(rpcBigInt, AsyncRetService1MirrorBigInt, rpcBigInt);
+  service1.MirrorString(rpcString, AsyncRetService1MirrorString, rpcString);  
+  service1.MirrorArrayOfInt(rpcArrayInt, AsyncRetService1MirrorArrayOfInt, rpcArrayInt);
+  service1.MakeArray(rpcArrayString[0], rpcArrayString[1], rpcArrayString[2], AsyncRetService1MakeArray, rpcArrayString);
+  service1.MirrorArrayMapStringArrayInt(rpcArrayMapStringArrayInt, AsyncRetService1MirrorArrayMapStringArrayInt, rpcArrayMapStringArrayInt);
+  
+  nQueries += 9;
+  service2.MirrorA(a, AsyncRetService2MirrorA, a);
+  service2.MirrorB(b, AsyncRetService2MirrorB, b);
+  service2.MirrorC(c, AsyncRetService2MirrorC, c);
+  service2.MirrorD(d, AsyncRetService2MirrorD, d);
+  service2.BuildA(a.value_, AsyncRetService2BuildA, a);
+  service2.BuildB(b.bBool_, b.names_, AsyncRetService2BuildB, b);
+  service2.BuildC(a, b, AsyncRetService2BuildC, c);
+  service2.BuildArrayC(arrayA, arrayB, AsyncRetService2BuildArrayC, arrayC);
+  service2.BuildD(arrayA, arrayB, AsyncRetService2BuildD, d2);
+}
+
+// start in the first place
+LOG_WARNING("Starting performance test, " + (nRestarts*18) + " queries to go");
+tsStart = new Date();
+Restart();
+
+</script>
+
+
+</body>
+</html>

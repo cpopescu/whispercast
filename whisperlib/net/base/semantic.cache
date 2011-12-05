@@ -1,0 +1,39 @@
+;; Object net/
+;; SEMANTICDB Tags save file
+(semanticdb-project-database-file "net/"
+  :tables (list 
+   (semanticdb-table "main.cpp"
+    :major-mode 'c++-mode
+    :tags '(("main" function (:arguments (("argc" variable (:type "int") (reparse-symbol arg-sub-list) [11 20]) ("argv" variable (:pointer 2 :type "char") (reparse-symbol arg-sub-list) [21 34])) :type "int") nil [2 62]))
+    :file "main.cpp"
+    :pointmax 63
+    )
+    (semanticdb-table "selector.cpp"
+    :major-mode 'c++-mode
+    :tags '(("Selector" function (:constructor-flag t :parent "Selector" :type ("Selector" type "class")) nil [2 26]) ("Selector" function (:destructor-flag t :parent "Selector" :type "void") nil [28 53]) ("RunAsDaemon" function (:parent "Selector" :type "void") nil [55 87]) ("Wait" function (:parent "Selector" :type "void") nil [88 113]) ("RunStatic" function (:parent "Selector" :arguments (("This" variable (:pointer 1 :type "void") (reparse-symbol arg-sub-list) [141 153])) :type "void") nil [116 185]) ("Run" function (:parent "Selector" :type "void") nil [187 255]))
+    :file "selector.cpp"
+    :pointmax 256
+    )
+   (semanticdb-table "selector.h"
+    :major-mode 'c-mode
+    :tags '(("__SELECTOR_H__" variable (:constant-flag t) nil [25 54]) ("Selector" type (:members (("public" label nil (reparse-symbol classsubparts) [67 74]) ("Selector" function (:prototype-flag t :constructor-flag t :type ("Selector" type "class")) (reparse-symbol classsubparts) [77 88]) ("Selector" function (:prototype-flag t :destructor-flag t :type "void") (reparse-symbol classsubparts) [91 103]) ("RunAsDaemon" function (:prototype-flag t :type "void") (reparse-symbol classsubparts) [367 386]) ("Wait" function (:prototype-flag t :type "void") (reparse-symbol classsubparts) [389 401]) ("IsRunning" function (:prototype-flag t :type ("BOOL" type (:type "class") nil nil)) (reparse-symbol classsubparts) [405 422]) ("RegisterConnection" function (:prototype-flag t :arguments (("c" variable (:type ("Connection" type (:type "class") nil nil)) (reparse-symbol arg-sub-list) [450 465])) :type ("BOOL" type (:type "class") nil nil)) (reparse-symbol classsubparts) [426 466]) ("private" label nil (reparse-symbol classsubparts) [469 477]) ("Run" function (:prototype-flag t :type "void") (reparse-symbol classsubparts) [536 547]) ("RunStatic" function (:prototype-flag t :typemodifiers ("static") :arguments (("This" variable (:pointer 1 :type "void") (reparse-symbol arg-sub-list) [685 697])) :type "void") (reparse-symbol classsubparts) [663 698])) :type "class") nil [49 701]))
+    :file "selector.h"
+    :pointmax 710
+    )
+   (semanticdb-table "types.h"
+    :major-mode 'c-mode
+    :tags '(("__TYPES_H_INCLUDED__" variable (:constant-flag t) nil [31 68]) ("BOOL" type (:typedef ("int") :superclasses "int" :type "typedef") nil [61 78]) ("TRUE" variable (:constant-flag t :default-value (nil)) nil [79 94]) ("FALSE" variable (:constant-flag t :default-value (nil)) nil [95 110]) ("u_long" type (:typedef ("unsigned long") :superclasses "unsigned long" :type "typedef") nil [112 141]))
+    :file "types.h"
+    :pointmax 150
+    )
+     (semanticdb-table "errno.h"
+    :major-mode 'c-mode
+    :tags '(("ERRNO_H_" variable (:constant-flag t) nil [18 71]) ("GetLastError" function (:prototype-flag t :type "int") nil [68 87]) ("SetLastError" function (:prototype-flag t :arguments (("err" variable (:type "int") (reparse-symbol arg-sub-list) [148 156])) :type "void") nil [130 157]))
+    :file "errno.h"
+    :pointmax 179
+    )
+   )
+  :file "semantic.cache"
+  :semantic-tag-version "2.0pre3"
+  :semanticdb-version "2.0pre3"
+  )
