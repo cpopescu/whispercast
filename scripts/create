@@ -1,0 +1,470 @@
+#!/bin/bash
+
+pushd `dirname $0` > /dev/null
+source shflags
+cd ..
+
+L=`basename $0`
+D='+[%Y-%m-%d %H:%M:%S]'
+
+BASE=`pwd`
+
+FLAGS_HELP="USAGE: ${FLAGS_PARENT:-$0} [flags] name [dir0 dir1 ... dirN]
+
+Where:
+'name' is the name of the server setup
+'dir0' 'dir1' ... 'dirN' are mount points of the disks used to balance the stored content
+"
+DEFINE_string "media_dir" "" "The directory used for media storage, if any" "q"
+DEFINE_string "log_dir" "" "The directory used for log storage, if any" "w"
+DEFINE_string "state_dir" "" "The directory used for state storage, if any" "x"
+DEFINE_string "stats_dir" "" "The directory used for stats storage, if any" "y"
+DEFINE_string "data_dir" "" "The directory used for data storage, if any" "z"
+
+DEFINE_integer "server_rpc_port" 0 "'$NAME' RPC port, if 0 then no server will be setup" "r"
+DEFINE_integer "server_http_port" 8080 "'$NAME' HTTP port" "h"
+DEFINE_integer "server_rtmp_port" 1935 "'$NAME' RTMP port" "t"
+
+DEFINE_string "server_realm" "whispercast" "Authentication realm" "e"
+DEFINE_string "server_password" "" "Authentication password" "p"
+
+DEFINE_string "stats_db_name" "" "The name of the stats MySQL database" "d"
+DEFINE_string "stats_db_host" "127.0.0.1" "The host on which the stats MySQL server is running" "o"
+DEFINE_string "stats_db_user" `whoami` "The user used to autentificate with the MySQL server" "s"
+DEFINE_string "stats_db_password" "" "The password used to autentificate with the MySQL server" "a"
+
+DEFINE_integer "master_rpc_port" 0 "Transcoder master RPC port, if 0 then no master will be setup" "m"
+DEFINE_string "master_external_ip" "127.0.0.1" "Transcoder master external IP address" "i"
+DEFINE_string "master_slaves" "" "A comma separated list of transcoder slaves used by this master" "v"
+DEFINE_string "scp_user" `whoami` "The scp user used to transfer files between the transcoder master and transcoder slaves" "c"
+
+DEFINE_integer "slave_rpc_port" 0 "Transcoder slave RPC port, if 0 then no slave will be setup" "l"
+
+DEFINE_integer "runner_rpc_port" 0 "Script runner RPC port, if 0 then no script runner will be setup" "u"
+
+DEFINE_boolean "help" true "Get help"
+
+function abort() {
+  if [ "$1" != "" ]; then
+    echo "$1"
+  fi
+  popd > /dev/null
+  exit
+}
+
+FLAGS "$@" || abort
+eval set -- "${FLAGS_ARGV}"
+
+NAME=$1
+shift
+
+SED_NAME=`echo "$NAME" | sed -e 's/\\(\\.\\|\\/\\|\\*\\|\\[\\|\\]\\|\\\\\\)/\\\\&/g'`
+
+declare -a DEVICES
+
+ERROR=0
+WARNING=0
+
+DEVICE=$1
+DEVICE_INDEX=0
+while [ "$1" != "" ]
+do
+  DEVICES[$DEVICE_INDEX]=$1
+  if [ ! -d "$1" ]; then
+    echo "Error: the specified stored content directory '$1' does not exist";
+    ERROR=1
+  fi
+  ((DEVICE_INDEX++))
+  shift
+done
+
+if [ "$NAME" = "" ]; then
+  echo "Error: no setup name was specified";
+  ERROR=1
+else
+  if [ -e "etc/ini/$NAME" ]; then
+    echo "Error: \"$NAME\" already exists";
+    ERROR=1
+  fi
+fi
+
+if [ $FLAGS_server_rpc_port -ne 0 ]; then
+  if [ ${#DEVICES[@]} -eq 0 ]; then
+    echo "Error: no mount points were specified";
+    ERROR=1
+  fi
+  if [ $FLAGS_server_http_port -eq 0 ]; then
+    echo "Error: no server HTTP port was specified";
+    ERROR=1
+  fi
+  if [ $FLAGS_server_rtmp_port -eq 0 ]; then
+    echo "Error: no server RTMP port was specified";
+    ERROR=1
+  fi
+
+  DEVICES_STRING="${DEVICES[@]}"
+fi
+
+if [ "$FLAGS_stats_db_name" != "" ]; then
+  if [ $FLAGS_server_rpc_port -eq 0 ]; then
+    echo "Error: the stats processor depends on the server and no server was specified";
+    ERROR=1
+  fi
+fi
+
+if [ "$FLAGS_media_dir" != "" ]; then
+  if [ ! -d "$FLAGS_media_dir" ]; then
+    echo "Warning: the media directory does not exist, it will be created";
+    WARNING=1
+  fi
+fi
+if [ "$FLAGS_log_dir" != "" ]; then
+  if [ ! -d "$FLAGS_log_dir" ]; then
+    echo "Warning: the log directory does not exist, it will be created";
+    WARNING=1
+  fi
+fi
+if [ "$FLAGS_state_dir" != "" ]; then
+  if [ ! -d "$FLAGS_state_dir" ]; then
+    echo "Warning: the state directory does not exist, it will be created";
+    WARNING=1
+  fi
+fi
+if [ "$FLAGS_stats_dir" != "" ]; then
+  if [ ! -d "$FLAGS_stats_dir" ]; then
+    echo "Warning: the stats directory does not exist, it will be created";
+    WARNING=1
+  fi
+fi
+if [ "$FLAGS_data_dir" != "" ]; then
+  if [ ! -d "$FLAGS_data_dir" ]; then
+    echo "Warning: the data directory does not exist, it will be created";
+    WARNING=1
+  fi
+fi
+
+if [ $ERROR -ne 0 ]; then
+  echo;
+  flags_help
+  abort
+fi
+
+echo "'$NAME' GLOBALS:
+"
+printf "%15s %s" "MEDIA DIR:" "$FLAGS_media_dir"; echo
+printf "%15s %s" "LOG DIR:" "$FLAGS_log_dir"; echo
+printf "%15s %s" "STATE DIR:" "$FLAGS_state_dir"; echo
+printf "%15s %s" "STATS DIR:" "$FLAGS_stats_dir"; echo
+printf "%15s %s" "DATA DIR:" "$FLAGS_data_dir"; echo
+echo
+
+if [ $FLAGS_server_rpc_port -ne 0 ]; then
+echo "'$NAME' SERVER:
+"
+printf "%15s %s" "RPC PORT:" "$FLAGS_server_rpc_port"; echo
+printf "%15s %s" "HTTP PORT:" "$FLAGS_server_http_port"; echo
+printf "%15s %s" "RTMP PORT:" "$FLAGS_server_rtmp_port"; echo
+printf "%15s %s" "DEVICES:" "$DEVICES_STRING"; echo
+echo
+else
+echo "'$NAME' SERVER: (NOT DEFINED)"
+fi
+
+if [ "$FLAGS_stats_db_name" != "" ]; then
+echo "'$NAME' STATS:
+"
+printf "%15s %s" "DB NAME:" "$FLAGS_stats_db_name"; echo
+printf "%15s %s" "DB HOST:" "$FLAGS_stats_db_host"; echo
+printf "%15s %s" "DB USER:" "$FLAGS_stats_db_user"; echo
+printf "%15s %s" "DB PASSWORD:" "$FLAGS_stats_db_password"; echo
+echo
+else
+echo "'$NAME' STATS: (NOT DEFINED)"
+fi
+
+if [ $FLAGS_master_rpc_port -ne 0 ]; then
+echo "'$NAME' TRANSCODER MASTER:
+"
+printf "%15s %s" "RPC PORT:" "$FLAGS_master_rpc_port"; echo
+printf "%15s %s" "EXTERNAL IP:" "$FLAGS_master_external_ip"; echo
+printf "%15s %s" "SLAVES:" "$FLAGS_master_slaves"; echo
+printf "%15s %s" "SCP USER:" "$FLAGS_scp_user"; echo
+echo
+else
+echo "'$NAME' TRANSCODER MASTER: (NOT DEFINED)"
+fi
+
+if [ $FLAGS_slave_rpc_port -ne 0 ]; then
+echo "'$NAME' TRANSCODER SLAVE:
+"
+printf "%15s %s" "RPC PORT:" "$FLAGS_slave_rpc_port"; echo
+echo
+else
+echo "'$NAME' TRANSCODER SLAVE: (NOT DEFINED)"
+fi
+
+if [ $FLAGS_runner_rpc_port -ne 0 ]; then
+echo "'$NAME' SCRIPT RUNNER:
+"
+printf "%15s %s" "RPC PORT:" "$FLAGS_runner_rpc_port"; echo
+echo
+else
+echo "'$NAME' SCRIPT RUNNER: (NOT DEFINED)"
+fi
+
+read -p "Continue with setup (y/n)?"
+if [ "$REPLY" != "y" ]; then
+  abort "Error: Aborted"
+fi
+
+:>"etc/services/$NAME.ini"
+
+echo "$(date "$D") [$L] : Creating directories for \"$NAME\"..."
+mkdir -p "etc/ini/$NAME" || abort "Fatal: Aborted"
+mkdir -p "etc/config/$NAME" || abort "Fatal: Aborted"
+mkdir -p "etc/scripts/$NAME/admin" || abort "Fatal: Aborted"
+
+echo "$(date "$D") [$L] : Copying admin scripts for \"$NAME\"..."
+for i in scripts/shell/admin/*
+do
+j=`basename "$i"`;
+cat "$i" | sed "s/@@@NAME@@@/$SED_NAME/g" > "etc/scripts/$NAME/admin/$j" 
+chmod +x "etc/scripts/admin/$j" 
+done
+
+if [ "$FLAGS_media_dir" != "" ]; then
+  if [ ! -d "$FLAGS_media_dir" ]; then
+    mkdir -p "$FLAGS_media_dir" || abort "Fatal: Aborted"
+  fi
+  mkdir -p "var/media" || abort "Fatal: Aborted"
+  ln -sf "$FLAGS_media_dir" "var/media/$NAME" || abort "Fatal: Aborted"
+else
+  mkdir -p "var/media/$NAME" || abort "Fatal: Aborted"
+fi
+if [ "$FLAGS_log_dir" != "" ]; then
+  if [ ! -d "$FLAGS_log_dir" ]; then
+    mkdir -p "$FLAGS_log_dir" || abort "Fatal: Aborted"
+  fi
+  mkdir -p "var/log" || abort "Fatal: Aborted"
+  ln -sf "$FLAGS_log_dir" "var/log/$NAME" || abort "Fatal: Aborted"
+else
+  mkdir -p "var/log/$NAME" || abort "Fatal: Aborted"
+fi
+if [ "$FLAGS_state_dir" != "" ]; then
+  if [ ! -d "$FLAGS_state_dir" ]; then
+    mkdir -p "$FLAGS_state_dir" || abort "Fatal: Aborted"
+  fi
+  mkdir -p "var/state" || abort "Fatal: Aborted"
+  ln -sf "$FLAGS_state_dir" "var/state/$NAME" || abort "Fatal: Aborted"
+else
+  mkdir -p "var/state/$NAME" || abort "Fatal: Aborted"
+fi
+if [ "$FLAGS_stats_dir" != "" ]; then
+  if [ ! -d "$FLAGS_stats_dir" ]; then
+    mkdir -p "$FLAGS_stats_dir" || abort "Fatal: Aborted"
+  fi
+  mkdir -p "var/stats" || abort "Fatal: Aborted"
+  ln -sf "$FLAGS_stats_dir" "var/stats/$NAME" || abort "Fatal: Aborted"
+else
+  mkdir -p "var/stats/$NAME" || abort "Fatal: Aborted"
+fi
+if [ "$FLAGS_data_dir" != "" ]; then
+  if [ ! -d "$FLAGS_data_dir" ]; then
+    mkdir -p "$FLAGS_data_dir" || abort "Fatal: Aborted"
+  fi
+  mkdir -p "var/data" || abort "Fatal: Aborted"
+  ln -sf "$FLAGS_data_dir" "var/data/$NAME" || abort "Fatal: Aborted"
+else
+  mkdir -p "var/data/$NAME" || abort "Fatal: Aborted"
+fi
+
+if [ $FLAGS_master_rpc_port -ne 0 ]; then
+  mkdir -p "var/data/$NAME/transmaster/input" || abort "Fatal: Aborted"
+  mkdir -p "var/data/$NAME/transmaster/output" || abort "Fatal: Aborted"
+  mkdir -p "var/data/$NAME/transmaster/process" || abort "Fatal: Aborted"
+fi
+
+if [ $FLAGS_slave_rpc_port -ne 0 ]; then
+  mkdir -p "var/data/$NAME/transslave/download" || abort "Fatal: Aborted"
+  mkdir -p "var/data/$NAME/transslave/original" || abort "Fatal: Aborted"
+
+  mkdir -p "var/data/$NAME/transcoder/transcode/input" || abort "Fatal: Aborted"
+  mkdir -p "var/data/$NAME/transcoder/transcode/output" || abort "Fatal: Aborted"
+  mkdir -p "var/data/$NAME/transcoder/postprocess/input" || abort "Fatal: Aborted"
+  mkdir -p "var/data/$NAME/transcoder/postprocess/output" || abort "Fatal: Aborted"
+fi
+
+if [ ${#DEVICES[@]} -gt 0 ]; then
+  echo "$(date "$D") [$L] : Creating symbolic links to disks for \"$NAME\"..."
+  for (( INDEX=0;INDEX<${#DEVICES[@]};INDEX++)); do
+    ln -sf "${DEVICES[${INDEX}]}" "var/media/$NAME/$INDEX" || abort "Fatal: Aborted"
+    if [ $INDEX -gt 0 ]; then
+      SERVER_STORAGE_DEVICES="$SERVER_STORAGE_DEVICES;$BASE/var/media/$NAME/$INDEX"
+    else
+      SERVER_STORAGE_DEVICES="$BASE/var/media/$NAME/$INDEX"
+    fi
+  done
+
+  mkdir -p "var/media/$NAME/0/private/files" || abort "Fatal: Aborted"
+  mkdir -p "var/media/$NAME/0/private/live" || abort "Fatal: Aborted"
+  mkdir -p "var/media/$NAME/0/public/files" || abort "Fatal: Aborted"
+  mkdir -p "var/media/$NAME/0/public/live" || abort "Fatal: Aborted"
+fi
+
+if [ $FLAGS_server_rpc_port -ne 0 ]; then
+# whispercast.ini
+echo "$(date "$D") [$L] : Creating whispercast.ini for \"$NAME\"..."
+
+mkdir -p "var/state/$NAME/whispercast" || abort "Fatal: Aborted"
+
+echo "--http_port=$FLAGS_server_http_port" >> "etc/ini/$NAME/whispercast.ini"
+echo "--rpc_http_port=$FLAGS_server_rpc_port" >> "etc/ini/$NAME/whispercast.ini"
+echo "--rtmp_port=$FLAGS_server_rtmp_port" >> "etc/ini/$NAME/whispercast.ini"
+echo "--base_media_dir=$BASE/var/media/$NAME/" >> "etc/ini/$NAME/whispercast.ini"
+echo "--media_state_dir=$BASE/var/state/$NAME/whispercast" >> "etc/ini/$NAME/whispercast.ini"
+echo "--media_config_dir=$BASE/etc/config/$NAME/" >> "etc/ini/$NAME/whispercast.ini"
+echo "--admin_passwd=$FLAGS_server_password" >> "etc/ini/$NAME/whispercast.ini"
+echo "--authorization_realm=$FLAGS_server_realm" >> "etc/ini/$NAME/whispercast.ini"
+echo "--rpc_js_form_path=$BASE/var/www/js/rpc/" >> "etc/ini/$NAME/whispercast.ini"
+echo "--element_libraries_dir=$BASE/modules/" >> "etc/ini/$NAME/whispercast.ini"
+echo "--http_extensions_to_content_types_file=$BASE/etc/config/extension2content_type" >> "etc/ini/$NAME/whispercast.ini"
+echo "--media_path=/" >> "etc/ini/$NAME/whispercast.ini"
+echo "--rtmp_max_num_connections=4000" >> "etc/ini/$NAME/whispercast.ini"
+echo "--rtmp_connection_seek_processing_delay_ms=500" >> "etc/ini/$NAME/whispercast.ini"
+echo "--rtmp_connection_media_chunk_size_ms=0" >> "etc/ini/$NAME/whispercast.ini"
+echo "--media_aio_buffer_pool_size=1600" >> "etc/ini/$NAME/whispercast.ini"
+echo "--disk_dirs=$SERVER_STORAGE_DEVICES" >> "etc/ini/$NAME/whispercast.ini"
+echo "--media_aio_buffer_size=256" >> "etc/ini/$NAME/whispercast.ini"
+echo "--server_id=$NAME" >> "etc/ini/$NAME/whispercast.ini"
+echo "--stat_collection_interval_ms=5000" >> "etc/ini/$NAME/whispercast.ini"
+echo "--log_stats_dir=$BASE/var/stats/$NAME/" >> "etc/ini/$NAME/whispercast.ini"
+echo "--log_stats_file_base=stats" >> "etc/ini/$NAME/whispercast.ini"
+echo "--loglevel=3" >> "etc/ini/$NAME/whispercast.ini"
+
+# whispercast.config
+echo "$(date "$D") [$L] : Creating whispercast.config for \"$NAME\"..."
+echo "{}[][]" >> "etc/config/$NAME/whispercast.config"
+
+# hosts_aliases.config
+echo "$(date "$D") [$L] : Creating hosts_aliases.config for \"$NAME\"..."
+echo "[]" >> "etc/config/$NAME/hosts_aliases.config"
+
+echo "whispercast" >> "etc/services/$NAME.ini"
+fi
+
+if [ $FLAGS_master_rpc_port -ne 0 ]; then
+# transmaster.ini
+echo "$(date "$D") [$L] : Creating transmaster.ini for \"$NAME\"..."
+
+mkdir -p "var/state/$NAME/transmaster" || abort "Fatal: Aborted"
+
+echo "--http_port=$FLAGS_master_rpc_port" >> "etc/ini/$NAME/transmaster.ini"
+echo "--input_dir=$BASE/var/data/$NAME/transmaster/input" >> "etc/ini/$NAME/transmaster.ini"
+echo "--output_dir=$BASE/var/data/$NAME/transmaster/output" >> "etc/ini/$NAME/transmaster.ini"
+echo "--process_dir=$BASE/var/data/$NAME/transmaster/process" >> "etc/ini/$NAME/transmaster.ini"
+echo "--external_ip=$FLAGS_master_external_ip" >> "etc/ini/$NAME/transmaster.ini"
+echo "--slaves=$FLAGS_master_slaves" >> "etc/ini/$NAME/transmaster.ini"
+echo "--scp_username=$FLAGS_scp_user" >> "etc/ini/$NAME/transmaster.ini"
+echo "--state_dir=$BASE/var/state/$NAME/transmaster" >> "etc/ini/$NAME/transmaster.ini"
+echo "--state_name=transmaster" >> "etc/ini/$NAME/transmaster.ini"
+echo "--rpc_js_form_path=$BASE/var/www/js/rpc" >> "etc/ini/$NAME/transmaster.ini"
+echo "--http_auth_user=admin" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--http_auth_pswd=$FLAGS_server_password" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--http_auth_realm=$FLAGS_server_realm" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--loglevel=3" >> "etc/ini/$NAME/transmaster.ini"
+
+echo "transmaster" >> "etc/services/$NAME.ini"
+fi
+
+if [ $FLAGS_slave_rpc_port -ne 0 ]; then
+# transslave.ini
+echo "$(date "$D") [$L] : Creating transslave.ini for \"$NAME\"..."
+
+mkdir -p "var/state/$NAME/transslave" || abort "Fatal: Aborted"
+
+echo "--http_port=$FLAGS_slave_rpc_port" >> "etc/ini/$NAME/transslave.ini"
+echo "--media_download_dir=$BASE/var/data/$NAME/transslave/download" >> "etc/ini/$NAME/transslave.ini"
+echo "--media_original_dir=$BASE/var/data/$NAME/transslave/original" >> "etc/ini/$NAME/transslave.ini"
+echo "--media_output_dirs=$BASE/var/media/$NAME/0/private/files" >> "etc/ini/$NAME/transslave.ini"
+echo "--media_transcoder_input_dir=$BASE/var/data/$NAME/transcoder/transcode/input" >> "etc/ini/$NAME/transslave.ini"
+echo "--media_transcoder_output_dir=$BASE/var/data/$NAME/transcoder/transcode/output" >> "etc/ini/$NAME/transslave.ini"
+echo "--media_postprocessor_input_dir=$BASE/var/data/$NAME/transcoder/postprocess/input" >> "etc/ini/$NAME/transslave.ini"
+echo "--media_postprocessor_output_dir=$BASE/var/data/$NAME/transcoder/postprocess/output" >> "etc/ini/$NAME/transslave.ini"
+echo "--scp_username=$FLAGS_scp_user" >> "etc/ini/$NAME/transmaster.ini"
+echo "--state_dir=$BASE/var/state/$NAME/transslave" >> "etc/ini/$NAME/transslave.ini"
+echo "--state_name=transslave" >> "etc/ini/$NAME/transslave.ini"
+echo "--rpc_js_form_path=$BASE/var/www/js/rpc" >> "etc/ini/$NAME/transslave.ini"
+echo "--loglevel=3" >> "etc/ini/$NAME/transslave.ini"
+
+# transcoder.ini
+echo "$(date "$D") [$L] : Creating transcoder.ini for \"$NAME\"..."
+
+echo "--transcode_input_dir=$BASE/var/data/$NAME/transcoder/transcode/input" >> "etc/ini/$NAME/transcoder.ini"
+echo "--transcode_output_dir=$BASE/var/data/$NAME/transcoder/transcode/output" >> "etc/ini/$NAME/transcoder.ini"
+echo "--postprocess_input_dir=$BASE/var/data/$NAME/transcoder/postprocess/input" >> "etc/ini/$NAME/transcoder.ini"
+echo "--postprocess_output_dir=$BASE/var/data/$NAME/transcoder/postprocess/output" >> "etc/ini/$NAME/transcoder.ini"
+# TODO: Remove this and pass the parameters down from the admin interface...
+echo "--format=default.flv:encoder=flv,audio_samplerate=44100,audio_bitrate=131072,audio_encoder=mp3,video_width=512,video_height=384,video_bitrate=500000" >> "etc/ini/$NAME/transcoder.ini"
+echo "--enable_flv_postprocess=true" >> "etc/ini/$NAME/transcoder.ini"
+echo "--enable_flv_thumbnail=false" >> "etc/ini/$NAME/transcoder.ini"
+echo "--enable_multipass=true" >> "etc/ini/$NAME/transcoder.ini"
+echo "--loglevel=3" >> "etc/ini/$NAME/transcoder.ini"
+
+echo "transslave" >> "etc/services/$NAME.ini"
+echo "transcoder" >> "etc/services/$NAME.ini"
+fi
+
+if [ $FLAGS_server_rpc_port -ne 0 ]; then
+# whisperproc.ini
+echo "$(date "$D") [$L] : Creating whisperproc.ini for \"$NAME\"..."
+
+echo "--base_media_dir=$BASE/var/media/$NAME/0/private/live" >> "etc/ini/$NAME/whisperproc.ini"
+echo "--default_buildup_period_min=5" >> "etc/ini/$NAME/whisperproc.ini"
+echo "--default_buildup_delay_min=2" >> "etc/ini/$NAME/whisperproc.ini"
+echo "--min_buildup_delay_min=1" >> "etc/ini/$NAME/whisperproc.ini"
+echo "--autogenerate_thumbnails=false" >> "etc/ini/$NAME/whisperproc.ini"
+echo "--loglevel=3" >> "etc/ini/$NAME/whisperproc.ini"
+
+echo "whisperproc" >> "etc/services/$NAME.ini"
+fi
+
+if [ $FLAGS_runner_rpc_port -ne 0 ]; then
+# whispercmd.ini
+echo "$(date "$D") [$L] : Creating whispercmd.ini for \"$NAME\"..."
+
+echo "--http_port=$FLAGS_runner_rpc_port" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--script_dir=$BASE/etc/scripts/$NAME/" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--rpc_js_form_path=$BASE/var/www/js/rpc" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--http_auth_user=admin" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--http_auth_pswd=$FLAGS_server_password" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--http_auth_realm=$FLAGS_server_realm" >> "etc/ini/$NAME/whispercmd.ini"
+echo "--loglevel=3" >> "etc/ini/$NAME/whispercmd.ini"
+
+
+echo "whispercmd" >> "etc/services/$NAME.ini"
+fi
+
+if [ "$FLAGS_stats_db_name" != "" ]; then
+# stats_post_processor.ini
+echo "$(date "$D") [$L] : Creating stats_post_processor.ini for \"$NAME\"..."
+
+mkdir -p "var/state/$NAME/stats_post_processor" || abort "Fatal: Aborted"
+
+echo "--state_dir=$BASE/var/state/$NAME/stats_post_processor" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--state_filebase=stats_post_processor" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--log_dir=$BASE/var/stats/$NAME" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--log_filebase=stats" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--mysql_database=$FLAGS_stats_db_name" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--mysql_host=$FLAGS_stats_db_host" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--mysql_user=$FLAGS_stats_db_user" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--mysql_passwd=$FLAGS_stats_db_password" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--transaction_records=10" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--num_input_files_to_keep=3" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--stats_post_processor_name=$NAME" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--print_all=false" >> "etc/ini/$NAME/stats_post_processor.ini"
+echo "--loglevel=3" >> "etc/ini/$NAME/stats_post_processor.ini"
+
+echo "stats_post_processor" >> "etc/services/$NAME.ini"
+fi
+
+bin/start "$NAME"

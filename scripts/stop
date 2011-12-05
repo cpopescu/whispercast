@@ -1,0 +1,86 @@
+#!/bin/bash
+
+pushd `dirname $0` > /dev/null
+
+L=`basename $0`
+D='+[%Y-%m-%d %H:%M:%S]'
+
+COMMAND=$1
+shift
+
+SERVICE=${COMMAND%/*}
+if [ "$SERVICE" = "" ]; then
+  echo "$(date "$D") [$L] : Usage: $L SERVICE[/APPLICATION]"
+  exit 1
+fi
+
+CONFIG=`readlink -f "../etc/services/$SERVICE.ini"`
+if [ ! -f "$CONFIG" ]; then
+  echo "$(date "$D") [$L] : The service \"$SERVICE\" is not configured (no \"$SERVICE.ini\" in \"etc/services\")"
+  exit 3
+fi
+
+COMPONENT=${COMMAND:$[${#SERVICE}+1]}
+if [ "$COMPONENT" = "" ]; then
+  IFS_PREVIOUS=$IFS
+  IFS='
+'
+  COMPONENTS=( $( < "$CONFIG" ) )
+  IFS=$IFS_PREVIOUS
+else
+  COMPONENTS=(${COMPONENT})
+fi
+
+for (( i=0;i<${#COMPONENTS[@]};i++)); do
+  COMPONENT=${COMPONENTS[${i}]}
+
+  BINARY=`readlink -f "../bin/$COMPONENT"`
+  if [ ! -x "$BINARY" ]; then
+    echo "$(date "$D") [$L] : \"$BINARY\" does not exist or is not executable"
+    exit 4
+  fi
+
+  FULL=$SERVICE/$COMPONENT
+  FULL_N=${FULL//\//_}
+
+  STOPFILE="/tmp/whispercast.$FULL_N.stop"
+
+  CMD="$BINARY --undefok=service --service=$SERVICE --logdir=../var/log/$SERVICE --flagfile=../etc/ini/$FULL.ini"
+  START="./start_ $SERVICE $COMPONENT"
+
+  echo "$(date "$D") [$L] : Creating stop file (\"$STOPFILE\")"
+  touch $STOPFILE
+  echo "$(date "$D") [$L] : Killing \"$FULL\"..."
+  pkill -INT -f "$CMD" > /dev/null 2>&1
+  echo "$(date "$D") [$L] : Done"
+  echo -n "$(date "$D") [$L] : Waiting for \"$FULL\"..."
+
+  COUNT=0
+  BUTCHERED=0
+  while [ "$BUTCHERED" -eq 0 ];
+  do
+    while (`pgrep -f "$START" > /dev/null 2>&1` || `pgrep -f "$CMD" > /dev/null 2>&1`) && [ "$COUNT" -lt 30 ];
+    do
+      echo -n ".";
+      sleep 1;
+      COUNT=$(( $COUNT+1 ))
+    done
+    if `pgrep -f "$START\$" > /dev/null 2>&1` || `pgrep -f "$CMD" > /dev/null`; then
+      echo
+      echo "$(date "$D") [$L] : Butchering \"$FULL\" and children.."
+      pkill -KILL -f "$CMD" > /dev/null 2>&1
+      echo "$(date "$D") [$L] : Done";
+      echo -n "$(date "$D") [$L] : Waiting for \"$FULL\"..."
+      COUNT=0
+    else
+      BUTCHERED=1
+    fi
+  done
+
+  echo
+  echo "$(date "$D") [$L] : Done"
+  echo "$(date "$D") [$L] : Removing stop file (\"$STOPFILE\")"
+  rm -f $STOPFILE
+done
+
+popd > /dev/null

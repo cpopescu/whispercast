@@ -1,0 +1,70 @@
+#!/bin/bash
+
+pushd `dirname $0` > /dev/null
+
+L=`basename $0`
+D='+[%Y-%m-%d %H:%M:%S]'
+
+COMMAND=$1
+shift
+
+SERVICE=${COMMAND%/*}
+if [ "$SERVICE" = "" ]; then
+  echo "$(date "$D") [$L] : Usage: $L SERVICE[/APPLICATION]"
+  exit 1
+fi
+
+COMPONENT=${COMMAND:$[${#SERVICE}+1]}
+if [ "$COMPONENT" = "" ]; then
+  SERVICE_FILE=="../etc/services/$SERVICE.ini"
+  CONFIG=$(readlink ${SERVICE_FILE} || echo ${SERVICE_FILE})
+  if [ ! -f "$CONFIG" ]; then
+    echo "$(date "$D") [$L] : The service \"$SERVICE\" is not configured (no \"$SERVICE.ini\" in \"etc/services\")"
+    exit 3
+  fi
+  IFS_PREVIOUS=$IFS
+  IFS='
+'
+  COMPONENTS=( $( < "$CONFIG" ) )
+  IFS=$IFS_PREVIOUS
+else
+  COMPONENTS=(${COMPONENT})
+fi
+
+is_running() {
+  SERVICE=$1
+  COMPONENT=$2
+  if which pgrep ; then
+    return `pgrep -f "\.\/start_ $SERVICE $COMPONENT\$" > /dev/null`
+  else
+    return `ps -axwww | grep -w -v grep | grep "\.\/start_ $SERVICE $COMPONENT\$" > /dev/null`
+  fi
+}
+
+
+for (( i=0;i<${#COMPONENTS[@]};i++)); do
+  COMPONENT=${COMPONENTS[${i}]}
+
+  BINARY=$(readlink "../bin/${COMPONENT}" || echo "../bin/${COMPONENT}")
+  if [ ! -x "$BINARY" ]; then
+    echo "$(date "$D") [$L] : \"$BINARY\" does not exist or is not executable"
+    exit 4
+  fi
+
+  FULL=$SERVICE/$COMPONENT
+  FULL_N=${FULL//\//_}
+
+  STOPFILE="/tmp/whispercast.$FULL_N.stop"
+
+  echo -n "$(date "$D") [$L] : Checking if \"$FULL\" is running... "
+  if ! is_running $SERVICE $COMPONENT ; then
+    echo " - not running, starting it now..."
+    rm -f $STOPFILE
+    ./start_ $SERVICE $COMPONENT > /dev/null 2>&1 >> "../var/log/$FULL-runner.LOG" &
+    echo "$(date "$D") [$L] : Done"
+  else
+    echo " - already running."
+  fi
+done
+
+popd > /dev/null

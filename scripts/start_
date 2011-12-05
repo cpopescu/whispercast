@@ -1,0 +1,72 @@
+#!/bin/bash
+
+L=`basename $0`
+D='+[%Y-%m-%d %H:%M:%S]'
+
+SERVICE=$1
+shift
+COMPONENT=$1
+shift
+
+if [ "$SERVICE" = "" ] || [ "$COMPONENT" = "" ]; then
+  echo "$(date "$D") [$L] : Usage: $L SERVICE COMPONENT"
+  exit 1
+fi
+
+BINARY=`readlink "../bin/$COMPONENT" || echo "../bin/$COMPONENT" `
+if [ ! -x "$BINARY" ]; then
+  echo "$(date "$D") [$L] : \"$BINARY\" does not exist or is not executable"
+  exit 4
+fi
+
+FULL=$SERVICE/$COMPONENT
+FULL_N=${FULL//\//_}
+
+STOPFILE="/tmp/whispercast.$FULL_N.stop"
+
+CMD="$BINARY --undefok=service --service=$SERVICE --logdir=../var/log/$SERVICE --flagfile=../etc/ini/$FULL.ini"
+
+echo "$(date "$D") [$L] : Killing all previous \"$FULL\" processes..."
+pkill -INT -f "$CMD" > /dev/null 2>&1
+echo "$(date "$D") [$L] : Done"
+echo -n "$(date "$D") [$L] : Waiting for \"$FULL\"..." 
+while `pgrep -f "$CMD" > /dev/null 2>&1`;
+do
+  echo -n ".";
+  sleep 1;
+done
+
+echo
+echo "$(date "$D") [$L] : Done"
+`sleep 1`
+
+LOOP=1
+while [[ $LOOP -gt 0 ]]; do
+  echo -n "$(date "$D") [$L] : Testing for stop file (\"$STOPFILE\") => ";
+  if [ -e $STOPFILE ]; then
+
+    echo "Found"
+    LOOP=0
+
+  else
+
+    echo "Not found"
+
+    echo "$(date "$D") [$L] : Setting max thread stack size to 2MB...";
+    ulimit -s 1024 > /dev/null
+
+    echo "$(date "$D") [$L] : Executing \"$CMD\"..";
+    `./shell $CMD 2>> ../var/log/$FULL-stderr.LOG`
+    `sleep 1`
+    echo "$(date "$D") [$L] : Process terminated...";
+
+    LOG=0
+    while [ -e "../var/log/$FULL.LOG.$LOG" ]; do
+      let LOG=LOG+1
+    done
+    echo "Executing mv ../var/log/$FULL.LOG ../var/log/$FULL.LOG.$LOG"
+    `mv ../var/log/$FULL.LOG ../var/log/$FULL.LOG.$LOG`
+
+  fi
+
+done

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+WD=`dirname $0`
+#..which is "BASE/etc/scripts/NAME/admin"
+
+ID="$2"
+
+if [ "true" = "$3" ]; then
+  cd "$WD/../../../../var/media/@@@NAME@@@/0/public/files"
+  ln -sf "../../private/files/$ID" "$ID"
+fi

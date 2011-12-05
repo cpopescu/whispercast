@@ -1,0 +1,44 @@
+#!/bin/bash
+WHISPERCAST_DIR="`readlink -f $(dirname \"$0\")`/.."
+
+# base path under which dirs are installed
+if test ! -e $WHISPERCAST_DIR; then
+  echo "$WHISPERCAST_DIR does not exist !"
+  exit
+fi
+
+# set up a bunch of paths
+export PATH=$WHISPERCAST_DIR/bin:$WHISPERCAST_DIR/lib/gstreamer/bin:$PATH
+
+# /some/path: makes the dynamic linker look in . too, so avoid this
+export LD_LIBRARY_PATH=$WHISPERCAST_DIR/lib:$WHISPERCAST_DIR/lib/gstreamer/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+export DYLD_LIBRARY_PATH=$WHISPERCAST_DIR/lib:$WHISPERCAST_DIR/lib/gstreamer/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}
+
+export PKG_CONFIG_PATH=$WHISPERCAST_DIR/lib/gstreamer/lib/pkgconfig:${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
+export GST_PLUGIN_PATH=$WHISPERCAST_DIR/lib/gstreamer/lib${GST_PLUGIN_PATH:+:$GST_PLUGIN_PATH}
+# don't use any system-installed plug-ins at all
+export GST_PLUGIN_SYSTEM_PATH=
+# set our registry somewhere else so we don't mess up the registry generated
+# by an installed copy
+export GST_REGISTRY=$WHISPERCAST_DIR/lib/gstreamer/registry.xml
+# once MANPATH is set, it needs at least an "empty"component to keep pulling
+# in the system-configured man paths from man.config
+# this still doesn't make it work for the uninstalled case, since man goes
+# look for a man directory "nearby" instead of the directory I'm telling it to
+export MANPATH=$WHISPERCAST_DIR/lib/gstreamer/share/man${MANPATH:+:$MANPATH}
+
+# if we got a command, run it, else start a shell
+if test ! -z "$1";
+then
+  $@
+  exit $?
+fi
+
+# set up prompt to help us remember we're in a subshell and start $SHELL
+shell=$SHELL
+if test "x$SHELL" == "x/bin/bash"
+then
+  # debian/ubuntu resets our PS1.  bastards.
+  shell="$SHELL --noprofile --norc -i"
+fi
+PS1="\[\033[01;31m\][whispercast]\[\033[00m\]\n\u@\h:\w\$ " $shell
