@@ -1,0 +1,7 @@
+Whispercast Streaming server and libraries:
+- whisperlib/ - general utility library
+- whisperstreamlib/ - streaming library (public)
+- whispercast/ - the server binary
+
+
+
