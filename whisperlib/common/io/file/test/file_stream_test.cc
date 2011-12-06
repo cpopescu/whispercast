@@ -59,8 +59,8 @@ void TestFile(int32 num_ints,
         buffer[i] = last_num_write;
         last_num_write++;
       }
-      LOG(10) << "Writing " << crt_ints
-              << " from: " << buffer[0] << " to " << buffer[crt_ints-1];
+      VLOG(10) << "Writing " << crt_ints
+               << " from: " << buffer[0] << " to " << buffer[crt_ints-1];
       const int32 cbwrite = out.Write(buffer, crt_ints * sizeof(*buffer));
       CHECK_EQ(cbwrite, crt_ints * sizeof(*buffer));
       expected_size += crt_ints * sizeof(*buffer);
@@ -79,9 +79,9 @@ void TestFile(int32 num_ints,
       CHECK_EQ(in.Readable(), expected_size);
       const int32 cbread = in.Read(buffer, crt_ints * sizeof(*buffer));
       const int32 ints_read = cbread / sizeof(*buffer);
-      LOG(10) << "Read " << crt_ints << " got " << cbread
-              << " (" << ints_read << ") "
-              << " from: " << buffer[0] << " to " << buffer[ints_read-1];
+      VLOG(10) << "Read " << crt_ints << " got " << cbread
+               << " (" << ints_read << ") "
+               << " from: " << buffer[0] << " to " << buffer[ints_read-1];
       CHECK_EQ(cbread, min(static_cast<int64>(sizeof(*buffer) * crt_ints),
                            expected_size));
       expected_size -= cbread;

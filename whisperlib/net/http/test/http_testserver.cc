@@ -82,7 +82,7 @@ DEFINE_bool(dlog_level,
             false,
             "Log more stuff ?");
 
-#define LOG_TEST LOG(-1)
+#define LOG_TEST LOG(INFO)
 
 //////////////////////////////////////////////////////////////////////
 //

@@ -78,7 +78,7 @@ class StreamRenamerCallbackData : public streaming::FilteringCallbackData {
           break;
         }
       }
-      LOG(10) << "StreamRenamerElement renamed: \"" << old_stream_name
+      VLOG(10) << "StreamRenamerElement renamed: \"" << old_stream_name
         << "\" to \"" << new_stream_name << "\", \"" << old_path
         << "\" to \"" << new_path << "\"...";
 
@@ -140,7 +140,7 @@ FilteringCallbackData* StreamRenamerElement::CreateCallbackData(
 bool StreamRenamerElement::AddRequest(const char* media,
                                       streaming::Request* req,
                                       streaming::ProcessingCallback* callback) {
-  LOG(10) << "StreamRenamerElement adding callback for name: ["
+  VLOG(10) << "StreamRenamerElement adding callback for name: ["
           << name() << "]";
   if ( !FilteringElement::AddRequest(media, req, callback) ) {
     return false;

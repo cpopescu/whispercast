@@ -64,7 +64,7 @@ class StateKeeper {
   // ops_log_level: log add/del/modify operations on this level (just for debug)
   // returns success.
   static bool ReadState(const string& state_dir, const string& state_name,
-      map<string, string>* out, int32 ops_log_level,
+      map<string, string>* out, bool ops_log,
       int32 block_size, int32 blocks_per_file);
 
  public:

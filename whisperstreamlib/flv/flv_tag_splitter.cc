@@ -44,15 +44,6 @@
 
 namespace streaming {
 
-#define SPLIT_LOG(n)   LOG(n) << "[" << name_ << "]: "
-#define SPLIT_DLOG(n) DLOG(n) << "[" << name_ << "]: "
-
-#define SPLIT_LOG_DEBUG    SPLIT_LOG(LDEBUG)
-#define SPLIT_LOG_INFO     SPLIT_LOG(LINFO)
-#define SPLIT_LOG_WARNING  SPLIT_LOG(LWARNING)
-#define SPLIT_LOG_ERROR    SPLIT_LOG(LERROR)
-#define SPLIT_LOG_FATAL    SPLIT_LOG(LFATAL)
-
 const TagSplitter::Type FlvTagSplitter::kType = TagSplitter::TS_FLV;
 
 FlvTagSplitter::FlvTagSplitter(const string& name)
@@ -80,7 +71,7 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
     *tag = tags_to_send_next_.front();
     tags_to_send_next_.pop_front();
 
-    SPLIT_DLOG(10) << "Next tag: " << (*tag)->ToString();
+    VLOG(10) << "Next tag: " << (*tag)->ToString();
     return READ_OK;
   }
 
@@ -101,11 +92,11 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
     scoped_ref<FlvHeader> header;
     TagReadStatus err = FlvCoder::DecodeHeader(in, &header, &cb);
     if ( err != READ_OK ) {
-      SPLIT_LOG_ERROR << "Failed to decode header: " << TagReadStatusName(err);
+      LOG_ERROR << "Failed to decode header: " << TagReadStatusName(err);
       return err;
     }
     CHECK_NOT_NULL(header.get());
-    SPLIT_DLOG(10) << "Decoded FLV header: " << header->ToString();
+    VLOG(10) << "Decoded FLV header: " << header->ToString();
 
     has_audio_ = header->has_audio();
     has_video_ = header->has_video();
@@ -115,7 +106,7 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
       return READ_SKIP;
     }
     *tag = header.get();
-    SPLIT_DLOG(10) << "Next tag: " << (*tag)->ToString();
+    VLOG(10) << "Next tag: " << (*tag)->ToString();
     return READ_OK;
   }
 
@@ -127,7 +118,7 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
   TagReadStatus result = FlvCoder::DecodeTag(in, &flv_tag, &cb);
   if ( result != READ_OK ) {
     if ( result != READ_NO_DATA ) {
-      SPLIT_LOG_ERROR << "Failed to decode tag: " << TagReadStatusName(result);
+      LOG_ERROR << "Failed to decode tag: " << TagReadStatusName(result);
     }
     if ( result == READ_NO_DATA && is_eos && bootstrapping_ ) {
       EndBootstrapping();
@@ -215,12 +206,12 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
       util::ExtractMediaInfoFromFlv(*first_metadata_.get(),
           first_audio_.get(), first_video_.get(), &media_info_);
 
-      SPLIT_LOG_DEBUG << media_info_.ToString();
+      LOG_DEBUG << media_info_.ToString();
       media_info_extracted_ = true;
     }
     if ( tags_to_send_next_.size() > kMediaInfoMaxWait ) {
-      SPLIT_LOG_ERROR << "Failed to extract media info, in the first "
-                      << kMediaInfoMaxWait << " tags";
+      LOG_ERROR << "Failed to extract media info, in the first "
+                << kMediaInfoMaxWait << " tags";
       media_info_extracted_ = true;
     }
   }
@@ -237,7 +228,7 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
   tag_timestamp_ms_ = flv_tag->timestamp_ms();
   *tag = flv_tag.get();
 
-  SPLIT_DLOG(10) << "Next tag: " << (*tag)->ToString();
+  VLOG(10) << "Next tag: " << (*tag)->ToString();
   return READ_OK;
 }
 
@@ -317,6 +308,6 @@ void FlvTagSplitter::UpdateMetadata(FlvTag::Metadata& metadata) {
   }
   metadata.mutable_values()->Erase("cuePoints");
 
-  SPLIT_DLOG(8) << "Metadata adjusted to: \n" << metadata.ToString();
+  VLOG(8) << "Metadata adjusted to: \n" << metadata.ToString();
 }
 }

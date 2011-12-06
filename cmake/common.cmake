@@ -122,9 +122,9 @@ endif (CMAKE_BUILD_TYPE STREQUAL "Debug")
 if (APPLE)
    SET(CMAKE_SHARED_MODULE_CREATE_CXX_FLAGS
        "${CMAKE_SHARED_MODULE_CREATE_CXX_FLAGS} -flat_namespace -undefined suppress")
-   set (COMMON_LINK_LIBRARIES pthread stdc++)
+   set (COMMON_LINK_LIBRARIES pthread glog gflags stdc++)
 else (APPLE)
-   set (COMMON_LINK_LIBRARIES pthread crypt)
+   set (COMMON_LINK_LIBRARIES pthread glog gflags crypt)
 endif (APPLE)
 
 ######################################################################
@@ -158,6 +158,19 @@ if (Icu_LIBRARY_PATH)
   set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${Icu_LIBRARY_PATH}")
 endif (Icu_LIBRARY_PATH)
 
+######################################################################
+
+find_package(Gflags REQUIRED)
+if (Gflags_LIBRARY_PATH)
+  set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${Gflags_LIBRARY_PATH}")
+  set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${Gflags_LIBRARY_PATH}")
+endif (Gflags_LIBRARY_PATH)
+
+find_package(Glog REQUIRED)
+if (Glog_LIBRARY_PATH)
+  set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${Glog_LIBRARY_PATH}")
+  set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${Glog_LIBRARY_PATH}")
+endif (Glog_LIBRARY_PATH)
 
 ######################################################################
 

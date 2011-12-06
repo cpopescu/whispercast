@@ -76,8 +76,8 @@ void TestPipeStyle(int64 initial_ints,     // we write initially these many ints
         buffer[i] = last_num_write;
         last_num_write++;
       }
-      LOG(10) << "Writing " << crt_ints
-              << " from: " << buffer[0] << " to " << buffer[crt_ints-1];
+      VLOG(10) << "Writing " << crt_ints
+               << " from: " << buffer[0] << " to " << buffer[crt_ints-1];
       const int32 cbwrite = stream.Write(buffer, crt_ints * sizeof(*buffer));
       CHECK_EQ(cbwrite, crt_ints * sizeof(*buffer));
       expected_size += crt_ints * sizeof(*buffer);
@@ -86,9 +86,9 @@ void TestPipeStyle(int64 initial_ints,     // we write initially these many ints
       CHECK_EQ(stream.Size(), expected_size);
       const int32 cbread = stream.Read(buffer, crt_ints * sizeof(*buffer));
       const int32 ints_read = cbread / sizeof(*buffer);
-      LOG(10) << "Read " << crt_ints << " got " << cbread
-              << " (" << ints_read << ") "
-              << " from: " << buffer[0] << " to " << buffer[ints_read-1];
+      VLOG(10) << "Read " << crt_ints << " got " << cbread
+               << " (" << ints_read << ") "
+               << " from: " << buffer[0] << " to " << buffer[ints_read-1];
       CHECK_EQ(cbread, min(static_cast<int64>(sizeof(*buffer) * crt_ints),
                            expected_size));
       expected_size -= cbread;
@@ -112,7 +112,7 @@ int32 GenerateRecord(io::MemoryStream* buf,
       left_ints,
       static_cast<int32>(rand_r(&rand_seed) %
                          (max_add_record_size / sizeof(int32))));
-  LOG(10) << " Generating a record of " << rec_size << " int32.";
+  VLOG(10) << " Generating a record of " << rec_size << " int32.";
   int32* p = out_buf;
   for ( int32 i = 0; i < rec_size; ++i ) {
     *p++ = rand_r(&rand_seed);
@@ -132,7 +132,7 @@ void CheckRecords(io::MemoryStream* buf,
         left_ints,
         static_cast<int32>(rand_r(&rand_seed) % (max_read_record_size /
                                      sizeof(*check_buf))));
-    LOG(10) << " Checking a record of " << rec_size << " int32.";
+    VLOG(10) << " Checking a record of " << rec_size << " int32.";
     const int32 size = rec_size * sizeof(*check_buf);
     string s;
     buf->ReadString(&s, size);

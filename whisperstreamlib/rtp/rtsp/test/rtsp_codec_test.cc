@@ -11,7 +11,7 @@ DEFINE_string(sample_messages,
               "",
               "File containing RTSP messages");
 
-#define LOG_TEST LOG(-1)
+#define LOG_TEST LOG(INFO)
 
 uint32 RandomUInt(uint32 max = kMaxUInt32) {
   return ::rand() % max;

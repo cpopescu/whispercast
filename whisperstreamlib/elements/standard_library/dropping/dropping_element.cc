@@ -417,7 +417,7 @@ FilteringCallbackData* DroppingElement::CreateCallbackData(
 bool DroppingElement::AddRequest(const char* media,
                                  streaming::Request* req,
                                  streaming::ProcessingCallback* callback) {
-  LOG(10) << "DroppingElement adding callback for name: [" << name() << "]";
+  VLOG(10) << "DroppingElement adding callback for name: [" << name() << "]";
   if ( !FilteringElement::AddRequest(media, req, callback) ) {
     return false;
   }

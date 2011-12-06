@@ -199,7 +199,7 @@ streaming::TagReadStatus Mp3FrameTag::ExtractHeader(
   }
   */
 
-  DLOG(10) << "Extracted an MP3 header: " << ToString();
+  VLOG(10) << "Extracted an MP3 header: " << ToString();
   return streaming::READ_OK;
 }
 

@@ -63,7 +63,7 @@ DEFINE_int32(num_packets_per_client,
              3,
              "The number of packets a client should send.");
 
-#define LOG_TEST LOG(-1) << ClassName() << "("\
+#define LOG_TEST LOG(INFO) << ClassName() << "("        \
   << (this->udp_connection_ == NULL ? 0 : \
       this->udp_connection_->local_addr().port()) << "): "
 

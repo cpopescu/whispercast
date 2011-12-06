@@ -56,27 +56,6 @@ DEFINE_int32(http_max_write_ahead_ms,
              "We keep the HTTP stream "
              "at most this much ahead of the real time");
 
-DEFINE_int32(http_connection_log_level,
-             1,
-             "The log level of messages for RTMP connections");
-
-#define HTTP_LOG(level) if ( FLAGS_http_connection_log_level < level ); \
-                        else LOG(level) << "INFO " << ": "
-#define HTTP_DLOG(level) if ( FLAGS_http_connection_log_level < level ); \
-                         else DLOG(level) << "INFO " << ": "
-
-#define HTTP_LOG_DEBUG   HTTP_LOG(LDEBUG)
-#define HTTP_LOG_INFO    HTTP_LOG(LINFO)
-#define HTTP_LOG_WARNING HTTP_LOG(LWARNING)
-#define HTTP_LOG_ERROR   HTTP_LOG(LERROR)
-#define HTTP_LOG_FATAL   HTTP_LOG(LFATAL)
-
-#define HTTP_DLOG_DEBUG   HTTP_DLOG(LDEBUG)
-#define HTTP_DLOG_INFO    HTTP_DLOG(LINFO)
-#define HTTP_DLOG_WARNING HTTP_DLOG(LWARNING)
-#define HTTP_DLOG_ERROR   HTTP_DLOG(LERROR)
-#define HTTP_DLOG_FATAL   HTTP_DLOG(LFATAL)
-
 //////////////////////////////////////////////////////////////////////
 
 StreamRequest::StreamRequest(int64 connection_id,
@@ -199,7 +178,7 @@ void StreamRequest::AuthorizeCompleted(int64 seek_time_ms,
 }
 
 void StreamRequest::OnStreamNotFound() {
-  HTTP_LOG_DEBUG << "Notifying STREAM NOT FOUND";
+  VLOG(LDEBUG) << "Notifying STREAM NOT FOUND";
 
   IncRef();
   net_selector_->RunInSelectLoop(
@@ -207,7 +186,7 @@ void StreamRequest::OnStreamNotFound() {
           http::NOT_FOUND));
 }
 void StreamRequest::OnTooManyClients() {
-  HTTP_LOG_DEBUG << "Notifying TOO MANY CLIENTS";
+  VLOG(LDEBUG) << "Notifying TOO MANY CLIENTS";
 
   IncRef();
   net_selector_->RunInSelectLoop(
@@ -215,7 +194,7 @@ void StreamRequest::OnTooManyClients() {
           http::NOT_ACCEPTABLE));
 }
 void StreamRequest::OnAuthorizationFailed() {
-  HTTP_LOG_DEBUG << "Notifying AUTHORIZATION FAILED";
+  VLOG(LDEBUG) << "Notifying AUTHORIZATION FAILED";
 
   IncRef();
   net_selector_->RunInSelectLoop(
@@ -223,7 +202,7 @@ void StreamRequest::OnAuthorizationFailed() {
           http::UNAUTHORIZED));
 }
 void StreamRequest::OnReauthorizationFailed() {
-  HTTP_LOG_DEBUG << "Notifying REAUTHORIZATION FAILED";
+  VLOG(LDEBUG) << "Notifying REAUTHORIZATION FAILED";
 
   IncRef();
   net_selector_->RunInSelectLoop(
@@ -231,7 +210,7 @@ void StreamRequest::OnReauthorizationFailed() {
           http::UNAUTHORIZED));
 }
 void StreamRequest::OnAddRequestFailed() {
-  HTTP_LOG_DEBUG << "Notifying ADD REQUEST FAILED";
+  VLOG(LDEBUG) << "Notifying ADD REQUEST FAILED";
 
   IncRef();
   net_selector_->RunInSelectLoop(
@@ -240,10 +219,10 @@ void StreamRequest::OnAddRequestFailed() {
 }
 
 void StreamRequest::OnPlay() {
-  HTTP_LOG_DEBUG << "Notifying PLAY";
+  VLOG(LDEBUG) << "Notifying PLAY";
 }
 void StreamRequest::OnTerminate(const char* reason) {
-  HTTP_LOG_DEBUG << "Notifying " << reason;
+  VLOG(LDEBUG) << "Notifying " << reason;
 
   // we're assuming reauthorization time-out
   net_selector_->RunInSelectLoop(
@@ -267,8 +246,8 @@ void StreamRequest::SetNotifyReady() {
   if ( http_request_ == NULL ) {
     return;
   }
-  HTTP_LOG_INFO << "SetNotifyReady outbuf_size: "
-                << http_request_->pending_output_bytes();
+  VLOG(LINFO) << "SetNotifyReady outbuf_size: "
+              << http_request_->pending_output_bytes();
   http_request_->set_ready_callback(
       NewCallback(this, &StreamRequest::ResumeLocalizedTags),
       http_request_->protocol_params().max_reply_buffer_size_/4);

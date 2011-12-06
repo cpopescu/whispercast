@@ -49,22 +49,13 @@
 
 namespace rtmp {
 
-#define RTMP_LOG(level) if ( flags()->log_level_ < level ); \
-                        else LOG(level) << info() << ": "
-#define RTMP_DLOG(level) if ( flags()->log_level_ < level ); \
-                         else DLOG(level) << info() << ": "
-
-#define RTMP_LOG_DEBUG   RTMP_LOG(LDEBUG)
-#define RTMP_LOG_INFO    RTMP_LOG(LINFO)
-#define RTMP_LOG_WARNING RTMP_LOG(LWARNING)
-#define RTMP_LOG_ERROR   RTMP_LOG(LERROR)
-#define RTMP_LOG_FATAL   RTMP_LOG(LFATAL)
-
-#define RTMP_DLOG_DEBUG   RTMP_DLOG(LDEBUG)
-#define RTMP_DLOG_INFO    RTMP_DLOG(LINFO)
-#define RTMP_DLOG_WARNING RTMP_DLOG(LWARNING)
-#define RTMP_DLOG_ERROR   RTMP_DLOG(LERROR)
-#define RTMP_DLOG_FATAL   RTMP_DLOG(LFATAL)
+#define RTMP_PROTO_LOG(level) if ( flags()->log_level_ < level ); \
+  else LOG(INFO) << info() << ": "
+#define RTMP_PROTO_LOG_DEBUG   RTMP_PROTO_LOG(LDEBUG)
+#define RTMP_PROTO_LOG_INFO    RTMP_PROTO_LOG(LINFO)
+#define RTMP_PROTO_LOG_WARNING RTMP_PROTO_LOG(LWARNING)
+#define RTMP_PROTO_LOG_ERROR   RTMP_PROTO_LOG(LERROR)
+#define RTMP_PROTO_LOG_FATAL   RTMP_PROTO_LOG(LFATAL)
 
 
 //////////////////////////////////////////////////////////////////////
@@ -248,7 +239,7 @@ void Protocol::CloseConnection() {
 
 void Protocol::NotifyConnectionClose() {
   DCHECK(net_selector_->IsInSelectThread());
-  RTMP_LOG_INFO << "Connection closed underneath, runtime: "
+  RTMP_PROTO_LOG_INFO << "Connection closed underneath, runtime: "
                 << (timer::Date::Now() -
                       connection_begin_stats().timestamp_utc_ms_.get())
                 << " ms";
@@ -297,7 +288,7 @@ Protocol::Result Protocol::DoHandshakeInit(io::MemoryStream* in) {
   }
   uint32 first_byte = io::NumStreamer::ReadByte(in);
   if ( first_byte != kHandshakeLeadByte ) {
-    RTMP_LOG_ERROR << "Invalid handshake first byte: "
+    RTMP_PROTO_LOG_ERROR << "Invalid handshake first byte: "
                    << strutil::StringPrintf("0x%02x", first_byte)
                    << ", expected: "
                    << strutil::StringPrintf("0x%02x", kHandshakeLeadByte);
@@ -312,7 +303,7 @@ Protocol::Result Protocol::DoHandshakeInit(io::MemoryStream* in) {
   if ( !PrepareServerHandshake(client_data, kHandshakeSize, &server_response) ) {
     delete [] client_data;
 
-    RTMP_LOG_ERROR << "Cannot generate server response on RTMP handshake";
+    RTMP_PROTO_LOG_ERROR << "Cannot generate server response on RTMP handshake";
     return RESULT_ERROR;
   }
 
@@ -363,8 +354,9 @@ Protocol::Result Protocol::ProcessConnectionData(io::MemoryStream* in) {
       return RESULT_NO_DATA;
     }
     if ( err != AmfUtil::READ_OK ) {
-      RTMP_LOG_ERROR << "Error decoding event: " << AmfUtil::ReadStatusName(err)
-                     << ", state_: " << state_name();
+      RTMP_PROTO_LOG_ERROR << "Error decoding event: "
+                           << AmfUtil::ReadStatusName(err)
+                           << ", state_: " << state_name();
       return RESULT_ERROR;
     }
 
@@ -381,7 +373,7 @@ Protocol::Result Protocol::ProcessConnectionData(io::MemoryStream* in) {
           static_cast<rtmp::EventChunkSize*>(event)->chunk_size();
       if ( chunk_size < kMaxChunkSize ) {
         //synch::MutexLocker l(&mutex_);
-        RTMP_LOG_INFO << "Setting chunk size to: " << chunk_size;
+        RTMP_PROTO_LOG_INFO << "Setting chunk size to: " << chunk_size;
         protocol_data_.set_read_chunk_size(chunk_size);
       }
       continue;
@@ -484,7 +476,7 @@ void Protocol::ProcessEvent(rtmp::Event* event, bool dec_ref) {
       is_ok = InvokePlay(invoke);
     }
   } else if (event->event_type() == EVENT_BYTES_READ ) {
-    RTMP_LOG_DEBUG << "Ignoring event: " << *event;
+    RTMP_PROTO_LOG_DEBUG << "Ignoring event: " << *event;
 
     is_handled = true;
     is_ok = true;
@@ -503,13 +495,13 @@ void Protocol::ProcessEvent(rtmp::Event* event, bool dec_ref) {
       is_handled = true;
       is_ok = InvokeUnhandled(static_cast<rtmp::EventInvoke *>(event));
     } else {
-      RTMP_LOG_WARNING << "Unhandled event: " << event->ToString();
+      RTMP_PROTO_LOG_WARNING << "Unhandled event: " << event->ToString();
       is_ok = true;
     }
   }
 
   if ( !is_ok ) {
-    RTMP_LOG_ERROR << "Error processing event: " << event->ToString()
+    RTMP_PROTO_LOG_ERROR << "Error processing event: " << event->ToString()
                    << ", closing protocol...";
     CloseProtocol();
   }
@@ -534,7 +526,7 @@ bool Protocol::InvokeConnect(rtmp::EventInvoke* invoke) {
        CObject::CORE_STRING_MAP ) {
     const CStringMap* params =
         static_cast<const CStringMap*>(invoke->connection_params());
-    RTMP_LOG_INFO << "RTMP Connect params: "
+    RTMP_PROTO_LOG_INFO << "RTMP Connect params: "
                   << (params == NULL ? "NULL" : params->ToString().c_str());
     CStringMap::Map::const_iterator it = params->data().find("objectEncoding");
     if ( it != params->data().end() && it->second != NULL &&
@@ -543,7 +535,7 @@ bool Protocol::InvokeConnect(rtmp::EventInvoke* invoke) {
           static_cast<const CNumber*>(it->second)->int_value();
       if ( object_encoding != 0 &&
            object_encoding != 3 ) {
-        RTMP_LOG_WARNING << "Invalid object encoding: [ " << object_encoding
+        RTMP_PROTO_LOG_WARNING << "Invalid object encoding: [ " << object_encoding
             << " ], event: " << invoke->ToString();
         object_encoding = -1;
       }
@@ -555,7 +547,7 @@ bool Protocol::InvokeConnect(rtmp::EventInvoke* invoke) {
           static_cast<const CString*>(it->second)->value());
       URL tc_url(app_url);
       if ( tc_url.path().empty() ) {
-        RTMP_LOG_ERROR << "Invalid tcUrl: [ " << app_url
+        RTMP_PROTO_LOG_ERROR << "Invalid tcUrl: [ " << app_url
             << " ], event: " << invoke->ToString();
         return false;
       }
@@ -608,7 +600,7 @@ bool Protocol::InvokeConnect(rtmp::EventInvoke* invoke) {
 
 bool Protocol::InvokeCreateStream(rtmp::EventInvoke* invoke) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "Not connected, event: " << invoke->ToString();
     return false;
   }
 
@@ -639,7 +631,7 @@ bool Protocol::InvokeCreateStream(rtmp::EventInvoke* invoke) {
     reply->mutable_call()->set_connection_params(NULL);
     reply->mutable_call()->AddArgument(new CNumber(pending_stream_id_));
   } else {
-    RTMP_LOG_ERROR << reason << ", event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << reason << ", event: " << invoke->ToString();
 
     reply->set_call(new rtmp::PendingCall("", kMethodError));
     reply->set_invoke_id(invoke->invoke_id());
@@ -662,13 +654,13 @@ bool Protocol::InvokeCreateStream(rtmp::EventInvoke* invoke) {
 
 bool Protocol::InvokeDeleteStream(rtmp::EventInvoke* invoke) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "Not connected, event: " << invoke->ToString();
     return false;
   }
 
   if ( invoke->call()->arguments().empty() ||
        invoke->call()->arguments()[0]->object_type() != CObject::CORE_NUMBER ) {
-    RTMP_LOG_ERROR << "Bad arguments, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "Bad arguments, event: " << invoke->ToString();
     return false;
   }
 
@@ -680,7 +672,7 @@ bool Protocol::InvokeDeleteStream(rtmp::EventInvoke* invoke) {
     it->second->Close();
     return true;
   }
-  RTMP_LOG_ERROR << "Stream not found, event: " << invoke->ToString();
+  RTMP_PROTO_LOG_ERROR << "Stream not found, event: " << invoke->ToString();
   return false;
 }
 
@@ -688,19 +680,20 @@ bool Protocol::InvokeDeleteStream(rtmp::EventInvoke* invoke) {
 
 bool Protocol::InvokePublish(rtmp::EventInvoke* invoke) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "Not connected, event: " << invoke->ToString();
     return false;
   }
 
   if ( pending_stream_id_ == -1 ) {
-    RTMP_LOG_ERROR << "No stream was created, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "No stream was created, event: "
+                         << invoke->ToString();
     return false;
   }
 
   Stream* const stream = stream_manager_->CreateStream(
     next_stream_params_, this, true);
   if ( stream == NULL ) {
-    RTMP_LOG_ERROR << "Cannot create publishing stream, event: "
+    RTMP_PROTO_LOG_ERROR << "Cannot create publishing stream, event: "
                    << invoke->ToString();
     return false;
   }
@@ -721,19 +714,20 @@ bool Protocol::InvokePublish(rtmp::EventInvoke* invoke) {
 
 bool Protocol::InvokePlay(rtmp::EventInvoke* invoke) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "Not connected, event: " << invoke->ToString();
     return false;
   }
 
   if ( pending_stream_id_ == -1 ) {
-    RTMP_LOG_ERROR << "No stream was created, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "No stream was created, event: "
+                         << invoke->ToString();
     return false;
   }
 
   Stream* const stream = stream_manager_->CreateStream(
           next_stream_params_, this, false);
   if ( stream == NULL ) {
-    RTMP_LOG_ERROR << "Cannot create play stream, event: "
+    RTMP_PROTO_LOG_ERROR << "Cannot create play stream, event: "
         << invoke->ToString();
     return false;
   }
@@ -754,11 +748,11 @@ bool Protocol::InvokePlay(rtmp::EventInvoke* invoke) {
 
 bool Protocol::InvokeUnhandled(rtmp::EventInvoke* invoke) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_PROTO_LOG_ERROR << "Not connected, event: " << invoke->ToString();
     return false;
   }
 
-  RTMP_LOG_WARNING << "Unhandled event: " << invoke->ToString();
+  RTMP_PROTO_LOG_WARNING << "Unhandled event: " << invoke->ToString();
 
   rtmp::EventInvoke* reply = new rtmp::EventInvoke(
       &protocol_data_, invoke->header()->channel_id(),

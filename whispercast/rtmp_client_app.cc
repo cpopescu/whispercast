@@ -100,11 +100,10 @@ DEFINE_int32(tag_log_level,
 using namespace rtmp;
 
 #define ILOG(level)  LOG(level) << "ID " << id_ << ": "
-#define ILOG_DEBUG   ILOG(LDEBUG)
-#define ILOG_INFO    ILOG(LINFO)
-#define ILOG_WARNING ILOG(LWARNING)
-#define ILOG_ERROR   ILOG(LERROR)
-#define ILOG_FATAL   ILOG(LFATAL)
+#define ILOG_INFO    ILOG(INFO)
+#define ILOG_WARNING ILOG(WARNING)
+#define ILOG_ERROR   ILOG(ERROR)
+#define ILOG_FATAL   ILOG(FATAL)
 
 static int32 g_current_connections = 0;
 
@@ -137,7 +136,7 @@ class TestConnection {
       runtime_alarm_(*selector),
       seek_performed_(false) {
     g_current_connections++;
-    ILOG(-1) << "New client, total running clients: " << g_current_connections;
+    ILOG(INFO) << "New client, total running clients: " << g_current_connections;
     client_->set_event_log_level(FLAGS_event_log_level);
     client_->set_tag_log_level(FLAGS_tag_log_level);
     client_->set_close_handler(NewPermanentCallback(this,
@@ -165,7 +164,8 @@ class TestConnection {
   virtual ~TestConnection() {
     CHECK_GE(g_current_connections, 1);
     g_current_connections--;
-    ILOG(-1) << "Done client, total running clients: " << g_current_connections;
+    ILOG(INFO) << "Done client, total running clients: "
+               << g_current_connections;
 
     delete client_;
     client_ = NULL;
@@ -258,7 +258,7 @@ protected:
   int Initialize() {
     common::Init(argc_, argv_);
     srand ( time(NULL) );
-    
+
     CHECK_GT(FLAGS_num_connections, 0);
 
     if ( !g_time_between_connections_ms.Read(

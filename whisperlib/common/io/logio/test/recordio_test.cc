@@ -139,5 +139,5 @@ int main(int argc, char* argv[]) {
     }
   }
   CHECK_EQ(rec_id, recs.size());
-  LOG(-1) << "PASS";
+  LOG(INFO) << "PASS";
 }

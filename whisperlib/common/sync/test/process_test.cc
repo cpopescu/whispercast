@@ -38,7 +38,7 @@
 #include "common/sync/process.h"
 #include "common/base/scoped_ptr.h"
 
-#define LOG_TEST LOG(-1)
+#define LOG_TEST LOG(INFO)
 
 void ProcessTerminatedCallback(int exit_status) {
   LOG_TEST << "ProcessTerminatedCallback exit_status = " << exit_status;

@@ -561,7 +561,7 @@ class ExporterT {
 
     // maybe drop tag, update stats
     if ( drop_tag && tag->is_droppable() ) {
-      DLOG(8) << "Dropping: " << tag->ToString();
+      VLOG(8) << "Dropping: " << tag->ToString();
       if ( tag->is_video_tag() ) { stats_keeper_.video_frames_dropped_add(1); }
       if ( tag->is_audio_tag() ) { stats_keeper_.audio_frames_dropped_add(1); }
       return;

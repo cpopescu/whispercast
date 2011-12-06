@@ -90,15 +90,6 @@ DEFINE_bool(deflate,
 
 //////////////////////////////////////////////////////////////////////
 
-#define ILOG(level)  LOG(level) << info << ": "
-#define ILOG_DEBUG   ILOG(LDEBUG)
-#define ILOG_INFO    ILOG(LINFO)
-#define ILOG_WARNING ILOG(LWARNING)
-#define ILOG_ERROR   ILOG(LERROR)
-#define ILOG_FATAL   ILOG(LFATAL)
-
-//////////////////////////////////////////////////////////////////////
-
 static unsigned int g_rand_seed = 0;
 
 bool TestProbability(double prob) {
@@ -134,7 +125,7 @@ void WriterThread() {
   CHECK(writer->Initialize());
   for ( int64 rid = 0; rid < FLAGS_num_records; ++rid ) {
     if ( TestProbability(FLAGS_writer_stop_probability) ) {
-      ILOG_WARNING << "Re-opening the writer at record: " << rid;
+      LOG_WARNING << "Re-opening the writer at record: " << rid;
       delete writer;
       writer = new io::LogWriter(FLAGS_test_dir,
                                  FLAGS_test_filebase,
@@ -144,9 +135,7 @@ void WriterThread() {
                                  FLAGS_deflate);
       CHECK(writer->Initialize());
     }
-    if ( rid % 1000 == 0 ) {
-      ILOG_INFO << "Writing record: " << rid;
-    }
+    LOG_EVERY_N(INFO, 1000) << "Writing record: " << rid;
     io::MemoryStream rec;
     GenerateRecord(rid, &rec);
     CHECK(writer->WriteRecord(&rec));
@@ -164,7 +153,7 @@ void ReaderThread() {
   while ( crt_rid < FLAGS_num_records ) {
     io::LogPos pos(reader->Tell());
     if ( TestProbability(FLAGS_reader_stop_probability) ) {
-      ILOG_WARNING << "Re-opening the Reader at: " << pos.ToString();
+      LOG_WARNING << "Re-opening the Reader at: " << pos.ToString();
       delete reader;
       reader = new io::LogReader(FLAGS_test_dir.c_str(),
                                  FLAGS_test_filebase.c_str(),
@@ -174,7 +163,7 @@ void ReaderThread() {
         CHECK(reader->Seek(pos));
         CHECK(reader->Tell() == pos) << " AT: " << reader->Tell().ToString()
                                      << " vs. " << pos.ToString();
-        ILOG_INFO << "OK - > AT: " << reader->Tell().ToString();
+        VLOG(5) << "OK - > AT: " << reader->Tell().ToString();
       }
     }
     io::MemoryStream rec;
@@ -184,9 +173,7 @@ void ReaderThread() {
       continue;
     }
     CHECK(!rec.IsEmpty());
-    if ( crt_rid % 1000 == 0 ) {
-      ILOG_INFO << "Read record: " << crt_rid;
-    }
+    LOG_EVERY_N(INFO, 1000) << "Read record: " << crt_rid;
     int64 rid = VerifyRecord(&rec);
     CHECK(rid == crt_rid) << "Found rid: " << rid << ", expected: " << crt_rid;
     crt_rid++;
@@ -198,7 +185,7 @@ int main(int argc, char* argv[]) {
   g_rand_seed = FLAGS_rand_seed;
   if ( g_rand_seed == 0 ) {
     g_rand_seed = ::time(NULL);
-    LOG(-1) << "Random Seed initialized to: " << g_rand_seed;
+    LOG(INFO) << "Random Seed initialized to: " << g_rand_seed;
   }
   srand(g_rand_seed);
 

@@ -48,7 +48,7 @@
 #include <whisperstreamlib/rtp/rtp_udp_sender.h>
 #include <whisperstreamlib/rtp/rtp_broadcaster.h>
 
-#define LOG_TEST LOG(-1)
+#define LOG_TEST LOG(INFO)
 
 DEFINE_string(rtp_media_path,
               "",

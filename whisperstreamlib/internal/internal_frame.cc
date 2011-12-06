@@ -141,7 +141,7 @@ streaming::TagReadStatus InternalFrameTag::Read(io::MemoryStream* in) {
         }
 
         CHECK_EQ(in->ReadString(&data_, header_.length_), header_.length_);
-        DLOG(10) << "Extracted an internal header: " << ToString();
+        VLOG(10) << "Extracted an internal header: " << ToString();
 
         in->MarkerClear();
         return streaming::READ_OK;

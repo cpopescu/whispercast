@@ -52,7 +52,7 @@
 #include <whisperstreamlib/rtp/rtp_util.h>
 #include <whisperstreamlib/rtp/rtp_packetization.h>
 
-#define LOG_TEST LOG(-1)
+#define LOG_TEST LOG(INFO)
 
 DEFINE_string(f4v_path,
               "",

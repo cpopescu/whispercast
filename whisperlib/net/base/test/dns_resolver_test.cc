@@ -48,7 +48,7 @@ DEFINE_bool(just_server,
             false,
             "True runs only the server.");
 
-#define LOG_TEST LOG(-1)
+#define LOG_TEST LOG_INFO
 
 uint32 g_pending = 0;
 net::Selector* g_selector = NULL;

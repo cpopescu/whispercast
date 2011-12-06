@@ -33,6 +33,7 @@
 #define __NET_RPC_LIB_RPC_SERVER_EXECUTION_RPC_EXECUTION_POOL__
 
 #include <list>
+#include <whisperlib/common/base/types.h>
 #include <whisperlib/common/sync/mutex.h>
 #include <whisperlib/common/sync/event.h>
 #include <whisperlib/net/rpc/lib/server/irpc_async_query_executor.h>

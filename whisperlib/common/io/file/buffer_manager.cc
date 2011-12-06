@@ -35,18 +35,11 @@
 #include <whisperlib/common/base/date.h>
 #include <whisperlib/common/io/file/buffer_manager.h>
 
-DEFINE_int32(buffer_manager_log_level,
-             2, // log ERRORS and WARNINGS
-             "Log level for internal BufferManager messages.");
-
-#define BM_LOG(level) if ( level > FLAGS_buffer_manager_log_level );\
-                      else LOG(level)
-
-#define BM_LOG_DEBUG   BM_LOG(LDEBUG)
-#define BM_LOG_INFO    BM_LOG(LINFO)
-#define BM_LOG_WARNING BM_LOG(LWARNING)
-#define BM_LOG_ERROR   BM_LOG(LERROR)
-#define BM_LOG_FATAL   BM_LOG(LFATAL)
+#define BM_LOG_DEBUG   VLOG(10)
+#define BM_LOG_INFO    VLOG(8)
+#define BM_LOG_WARNING LOG(WARNING)
+#define BM_LOG_ERROR   LOG(ERROR)
+#define BM_LOG_FATAL   LOG(FATAL)
 
 namespace io {
 

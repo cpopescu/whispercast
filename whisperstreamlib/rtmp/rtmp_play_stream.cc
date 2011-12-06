@@ -34,9 +34,13 @@
 #include "rtmp/rtmp_play_stream.h"
 
 #define RTMP_LOG(level) if ( protocol_->flags()->log_level_ < level ); \
-                        else LOG(level) << protocol_->info() << ": "
+                        else LOG(INFO) << protocol_->info() << ": "
+#ifdef _DEBUG
 #define RTMP_DLOG(level) if ( !protocol_->flags()->log_level_ < level ); \
-                         else DLOG(level) << protocol_->info() << ": "
+                         else DLOG(INFO) << protocol_->info() << ": "
+#else
+#define RTMP_DLOG(level) LOG(INFO)
+#endif
 
 #define RTMP_LOG_DEBUG   RTMP_LOG(LDEBUG)
 #define RTMP_LOG_INFO    RTMP_LOG(LINFO)
@@ -46,9 +50,6 @@
 
 #define RTMP_DLOG_DEBUG   RTMP_DLOG(LDEBUG)
 #define RTMP_DLOG_INFO    RTMP_DLOG(LINFO)
-#define RTMP_DLOG_WARNING RTMP_DLOG(LWARNING)
-#define RTMP_DLOG_ERROR   RTMP_DLOG(LERROR)
-#define RTMP_DLOG_FATAL   RTMP_DLOG(LFATAL)
 
 // Defined in rtmp_flags.cc
 DECLARE_bool(rtmp_fancy_escape);
@@ -908,4 +909,3 @@ void PlayStream::SendMediaTag() {
 }
 
 } // namespace rtmp
-

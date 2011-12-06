@@ -36,6 +36,7 @@
 #include <limits.h>
 #include <whisperlib/common/base/log.h>
 #include <whisperlib/common/base/callback.h>
+#include <whisperlib/common/base/types.h>
 
 namespace thread {
 

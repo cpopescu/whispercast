@@ -325,7 +325,7 @@ void ClearAllFiles() {
   vector<string> files;
   re::RE re(strutil::StringPrintf("%s_.*", FLAGS_file_base.c_str()));
   io::DirList(FLAGS_dir, &files, false, &re);
-  LOG(-1) << "Clearing " << files.size() << " old files..";
+  LOG_INFO << "Clearing " << files.size() << " old files..";
   for ( uint32 i = 0; i < files.size(); i++ ) {
     io::Rm(strutil::JoinPaths(FLAGS_dir, files[i]));
   }
@@ -357,7 +357,7 @@ int main(int argc, char* argv[]) {
   map<string, string> state;
   vector<string> names;
   for ( int i = 0; i < FLAGS_num_steps; ++i ) {
-    LOG(-1) << "============= STEP : " << i;
+    LOG_INFO << "============= STEP : " << i;
     PerformStep(state, names);
   }
   LOG_INFO << "PASS";

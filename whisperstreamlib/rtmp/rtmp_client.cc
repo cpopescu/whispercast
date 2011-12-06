@@ -259,7 +259,7 @@ bool SimpleClient::ConnectionReadHandler() {
   }
   if ( state_ == StateHandshakeDone ) {
     string tcUrl;
-    
+
     rtmp::EventInvoke connect(protocol_, 3, 0);
     connect.set_call(new rtmp::PendingCall());
     connect.set_invoke_id(1);
@@ -302,18 +302,17 @@ bool SimpleClient::ConnectionReadHandler() {
       channel_time_ms_[channel] = event->header()->timestamp_ms();
     }
 
-    if ( event_log_level_ != 0 ) {
-      LOG(event_log_level_)
+    if (event_log_level_) {
+      VLOG(event_log_level_)
           << "@"
           << std::setw(8) << channel_time_ms_[channel] << std::setw(0) << "): "
           << event->ToString();
     }
-
     vector< scoped_ref<streaming::FlvTag> > tags;
     ExtractFlvTags(*event, channel_time_ms_[channel], &tags);
     for ( uint32 i = 0; i < tags.size(); i++ ) {
-      if ( tag_log_level_ != 0 ) {
-        LOG(tag_log_level_) << tags[i]->ToString();
+      if (tag_log_level_) {
+        VLOG(tag_log_level_) << tags[i]->ToString();
       }
       tags_.push_back(tags[i]);
     }

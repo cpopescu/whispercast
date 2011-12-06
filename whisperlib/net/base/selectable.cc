@@ -97,7 +97,9 @@ int32 Selectable::Write(io::MemoryStream* ms, int32 size) {
         ms->MarkerRestore();
         if ( errno == EAGAIN || errno == EWOULDBLOCK ) {
           // Not really an error for non-blocking sockets
+#ifdef _DEBUG
           DCHECK_EQ(initial_size, cb + ms->Size());
+#endif
           return cb;
         }
         return -1;
@@ -119,7 +121,9 @@ int32 Selectable::Write(io::MemoryStream* ms, int32 size) {
       LOG_FATAL << "Dumb shit: " << scratch << " -- " << ms->Size();
     }
   }
+#ifdef _DEBUG
   DCHECK_EQ(initial_size, cb + ms->Size());
+#endif
   return cb;
 }
 

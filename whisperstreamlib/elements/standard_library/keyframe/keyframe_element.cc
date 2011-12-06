@@ -281,8 +281,8 @@ FilteringCallbackData* KeyFrameExtractorElement::CreateCallbackData(
 bool KeyFrameExtractorElement::AddRequest(const char* media,
                                           streaming::Request* req,
                                           streaming::ProcessingCallback* callback) {
-  LOG(10) << "KeyFrameExtractorElement adding callback for name: ["
-          << name() << "]";
+  VLOG(10) << "KeyFrameExtractorElement adding callback for name: ["
+           << name() << "]";
   if ( !FilteringElement::AddRequest(media, req, callback) ) {
     return false;
   }

@@ -66,10 +66,10 @@ namespace net {
 
 #ifdef _DEBUG
 #  define DCONNLOG IF_NET_DEBUG LOG_DEBUG << this->PrefixInfo()
-#  define D10CONNLOG IF_NET_DEBUG LOG(10) << this->PrefixInfo()
+#  define D10CONNLOG IF_NET_DEBUG VLOG(10) << this->PrefixInfo()
 #else
 #  define DCONNLOG if ( false ) LOG_DEBUG
-#  define D10CONNLOG if ( false ) LOG(10)
+#  define D10CONNLOG if ( false ) VLOG(10)
 #endif
 
 

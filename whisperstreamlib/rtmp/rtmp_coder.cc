@@ -274,7 +274,7 @@ int Coder::EncodeWithAuxBuffer(io::MemoryStream* out,
         DLOG_INFO
           << " RTMP send event: " << *event->header() << " - " << *event;
     }
-    DLOG(10) << " Encoding an event : \n" << *event
+    VLOG(10) << " Encoding an event : \n" << *event
              << "\nHeader \n" << *event->header()
              << "\nSize: " << event_stream->Size();
   }

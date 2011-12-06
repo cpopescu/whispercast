@@ -107,7 +107,6 @@ ADD_LIBRARY (whisper_lib SHARED
   common/app/app.cc
 
   common/base/errno.cc
-  common/base/log.cc
   common/base/system.cc
   common/base/signal_handlers.cc
   common/base/strutil.cc
@@ -117,8 +116,6 @@ ADD_LIBRARY (whisper_lib SHARED
   common/base/alarm.cc
   common/base/util.cc
 
-  common/base/third-party/gflags.cc
-  common/base/third-party/gflags_reporting.cc
   common/base/third-party/string_util.cc
 
   common/io/buffer/data_block.cc
@@ -255,7 +252,6 @@ install(FILES
   common/base/errno.h
   common/base/cache.h
   common/base/free_list.h
-  common/base/gflags.h
   common/base/log.h
   common/base/parse.h
   common/base/re.h
@@ -281,7 +277,6 @@ install(FILES
   DESTINATION include/whisperlib/common/base/callback)
 
 install(FILES
-  common/base/third-party/gflags.h
   common/base/third-party/scoped_ptr.h
   common/base/third-party/string_util.h
   DESTINATION include/whisperlib/common/base/third-party)
@@ -461,10 +456,6 @@ install(FILES
   net/rpc/js/rpc_types.js
   net/rpc/js/auto_forms_log.html
   DESTINATION ${CMAKE_INSTALL_PREFIX_WWW}/js/rpc)
-
-install(FILES
-  common/base/third-party/gflags.py
-  DESTINATION scripts/python)
 
 ######################################################################
 

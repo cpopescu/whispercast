@@ -28,6 +28,6 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-// Bridge file for loading third-party/gflags.h
+// Bridge file for loading gflags.h
 
-#include <whisperlib/common/base/third-party/gflags.h>
+#include <gflags/gflags.h>

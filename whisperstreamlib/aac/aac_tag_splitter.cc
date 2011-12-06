@@ -186,7 +186,7 @@ streaming::TagReadStatus AacTagSplitter::GetNextTagInternal(
     const streaming::TagReadStatus ret =
       MaybeFinalizeFrame(tag, last_stream_.data());
     last_stream_.erase(0, frame_info_.bytesconsumed);
-    DLOG(10) << (*tag)->ToString();
+    VLOG(10) << (*tag)->ToString();
     if ( ret == streaming::READ_SKIP ) {
       continue;
     }

@@ -42,7 +42,7 @@
 
 #include <whisperstreamlib/rtp/rtsp/rtsp_simple_client.h>
 
-#define LOG_TEST LOG(-1)
+#define LOG_TEST LOG(INFO)
 
 DEFINE_string(rtsp_url,
               "",

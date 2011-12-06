@@ -36,12 +36,16 @@
 #include <whisperlib/common/io/ioutil.h>
 #include <whisperlib/common/io/checkpoint/state_keeper.h>
 
-#define ILOG(level)  LOG(level) << info()
-#define ILOG_DEBUG   ILOG(LDEBUG)
-#define ILOG_INFO    ILOG(LINFO)
-#define ILOG_WARNING ILOG(LWARNING)
-#define ILOG_ERROR   ILOG(LERROR)
-#define ILOG_FATAL   ILOG(LFATAL)
+#define ILOG(level)  LOG(level) << info() << ": "
+#ifdef _DEBUG
+#define ILOG_DEBUG   ILOG(INFO)
+#else
+#define ILOG_DEBUG   if (false) ILOG(INFO)
+#endif
+#define ILOG_INFO    ILOG(INFO)
+#define ILOG_WARNING ILOG(WARNING)
+#define ILOG_ERROR   ILOG(ERROR)
+#define ILOG_FATAL   ILOG(FATAL)
 
 namespace {
 static const char kStateKeeperLogPosKey[] = "__checkpoint_pos__";
@@ -53,7 +57,7 @@ static const string kLogPrefix = "_statelog";
 namespace io {
 
 bool StateKeeper::ReadState(const string& state_dir, const string& state_name,
-    map<string, string>* out, int32 ops_log_level, int32 block_size,
+    map<string, string>* out, bool ops_log, int32 block_size,
     int32 blocks_per_file) {
   string info = "[StateKeeper " + state_dir + " | " + state_name + "]: ";
   out->clear();
@@ -113,18 +117,18 @@ bool StateKeeper::ReadState(const string& state_dir, const string& state_name,
                          ", expected: " << value_size << ", found: " << cb;
             continue;
           }
-          LOG(ops_log_level) << info << "OP_SET [" << name << "] = ["
-                             << value << "]";
+          LOG_IF(INFO, ops_log) << info << "OP_SET [" << name << "] = ["
+                                << value << "]";
           num_keys++;
           (*out)[name] = value;
         }
           break;
         case OP_DELETE:
-          LOG(ops_log_level) << info << "OP_DELETE [" << name << "]";
+          LOG_IF(INFO, ops_log) << info << "OP_DELETE [" << name << "]";
           out->erase(name);
           break;
         case OP_CLEARPREFIX: {
-          LOG(ops_log_level) << info << "OP_CLEARPREFIX [" << name << "]";
+          LOG_IF(INFO, ops_log) << info << "OP_CLEARPREFIX [" << name << "]";
           map<string, string>::iterator begin;
           map<string, string>::iterator end;
           strutil::GetBounds(name, out, &begin, &end);
@@ -180,7 +184,7 @@ bool StateKeeper::Initialize() {
   CHECK_EQ(tid_, static_cast<pthread_t>(0));
   tid_ = pthread_self();
 
-  if ( !ReadState(state_dir_, state_name_, &data_, 10,
+  if ( !ReadState(state_dir_, state_name_, &data_, false,
                   block_size_, blocks_per_file_) ) {
     ILOG_ERROR << "Failed to read state from disk";
     return false;

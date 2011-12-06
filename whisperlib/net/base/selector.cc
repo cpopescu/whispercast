@@ -348,7 +348,7 @@ int Selector::RunClosures(int num_closures) {
 
   int cb = 0;
   while ( (cb = ::read(event_fd_, buffer, sizeof(buffer))) > 0 ) {
-    DLOG(10) << " Cleaned some " << cb << " bytes from signal pipe.";
+    VLOG(10) << " Cleaned some " << cb << " bytes from signal pipe.";
   }
   int run_count = 0;
   while ( run_count < FLAGS_selector_num_closures_per_event ) {

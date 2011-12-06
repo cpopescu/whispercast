@@ -43,16 +43,9 @@
 #include <whisperlib/common/sync/producer_consumer_queue.h>
 #include <whisperlib/net/base/dns_resolver.h>
 
-DEFINE_int32(dns_log_level, LERROR,
-             "Enables DNS debug messages. Set to 4 for all messages.");
 DEFINE_int32(dns_timeout_ms, 10000,
              "Timeout for DNS queries.");
 
-#define DNS_LOG_DEBUG if ( FLAGS_dns_log_level < LDEBUG ) {} else LOG_DEBUG << "[dns] "
-#define DNS_LOG_INFO if ( FLAGS_dns_log_level < LINFO ) {} else LOG_INFO << "[dns] "
-#define DNS_LOG_WARNING if ( FLAGS_dns_log_level < LWARNING ) {} else LOG_WARNING << "[dns] "
-#define DNS_LOG_ERROR if ( FLAGS_dns_log_level < LERROR ) {} else LOG_ERROR << "[dns] "
-#define DNS_LOG_FATAL LOG_FATAL << "[dns] "
 
 namespace {
 class DnsResolver {
@@ -95,7 +88,7 @@ class DnsResolver {
     if ( !IsRunning() ) {
       return;
     }
-    DNS_LOG_WARNING << "DnsResolver is stopping...";
+    LOG_WARNING << "DnsResolver is stopping...";
     // a NULL Query is the exit signal
     query_queue_.Put(NULL);
     thread_->Join();
@@ -113,8 +106,8 @@ class DnsResolver {
     CHECK(result_handler->is_permanent());
     CHECK(IsRunning());
     if ( query_queue_.IsFull() ) {
-      DNS_LOG_ERROR << "Too many queries, fail for hostname: ["
-                    << hostname << "]";
+      LOG_ERROR << "Too many queries, fail for hostname: ["
+                << hostname << "]";
       Return(selector, result_handler, NULL);
       return;
     }
@@ -122,12 +115,12 @@ class DnsResolver {
     synch::MutexLocker lock(&mutex_);
     scoped_ref<net::DnsHostInfo> info = cache_.Get(hostname);
     if ( info.get() != NULL ) {
-      DNS_LOG_DEBUG << "Cache hit for hostname: [" << hostname << "]";
+      VLOG(LDEBUG) << "Cache hit for hostname: [" << hostname << "]";
       Return(selector, result_handler, info);
       return;
     }
-    DNS_LOG_DEBUG << "Cache miss for hostname: [" << hostname << "]";
-    DNS_LOG_INFO << "Resolving: [" << hostname << "]";
+    VLOG(LINFO) << "Cache miss for hostname: [" << hostname
+                << "]" << ". Resolving";
     Query* query = new Query(selector, hostname, result_handler);
     query_queue_.Put(query);
     query_map_[result_handler] = query;
@@ -143,7 +136,7 @@ class DnsResolver {
 
  private:
   void Run() {
-    DNS_LOG_WARNING << "DnsResolver running..";
+    LOG_INFO << "DnsResolver running..";
     while ( true ) {
       Query* query = query_queue_.Get();
       scoped_ptr<Query> auto_del_query(query);
@@ -173,7 +166,7 @@ class DnsResolver {
         }
       }
     }
-    DNS_LOG_WARNING << "DnsResolver stopped.";
+    LOG_INFO << "DnsResolver stopped.";
   }
   void Return(net::Selector* selector, net::DnsResultHandler* handler,
               scoped_ref<net::DnsHostInfo> info) {
@@ -237,8 +230,8 @@ scoped_ref<DnsHostInfo> DnsBlockingResolve(const string& hostname) {
   struct addrinfo* result = NULL;
   const int error = ::getaddrinfo(hostname.c_str(), NULL, NULL, &result);
   if ( error != 0 ) {
-    DNS_LOG_ERROR << "Error resolving hostname: [" << hostname << "]"
-                     ", error: " << ::gai_strerror(error);
+    LOG_ERROR << "Error resolving hostname: [" << hostname << "]"
+        ", error: " << ::gai_strerror(error);
     return NULL;
   }
   set<IpAddress> ipv4, ipv6;
@@ -261,7 +254,7 @@ scoped_ref<DnsHostInfo> DnsBlockingResolve(const string& hostname) {
                             b[12], b[13], b[14], b[15]));
       continue;
     }
-    DNS_LOG_DEBUG << "Don't know how to handle ss_family: " << ss->ss_family;
+    LOG_WARNING << "Don't know how to handle ss_family: " << ss->ss_family;
   }
   ::freeaddrinfo(result);
 

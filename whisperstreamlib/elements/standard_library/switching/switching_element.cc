@@ -36,11 +36,15 @@
 #include <whisperstreamlib/rtmp/objects/amf/amf_util.h>
 
 #define ILOG(level)  LOG(level) << name() << " " << this << ": "
-#define ILOG_DEBUG   ILOG(LDEBUG)
-#define ILOG_INFO    ILOG(LINFO)
-#define ILOG_WARNING ILOG(LWARNING)
-#define ILOG_ERROR   ILOG(LERROR)
-#define ILOG_FATAL   ILOG(LFATAL)
+#ifdef _DEBUG
+#define ILOG_DEBUG   ILOG(INFO)
+#else
+#define ILOG_DEBUG   if (false) ILOG(INFO)
+#endif
+#define ILOG_INFO    ILOG(INFO)
+#define ILOG_WARNING ILOG(WARNING)
+#define ILOG_ERROR   ILOG(ERROR)
+#define ILOG_FATAL   ILOG(FATAL)
 
 DEFINE_int32(switching_default_write_ahead_ms,
              1000,

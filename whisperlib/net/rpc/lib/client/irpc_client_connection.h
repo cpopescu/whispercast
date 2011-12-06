@@ -35,6 +35,7 @@
 #include <string>
 #include <map>
 #include <whisperlib/common/base/callback.h>
+#include <whisperlib/common/base/types.h>
 #include <whisperlib/common/sync/mutex.h>
 #include <whisperlib/common/sync/event.h>
 #include <whisperlib/net/base/selector.h>

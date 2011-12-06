@@ -37,23 +37,6 @@
 #include <whisperstreamlib/raw/raw_tag_splitter.h>
 #include <whisperstreamlib/rtmp/rtmp_manager.h>
 
-#define RTMP_LOG(level) if ( protocol_->flags()->log_level_ < level ); \
-                        else LOG(level) << protocol_->info() << ": "
-#define RTMP_DLOG(level) if ( !protocol_->flags()->log_level_ < level ); \
-                         else DLOG(level) << protocol_->info() << ": "
-
-#define RTMP_LOG_DEBUG   RTMP_LOG(LDEBUG)
-#define RTMP_LOG_INFO    RTMP_LOG(LINFO)
-#define RTMP_LOG_WARNING RTMP_LOG(LWARNING)
-#define RTMP_LOG_ERROR   RTMP_LOG(LERROR)
-#define RTMP_LOG_FATAL   RTMP_LOG(LFATAL)
-
-#define RTMP_DLOG_DEBUG   RTMP_DLOG(LDEBUG)
-#define RTMP_DLOG_INFO    RTMP_DLOG(LINFO)
-#define RTMP_DLOG_WARNING RTMP_DLOG(LWARNING)
-#define RTMP_DLOG_ERROR   RTMP_DLOG(LERROR)
-#define RTMP_DLOG_FATAL   RTMP_DLOG(LFATAL)
-
 namespace rtmp {
 
 Stream::Stream(const StreamParams& params,

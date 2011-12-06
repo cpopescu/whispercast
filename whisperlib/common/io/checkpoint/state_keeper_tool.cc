@@ -109,15 +109,15 @@ int main(int argc, char* argv[]) {
     }
     if ( file_base == "" ) {
       file_base = f;
-      LOG(-1) << "Detected file_base: [" << file_base << "]";
+      LOG_INFO << "Detected file_base: [" << file_base << "]";
     }
     if ( block_size == 0 ) {
       block_size = bs;
-      LOG(-1) << "Detected blocksize: " << block_size;
+      LOG_INFO << "Detected blocksize: " << block_size;
     }
     if ( blocks_per_file == 0 ) {
       blocks_per_file = bpf;
-      LOG(-1) << "Detected blocks_per_file: " << blocks_per_file;
+      LOG_INFO << "Detected blocks_per_file: " << blocks_per_file;
     }
   }
   if ( file_base == "" || block_size == 0 || blocks_per_file == 0 ) {
@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
     // just read the state from disk, without a StateKeeper
     map<string, string> data;
     CHECK(io::StateKeeper::ReadState(FLAGS_dir, file_base,
-        &data, LWARNING, block_size, blocks_per_file))
+        &data, true, block_size, blocks_per_file))
            << "Failed to read state";
 
     map<string, string>::const_iterator begin;
@@ -147,11 +147,11 @@ int main(int argc, char* argv[]) {
     for ( map<string, string>::const_iterator it = begin; it != end; ++it ) {
       key_count++;
       if ( FLAGS_print_keys_only ) {
-        LOG(-1) << "#" << key_count << " Key: " << it->first;
+        LOG_INFO << "#" << key_count << " Key: " << it->first;
       } else {
-        LOG(-1) << "#" << key_count << endl
-                << " - Key: " << it->first << endl
-                << " - Value: " << strutil::StrEscape(it->second, '%', "");
+        LOG_INFO << "#" << key_count << endl
+                 << " - Key: " << it->first << endl
+                 << " - Value: " << strutil::StrEscape(it->second, '%', "");
       }
     }
     LOG_INFO << "# " << key_count << " keys selected, out of a total of "
