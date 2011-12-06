@@ -108,8 +108,8 @@ struct CompileAssert {
 #define DLOG_ERROR   LOG(ERROR)
 #define DLOG_FATAL   LOG(FATAL)
 
-#define DLOG_FATAL_IF(FATAL, cond) if ( cond ) LOG_FATAL
-#define DLOG_INFO_IF(INFO, cond) if ( cond ) LOG_INFO
+#define DLOG_FATAL_IF(cond) if ( cond ) LOG_FATAL
+#define DLOG_INFO_IF(cond) if ( cond ) LOG_INFO
 
 #else
 
