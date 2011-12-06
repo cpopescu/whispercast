@@ -62,7 +62,7 @@ void RequestDone(net::Selector* selector,
   CHECK(req->is_finalized());
   LOG_INFO << "=================================================";
   LOG_INFO << " Request " << req->name() << " finished w/ error: "
-           << req->ClientErrorName();
+           << req->error_name();
   LOG_INFO << " Response received from server (so far): "
            << "\nHeader:\n"
            << req->request()->server_header()->ToString();

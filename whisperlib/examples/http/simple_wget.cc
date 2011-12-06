@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
 //
 void RequestDone(net::Selector* selector, http::ClientRequest* req) {
   printf("Request %s finished w/ error: %s\n",
-         req->name().c_str(), req->ClientErrorName());
+         req->name().c_str(), req->error_name());
   printf("Response received from server\n"
          "Header:\n%s\n"
          "==============================="

@@ -427,6 +427,8 @@ bool BaseClientProtocol::HandleTimeout(int64 timeout_id) {
       default:              return true;
     }
   }
+  LOG_HTTP << "HandleTimeout, timeout_id: " << timeout_id
+           << ", conn_error_: " << conn_error_name();
   return false;
 }
 

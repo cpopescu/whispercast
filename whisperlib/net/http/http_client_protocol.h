@@ -160,6 +160,9 @@ class BaseClientProtocol {
                      net::HostPort server);
   virtual ~BaseClientProtocol();
 
+  ClientError conn_error() const { return conn_error_; }
+  const char* conn_error_name() const { return ClientErrorName(conn_error_); }
+
   // Closes all pending requests and underlying connection.
   void Clear();
 
@@ -531,6 +534,9 @@ class ClientRequest  {
 
   http::Request* request() { return &request_; }
   http::ClientError error() const { return error_; }
+  const char* error_name() const {
+    return http::ClientErrorName(error_);
+  }
   bool is_finalized() const {
     return error_ >= CONN_OK;
   }
@@ -548,9 +554,6 @@ class ClientRequest  {
     return strutil::StrTrim(
         request_.client_header()->ComposeFirstLine()) +
         strutil::StringPrintf(" req_id: %"PRId64"", request_id_);
-  }
-  const char* ClientErrorName() const {
-    return http::ClientErrorName(error_);
   }
  private:
   http::Request request_;
