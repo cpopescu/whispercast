@@ -88,7 +88,8 @@ PlayStream::PlayStream(
       media_event_duration_ms_(0),
       bootstrapping_(false),
       send_reset_audio_(true),
-      send_reset_pings_(true) {
+      send_reset_pings_(true),
+      send_switch_media_(false) {
 }
 
 PlayStream::~PlayStream() {
@@ -579,6 +580,11 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
 
   if ( tag->type() == streaming::Tag::TYPE_SOURCE_STARTED ) {
     send_reset_audio_ = true;
+    //send_reset_pings_ = true;
+    return;
+  }
+  if ( tag->type() == streaming::Tag::TYPE_SOURCE_ENDED ) {
+    send_switch_media_ = true;
     return;
   }
   if ( tag->type() == streaming::Tag::TYPE_FLUSH ) {
@@ -683,6 +689,26 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
     SendFlvTag(audio.get(), tag_timestamp_ms);
 
     send_reset_audio_ = false;
+  }
+
+  if ( send_switch_media_ ) {
+    SendEvent(
+        protocol_->CreateStatusEvent(
+          stream_id(),
+          Protocol::kReplyChannel,
+          0,
+          "NetStream.Play.Complete", "EOS",
+          stream_name_.c_str()),
+          tag_timestamp_ms,  NULL, true);
+    SendEvent(
+        protocol_->CreateStatusEvent(
+          stream_id(),
+          Protocol::kReplyChannel,
+          0,
+          "NetStream.Play.Switch", "EOS",
+          stream_name_.c_str()),
+          tag_timestamp_ms,  NULL, true);
+    send_switch_media_ = false;
   }
 
   if ( tag->type() == streaming::Tag::TYPE_FLV ) {

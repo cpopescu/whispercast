@@ -16,7 +16,7 @@ fi
 
 COMPONENT=${COMMAND:$[${#SERVICE}+1]}
 if [ "$COMPONENT" = "" ]; then
-  SERVICE_FILE=="../etc/services/$SERVICE.ini"
+  SERVICE_FILE="../etc/services/$SERVICE.ini"
   CONFIG=$(readlink ${SERVICE_FILE} || echo ${SERVICE_FILE})
   if [ ! -f "$CONFIG" ]; then
     echo "$(date "$D") [$L] : The service \"$SERVICE\" is not configured (no \"$SERVICE.ini\" in \"etc/services\")"

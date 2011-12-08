@@ -13,7 +13,7 @@ if [ "$SERVICE" = "" ] || [ "$COMPONENT" = "" ]; then
   exit 1
 fi
 
-BINARY=`readlink "../bin/$COMPONENT" || echo "../bin/$COMPONENT" `
+BINARY=`readlink -f "../bin/$COMPONENT"`
 if [ ! -x "$BINARY" ]; then
   echo "$(date "$D") [$L] : \"$BINARY\" does not exist or is not executable"
   exit 4
@@ -24,7 +24,7 @@ FULL_N=${FULL//\//_}
 
 STOPFILE="/tmp/whispercast.$FULL_N.stop"
 
-CMD="$BINARY --undefok=service --service=$SERVICE --logdir=../var/log/$SERVICE --flagfile=../etc/ini/$FULL.ini"
+CMD="$BINARY --undefok=service --service=$SERVICE --log_dir=../var/log/$SERVICE --flagfile=../etc/ini/$FULL.ini"
 
 echo "$(date "$D") [$L] : Killing all previous \"$FULL\" processes..."
 pkill -INT -f "$CMD" > /dev/null 2>&1

@@ -428,8 +428,9 @@ class ExporterT {
           media_name_ = source_started_tags_.empty() ? "" :
                         source_started_tags_.top()->source_element_name();
         }
+        HandleTag(tag);
+        return;
       }
-      break;
 
       case streaming::Tag::TYPE_SOURCE_STARTED: {
         const streaming::SourceStartedTag* source_started =

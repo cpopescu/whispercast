@@ -317,6 +317,9 @@ private:
   string name_;
 
   bool is_first_tag_;
+
+  // Bug trap: whenever we send tags downstream we set this flag.
+  // No changes (add_callback, remove_callback..) must come in between.
   bool distributing_tag_;
 
   DISALLOW_EVIL_CONSTRUCTORS(TagDistributor);

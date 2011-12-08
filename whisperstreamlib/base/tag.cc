@@ -181,18 +181,15 @@ void StreamTimeCalculator::ProcessTag(const Tag* tag) {
     last_tag_ts_ = tag->timestamp_ms();
   }
 
-  int64 delta;
+  int64 delta = tag->timestamp_ms() - last_tag_ts_;
   if ( tag->type() == Tag::TYPE_SEGMENT_STARTED ) {
     int64 media_time_ms =
         static_cast<const SegmentStartedTag*>(tag)->media_timestamp_ms();
-
-    delta =  media_time_ms - media_time_ms_;
-    last_tag_ts_ = tag->timestamp_ms();
+    media_time_ms_ += media_time_ms - media_time_ms_;
   } else {
-    delta = tag->timestamp_ms() - last_tag_ts_;
+    media_time_ms_ += delta;
   }
 
-  media_time_ms_ += delta;
   stream_time_ms_ += delta;
   last_tag_ts_ = tag->timestamp_ms();
 

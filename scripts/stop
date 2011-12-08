@@ -45,7 +45,7 @@ for (( i=0;i<${#COMPONENTS[@]};i++)); do
 
   STOPFILE="/tmp/whispercast.$FULL_N.stop"
 
-  CMD="$BINARY --undefok=service --service=$SERVICE --logdir=../var/log/$SERVICE --flagfile=../etc/ini/$FULL.ini"
+  CMD="$BINARY --undefok=service --service=$SERVICE --log_dir=../var/log/$SERVICE --flagfile=../etc/ini/$FULL.ini"
   START="./start_ $SERVICE $COMPONENT"
 
   echo "$(date "$D") [$L] : Creating stop file (\"$STOPFILE\")"

@@ -200,6 +200,7 @@ class PlayStream : public Stream, protected streaming::ExporterT {
   // If true we need to send send reset/clear pings before the first media tag
   bool send_reset_audio_;
   bool send_reset_pings_;
+  bool send_switch_media_;
 
  private:
   DISALLOW_EVIL_CONSTRUCTORS(PlayStream);
