@@ -832,8 +832,6 @@ class StreamTimeCalculator {
   StreamTimeCalculator();
   virtual ~StreamTimeCalculator();
 
-  void Reset(int64 timestamp_ms = 0);
-
   // give me all stream tags...
   void ProcessTag(const Tag* tag);
 
@@ -847,6 +845,9 @@ class StreamTimeCalculator {
   int64 stream_time_ms() const { return stream_time_ms_; }
 
  private:
+  // timestamps of the last processed segment started tag
+  int64 last_segment_tag_ts_;
+  int64 last_segment_media_ts_;
   // timestamp of the last processed tag
   int64 last_tag_ts_;
   // time inside current media segment

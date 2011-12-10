@@ -60,7 +60,6 @@ class TagDistributor {
       bootstrapper_(bootstrap_media),
       flavour_mask_(flavour_mask),
       name_(name),
-      is_first_tag_(true),
       distributing_tag_(false) {
     // sanity check: flavour_mask should contain only 1 flavour_id
     DCHECK(flavour_mask != 0 && (flavour_mask & (flavour_mask-1)) == 0)
@@ -138,7 +137,6 @@ class TagDistributor {
     distributing_tag_ = false;
 
     bootstrapper_.ClearBootstrap();
-    is_first_tag_ = true;
   }
 
   // Sends a SOURCE_ENDED to the running callbacks and
@@ -170,7 +168,6 @@ class TagDistributor {
     }
 
     bootstrapper_.ClearBootstrap();
-    is_first_tag_ = true;
   }
 
   // Sends a SOURCE_ENDED/EOS to the given callback
@@ -254,10 +251,6 @@ class TagDistributor {
       return;
     }
 
-    if ( is_first_tag_ ) {
-      stream_time_calculator_.Reset(tag->timestamp_ms());
-      is_first_tag_ = false;
-    }
     stream_time_calculator_.ProcessTag(tag);
 
     int64 tag_time_ms = stream_time_calculator_.last_tag_ts();
@@ -315,8 +308,6 @@ private:
   uint32 flavour_mask_;
 
   string name_;
-
-  bool is_first_tag_;
 
   // Bug trap: whenever we send tags downstream we set this flag.
   // No changes (add_callback, remove_callback..) must come in between.

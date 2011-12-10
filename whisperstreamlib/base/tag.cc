@@ -141,18 +141,13 @@ synch::MutexPool TagSet::mutex_pool_(TagSet::kNumMutexes);
 ///////////////////////////////////////////////////////////////////////////
 
 StreamTimeCalculator::StreamTimeCalculator()
-  : last_tag_ts_(0),
+  : last_segment_tag_ts_(0),
+    last_segment_media_ts_(0),
+    last_tag_ts_(0),
     media_time_ms_(0),
     stream_time_ms_(0) {
 }
 StreamTimeCalculator::~StreamTimeCalculator() {
-}
-
-void StreamTimeCalculator::Reset(int64 timestamp_ms) {
-  last_tag_ts_ = timestamp_ms;
-
-  media_time_ms_ = 0;
-  stream_time_ms_ = 0;
 }
 
 void StreamTimeCalculator::ProcessTag(const Tag* tag) {
@@ -178,33 +173,38 @@ void StreamTimeCalculator::ProcessTag(const Tag* tag) {
   */
 
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
-    last_tag_ts_ = tag->timestamp_ms();
-  }
-
-  int64 delta = tag->timestamp_ms() - last_tag_ts_;
+  } else
   if ( tag->type() == Tag::TYPE_SEGMENT_STARTED ) {
-    int64 media_time_ms =
-        static_cast<const SegmentStartedTag*>(tag)->media_timestamp_ms();
-    media_time_ms_ += media_time_ms - media_time_ms_;
-  } else {
-    media_time_ms_ += delta;
-  }
+    media_time_ms_ =
+      static_cast<const SegmentStartedTag*>(tag)->media_timestamp_ms();
 
-  stream_time_ms_ += delta;
+    last_segment_tag_ts_ = tag->timestamp_ms();
+    last_segment_media_ts_ = media_time_ms_;
+  } else {
+    int64 delta = (tag->timestamp_ms() - last_tag_ts_);
+
+    media_time_ms_ += delta;
+    if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
+      stream_time_ms_ =
+        last_segment_media_ts_ + (tag->timestamp_ms() - last_segment_tag_ts_);
+    } else {
+      stream_time_ms_ += delta;
+    }
+  }
   last_tag_ts_ = tag->timestamp_ms();
 
   /*
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
     LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
+    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;;
   }
   if ( tag->type() == Tag::TYPE_SEGMENT_STARTED ) {
     LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
+    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
   }
   if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
     LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
+    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
   }
   */
 }

@@ -55,12 +55,6 @@ void TagNormalizer::Reset(streaming::Request* request) {
     flow_control_write_ahead_ms_ = request_->info().write_ahead_ms_;
   }
 
-  element_seq_id_ = 0;
-
-  is_flow_control_first_tag_ = true;
-  flow_control_first_tag_time_ = 0;
-
-  stream_time_calculator_.Reset();
   unpause_flow_control_alarm_.Stop();
 }
 

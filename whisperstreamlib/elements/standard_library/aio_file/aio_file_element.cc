@@ -426,7 +426,7 @@ class AioFileReadingStruct : public ElementController {
         }
 
         // End bootstrapping now and proceed
-        EndBootstrapping(tag->timestamp_ms());
+        EndBootstrapping(tag->timestamp_ms(), false);
         continue;
       }
 
@@ -449,8 +449,8 @@ class AioFileReadingStruct : public ElementController {
         if ( bootstrapping_ ) {
           // End bootstrapping now, clearing any media bootstrap we might have
           bootstrapper_.ClearMediaBootstrap();
-          //... this will also send SeekPerformed if needed
-          EndBootstrapping(tag->timestamp_ms());
+          //... this will also send SeekPerformed
+          EndBootstrapping(tag->timestamp_ms(), (req_->info().seek_pos_ms_>0));
         } else {
             // Send SeekPerformedTag now
             SendTag(scoped_ref<Tag>(
@@ -519,7 +519,7 @@ class AioFileReadingStruct : public ElementController {
     callback_->Run(tag);
     in_tag_processing_ = false;
   }
-  void EndBootstrapping(int64 timestamp_ms) {
+  void EndBootstrapping(int64 timestamp_ms, bool send_seek) {
     DCHECK(bootstrapping_);
     bootstrapping_ = false;
 
@@ -527,33 +527,30 @@ class AioFileReadingStruct : public ElementController {
     SendTag(scoped_ref<Tag>(
         new SourceStartedTag(0,
             kDefaultFlavourMask,
-            timestamp_ms,
+            req_->info().media_origin_pos_ms_,
             strutil::JoinPaths(element_name_, filename_relative_to_element_),
             strutil::JoinPaths(element_name_, filename_relative_to_element_))
             ).get());
     SendTag(scoped_ref<Tag>(
         new SegmentStartedTag(0,
             kDefaultFlavourMask,
-            timestamp_ms,
-            timestamp_ms - req_->info().media_origin_pos_ms_)
+            req_->info().media_origin_pos_ms_,
+            0)
             ).get());
 
-    // Send SeekPerformedTag only if a seek was actually requested
-    if ( req_->info().seek_pos_ms_ > 0 ) {
+    in_tag_processing_ = true;
+    // Send the bootstrap
+    bootstrapper_.PlayAtBegin(
+      callback_, req_->info().media_origin_pos_ms_, kDefaultFlavourMask);
+    in_tag_processing_ = false;
+
+    // Send SeekPerformedTag if requested
+    if ( send_seek ) {
       SendTag(scoped_ref<Tag>(
           new SeekPerformedTag(0,
                                kDefaultFlavourMask,
                                timestamp_ms)).get());
     }
-
-    // Send the bootstrap
-    in_tag_processing_ = true;
-    if ( req_->info().seek_pos_ms_ > 0 ) {
-      bootstrapper_.PlayAtBegin(callback_, timestamp_ms, kDefaultFlavourMask);
-    } else {
-      bootstrapper_.PlayAtBegin(callback_, -1, kDefaultFlavourMask);
-    }
-    in_tag_processing_ = false;
   }
 
   void StopElement(bool forced) {
