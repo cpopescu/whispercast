@@ -58,7 +58,10 @@ class FlvTagSplitter : public streaming::TagSplitter {
 
  protected:
   virtual streaming::TagReadStatus GetNextTagInternal(
-      io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos);
+      io::MemoryStream* in,
+      scoped_ref<Tag>* tag,
+      int64* timestamp_ms,
+      bool is_at_eos);
 
  private:
   // Maybe extracts cue data from the metadata 'flv_tag'.
@@ -75,7 +78,15 @@ class FlvTagSplitter : public streaming::TagSplitter {
   int64 tag_timestamp_ms_;
 
   // The tags to send next (we may put extra tags in this deque)
-  list< scoped_ref<Tag> > tags_to_send_next_;
+  struct TagToSend {
+    TagToSend(Tag* tag, int64 timestamp_ms):
+      tag_(tag),
+      timestamp_ms_(timestamp_ms) {
+    }
+    scoped_ref<Tag> tag_;
+    int64 timestamp_ms_;
+  };
+  list<TagToSend> tags_to_send_next_;
 
   // incoming stream properties, learned from flv header.
   bool has_audio_;

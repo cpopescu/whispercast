@@ -53,7 +53,7 @@ class IpAddress {
 
   IpAddress()
       : is_ipv4_(true) {
-    memset(&addr_, 0, sizeof(&addr_));
+    memset(&addr_, 0, sizeof(addr_));
   }
   //  ip: 4 bytes containing the IP address
   //      (host byte order: b1.b2.b3.b4 <==> 0xb1b2b3b4)
@@ -92,7 +92,7 @@ class IpAddress {
       addr_.ipv4_ = ntohl(addr_.ipv4_);
     }
     if ( error ) {
-      memset(&addr_, 0, sizeof(&addr_));
+      memset(&addr_, 0, sizeof(addr_));
     }
   }
   IpAddress(const IpAddress& other)

@@ -77,11 +77,6 @@ const Tag::Type
 TSignalTag<Tag::TYPE_FLUSH>::kType =
     Tag::TYPE_FLUSH;
 
-template<>
-const Tag::Type
-TSignalTag<Tag::TYPE_SEGMENT_STARTED>::kType =
-    Tag::TYPE_SEGMENT_STARTED;
-
 //////////////////////////////////////////////////////////////////////
 
 const char* Tag::TypeName(Tag::Type type) {
@@ -97,7 +92,6 @@ const char* Tag::TypeName(Tag::Type type) {
     CONSIDER(TYPE_CUE_POINT);
     CONSIDER(TYPE_SOURCE_STARTED);
     CONSIDER(TYPE_SOURCE_ENDED);
-    CONSIDER(TYPE_SEGMENT_STARTED);
     CONSIDER(TYPE_COMPOSED);
     CONSIDER(TYPE_OSD);
     CONSIDER(TYPE_BOS);
@@ -141,8 +135,7 @@ synch::MutexPool TagSet::mutex_pool_(TagSet::kNumMutexes);
 ///////////////////////////////////////////////////////////////////////////
 
 StreamTimeCalculator::StreamTimeCalculator()
-  : last_segment_tag_ts_(0),
-    last_segment_media_ts_(0),
+  : is_first_tag_(true),
     last_tag_ts_(0),
     media_time_ms_(0),
     stream_time_ms_(0) {
@@ -150,7 +143,7 @@ StreamTimeCalculator::StreamTimeCalculator()
 StreamTimeCalculator::~StreamTimeCalculator() {
 }
 
-void StreamTimeCalculator::ProcessTag(const Tag* tag) {
+void StreamTimeCalculator::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   // the timestamp of these tags is not relevant
   if ( tag->type() == Tag::TYPE_FLV_HEADER ||
       tag->type() == Tag::TYPE_BOOTSTRAP_BEGIN ||
@@ -164,47 +157,29 @@ void StreamTimeCalculator::ProcessTag(const Tag* tag) {
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
     LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
   }
-  if ( tag->type() == Tag::TYPE_SEGMENT_STARTED ) {
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
-  }
   if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
     LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
   }
   */
 
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
-  } else
-  if ( tag->type() == Tag::TYPE_SEGMENT_STARTED ) {
-    media_time_ms_ =
-      static_cast<const SegmentStartedTag*>(tag)->media_timestamp_ms();
-
-    last_segment_tag_ts_ = tag->timestamp_ms();
-    last_segment_media_ts_ = media_time_ms_;
-  } else {
-    int64 delta = (tag->timestamp_ms() - last_tag_ts_);
-
-    media_time_ms_ += delta;
-    if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
-      stream_time_ms_ =
-        last_segment_media_ts_ + (tag->timestamp_ms() - last_segment_tag_ts_);
-    } else {
-      stream_time_ms_ += delta;
-    }
+    media_time_ms_ = timestamp_ms;
+    last_tag_ts_ = timestamp_ms;
   }
-  last_tag_ts_ = tag->timestamp_ms();
+
+  int64 delta = timestamp_ms - last_tag_ts_;
+  media_time_ms_ += delta;
+  stream_time_ms_ += delta;
+  last_tag_ts_ = timestamp_ms;
 
   /*
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
     LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;;
-  }
-  if ( tag->type() == Tag::TYPE_SEGMENT_STARTED ) {
-    LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
+    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
   }
   if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
     LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
+    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
   }
   */
 }

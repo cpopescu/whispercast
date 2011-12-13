@@ -64,7 +64,9 @@ class Serializer : public streaming::TagSerializer {
   Serializer();
   virtual ~Serializer();
 
-  bool Serialize(const f4v::Tag& f4v_tag, io::MemoryStream* out);
+  bool Serialize(const f4v::Tag& f4v_tag,
+                 int64 timestamp_ms,
+                 io::MemoryStream* out);
 
   ////////////////////////////////////////////////////////////////////////
   // methods from streaming::TagSerializer
@@ -73,7 +75,7 @@ class Serializer : public streaming::TagSerializer {
   virtual void Initialize(io::MemoryStream* out);
   virtual void Finalize(io::MemoryStream* out);
   virtual bool SerializeInternal(const streaming::Tag* tag,
-                                 int64 base_timestamp_ms,
+                                 int64 timestamp_ms,
                                  io::MemoryStream* out);
  private:
   Encoder encoder_;

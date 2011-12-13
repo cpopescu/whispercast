@@ -81,7 +81,7 @@ class SavingElement : public Element {
 
  private:
   // tag receiver. All tags are sent to the "saver_";
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
   // starts the internal request to "media_".
   // We receive tags on this request, and send them to the saver_.

@@ -126,7 +126,7 @@ class RtmpPublishingData {
   }
 
  private:
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
   // Helper to register timeout on tags that we receive
   void MaybeReregisterTagTimeout(bool force);
@@ -279,7 +279,7 @@ void RtmpPublishingData::MaybeReregisterTagTimeout(bool force) {
   }
 }
 
-void RtmpPublishingData::ProcessTag(const Tag* tag) {
+void RtmpPublishingData::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   // possibly create the splitter
   if ( splitter_ == NULL ) {
     if ( !InitializeSplitter() ) {
@@ -329,6 +329,19 @@ void RtmpPublishingData::ProcessTag(const Tag* tag) {
     CloseRequest(false);
     return;
   }
+
+  if ( is_first_tag_ ) {
+    is_first_tag_ = false;
+    first_tag_time_ = timestamp_ms;
+  }
+  timestamp_ms -= first_tag_time_;
+
+  distributor_.DistributeTag(tag, timestamp_ms);
+  if ( saver_ != NULL ) {
+    saver_->ProcessTag(tag, timestamp_ms);
+  }
+
+  /*
   if ( tag->type() == streaming::Tag::TYPE_RAW ) {
     const RawTag* raw_tag = static_cast<const RawTag*>(tag);
     data_.AppendStreamNonDestructive(raw_tag->data());
@@ -343,7 +356,8 @@ void RtmpPublishingData::ProcessTag(const Tag* tag) {
 
     while ( true ) {
       scoped_ref<Tag> tag;
-      TagReadStatus status = splitter_->GetNextTag(&data_, &tag, false);
+      TagReadStatus status = splitter_->GetNextTag(&data_,
+          &tag, &timestamp_ms, false);
       if ( status == streaming::READ_SKIP ) {
         continue;
       }
@@ -358,20 +372,20 @@ void RtmpPublishingData::ProcessTag(const Tag* tag) {
         return;
       }
 
-      distributor_.DistributeTag(tag.get());
+      distributor_.DistributeTag(tag.get(), timestamp_ms);
 
       if ( saver_ != NULL ) {
-        saver_->ProcessTag(tag.get());
+        saver_->ProcessTag(tag.get(), timestamp_ms);
       }
 
       if ( is_first_tag_ ) {
         is_first_tag_ = false;
-        first_tag_time_ = tag->timestamp_ms();
+        first_tag_time_ = timestamp_ms;
         continue;
       }
 
-      const int64 delta = (tag->timestamp_ms() - first_tag_time_) -
-                          ( selector_->now() - start_decode_time_);
+      const int64 delta = (timestamp_ms - first_tag_time_) -
+                          (selector_->now() - start_decode_time_);
       if ( delta > advance_media_ms_ ) {
         break;
       }
@@ -380,7 +394,8 @@ void RtmpPublishingData::ProcessTag(const Tag* tag) {
   }
 
   // other tag types, simply forward them
-  distributor_.DistributeTag(tag);
+  distributor_.DistributeTag(tag, timestamp_ms);
+  */
 }
 
 //////////////////////////////////////////////////////////////////////

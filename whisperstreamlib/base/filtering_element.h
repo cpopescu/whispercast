@@ -64,14 +64,23 @@ class FilteringCallbackData {
   virtual bool Register(streaming::Request* req);
   virtual bool Unregister(streaming::Request* req);
 
-  typedef list< scoped_ref<const Tag> > TagList;
+  struct FilteredTag {
+    FilteredTag(const Tag* tag, int64 timestamp_ms) :
+      tag_(tag),
+      timestamp_ms_(timestamp_ms) {
+    }
+    scoped_ref<const Tag> tag_;
+    int64 timestamp_ms_;
+  };
+  typedef list<FilteredTag> TagList;
+
   // Called from ProcessTag.
   // The derived class fills in 'out' with the tags to be sent to the client.
   //  - to drop the 'tag', just leave the 'out' empty.
   //  - to forward the 'tag', insert it into 'out'
   //  - to replace the 'tag': insert the desired Tag s into 'out'.
   // On return, everything in 'out' is forwarded to the client.
-  virtual void FilterTag(const Tag* tag, TagList* out) = 0;
+  virtual void FilterTag(const Tag* tag, int64 timestamp_ms,  TagList* out) = 0;
 
   void IncRef() {
     ++ref_count_;
@@ -126,9 +135,9 @@ class FilteringCallbackData {
  protected:
   // here we receive tags from the element, filter them and forward
   // them to client
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
   // Send a a tag to downstream client.
-  void SendTag(const Tag* tag);
+  void SendTag(const Tag* tag, int64 timestamp_ms);
   // Unregister from upstream, send EOS downstream
   void Close();
 
@@ -203,6 +212,7 @@ class FilteringElement : public Element {
   virtual void Close(Closure* call_on_close);
 
   net::Selector*  selector() const { return selector_; }
+
  protected:
   net::Selector* const selector_;
 

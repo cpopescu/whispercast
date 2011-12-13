@@ -47,7 +47,9 @@ const char* TagSplitter::TypeName(Type type) {
 }
 
 TagReadStatus TagSplitter::GetNextTag(io::MemoryStream* in,
-                                      scoped_ref<Tag>* tag, bool is_at_eos) {
+                                      scoped_ref<Tag>* tag,
+                                      int64* timestamp_ms,
+                                      bool is_at_eos) {
   while ( true ) {
     if ( next_tag_to_send_.get() != NULL ) {
       next_tag_to_send_.MoveTo(tag);
@@ -63,7 +65,9 @@ TagReadStatus TagSplitter::GetNextTag(io::MemoryStream* in,
     }
 
     scoped_ref<Tag> proc_tag;
-    TagReadStatus err = GetNextTagInternal(in, &proc_tag, is_at_eos);
+    int64 proc_timestamp_ms;
+    TagReadStatus err = GetNextTagInternal(in, &proc_tag,
+        &proc_timestamp_ms, is_at_eos);
     if ( err == READ_NO_DATA ) {
       if ( crt_composed_tag_.get() != NULL && is_at_eos ) {
         crt_composed_tag_.MoveTo(tag);
@@ -94,7 +98,7 @@ TagReadStatus TagSplitter::GetNextTag(io::MemoryStream* in,
     // maybe add to current composed tag
     if ( crt_composed_tag_.get() != NULL ) {
       if ( IsComposable(proc_tag.get()) ) {
-        crt_composed_tag_->add_tag(proc_tag.get());
+        crt_composed_tag_->add_tag(proc_tag.get(), proc_timestamp_ms);
         continue;
       }
       // current tag is not composable, break current composed tag now
@@ -108,13 +112,13 @@ TagReadStatus TagSplitter::GetNextTag(io::MemoryStream* in,
     // no current composed tag, create a new composed tag now
     if ( max_composition_tag_time_ms_ > 0 &&
          IsComposable(proc_tag.get()) ) {
-      crt_composed_tag_ = new ComposedTag(0, kDefaultFlavourMask,
-                                          proc_tag->timestamp_ms());
-      crt_composed_tag_->add_tag(proc_tag.get());
+      crt_composed_tag_ = new ComposedTag(0, kDefaultFlavourMask);
+      crt_composed_tag_->add_tag(proc_tag.get(), proc_timestamp_ms);
       continue;
     }
 
     // cannot compose tag, just return it
+    *timestamp_ms = proc_timestamp_ms;
     *tag = proc_tag;
     return READ_OK;
   }

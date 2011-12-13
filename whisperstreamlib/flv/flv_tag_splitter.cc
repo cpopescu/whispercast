@@ -50,7 +50,6 @@ FlvTagSplitter::FlvTagSplitter(const string& name)
     : streaming::TagSplitter(kType, name),
       first_tag_timestamp_ms_(-1),
       tag_timestamp_ms_(0),
-      tags_to_send_next_(),
       has_audio_(false),
       has_video_(false),
       first_audio_(),
@@ -65,10 +64,12 @@ FlvTagSplitter::~FlvTagSplitter() {
 
 TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
                                                  scoped_ref<Tag>* tag,
+                                                 int64* timestamp_ms,
                                                  bool is_eos) {
   *tag = NULL;
   if ( !tags_to_send_next_.empty() && !bootstrapping_ ) {
-    *tag = tags_to_send_next_.front();
+    tag->reset(tags_to_send_next_.front().tag_.get());
+    *timestamp_ms = tags_to_send_next_.front().timestamp_ms_;
     tags_to_send_next_.pop_front();
 
     VLOG(10) << "Next tag: " << (*tag)->ToString();
@@ -102,9 +103,10 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
     has_video_ = header->has_video();
 
     if ( bootstrapping_ ) {
-      tags_to_send_next_.push_back(header.get());
+      tags_to_send_next_.push_back(TagToSend(header.get(), 0));
       return READ_SKIP;
     }
+    *timestamp_ms = 0;
     *tag = header.get();
     VLOG(10) << "Next tag: " << (*tag)->ToString();
     return READ_OK;
@@ -128,38 +130,14 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
   }
   CHECK_NOT_NULL(flv_tag.get());
 
-  ///////////////////////////////////////////////////
-  // Update the statistics..
+  // update the attributes
+  flv_tag->update();
+
+  // additional processing
   switch ( flv_tag->body().type() ) {
-    case FLV_FRAMETYPE_VIDEO: {
-      const FlvTag::Video& video_body = flv_tag->video_body();
-      flv_tag->add_attributes(Tag::ATTR_VIDEO);
-      if ( video_body.video_frame_type() ==
-           FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ) {
-        flv_tag->add_attributes(Tag::ATTR_CAN_RESYNC);
-      }
-
-      if ( video_body.video_codec() == FLV_FLAG_VIDEO_CODEC_AVC ) {
-        flv_tag->mutable_video_body().set_video_avc_moov(
-            FlvCoder::DecodeAuxiliaryMoovTag(flv_tag.get()));
-
-        if ( video_body.video_avc_packet_type() != AVC_SEQUENCE_HEADER ) {
-          flv_tag->add_attributes(Tag::ATTR_DROPPABLE);
-        }
-      } else {
-        flv_tag->add_attributes(Tag::ATTR_DROPPABLE);
-      }
-    }
+    case FLV_FRAMETYPE_VIDEO:
     break;
-    case FLV_FRAMETYPE_AUDIO: {
-      const FlvTag::Audio& audio_body = flv_tag->audio_body();
-      flv_tag->add_attributes(Tag::ATTR_AUDIO |
-                              Tag::ATTR_CAN_RESYNC);
-      if ( audio_body.audio_format() != FLV_FLAG_SOUND_FORMAT_AAC ||
-           !audio_body.audio_is_aac_header() ) {
-        flv_tag->add_attributes(Tag::ATTR_DROPPABLE);
-      }
-    }
+    case FLV_FRAMETYPE_AUDIO:
     break;
     case FLV_FRAMETYPE_METADATA: {
       FlvTag::Metadata& metadata = flv_tag->mutable_metadata_body();
@@ -174,12 +152,14 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
         UpdateMetadata(metadata);
 
         if ( cue_points.get() != NULL ) {
-          tags_to_send_next_.push_back(cue_points.get());
+          tags_to_send_next_.push_back(
+              TagToSend(cue_points.get(), flv_tag->timestamp_ms())
+           );
         }
       }
     }
     break;
-  };
+  }
 
   if ( first_tag_timestamp_ms_ == -1 ) {
     first_tag_timestamp_ms_ = flv_tag->timestamp_ms();
@@ -217,7 +197,9 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
   }
 
   if ( bootstrapping_ ) {
-    tags_to_send_next_.push_back(flv_tag.get());
+    tags_to_send_next_.push_back(
+      TagToSend(flv_tag.get(), flv_tag->timestamp_ms())
+    );
 
     if ( media_info_extracted_ ) {
       EndBootstrapping();
@@ -226,6 +208,8 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
   }
 
   tag_timestamp_ms_ = flv_tag->timestamp_ms();
+
+  *timestamp_ms = flv_tag->timestamp_ms();
   *tag = flv_tag.get();
 
   VLOG(10) << "Next tag: " << (*tag)->ToString();
@@ -246,7 +230,7 @@ scoped_ref<CuePointTag> FlvTagSplitter::RetrieveCuePoints(
   const rtmp::CMixedMap* cues = static_cast<const rtmp::CMixedMap*>(cues_obj);
 
   scoped_ref<CuePointTag> cue_points =
-      new CuePointTag(0, kDefaultFlavourMask, timestamp);
+      new CuePointTag(0, kDefaultFlavourMask);
 
   for ( rtmp::CMixedMap::Map::const_iterator it = cues->data().begin();
         it != cues->data().end(); ++it ) {
@@ -288,10 +272,10 @@ scoped_ref<CuePointTag> FlvTagSplitter::RetrieveCuePoints(
 }
 
 void FlvTagSplitter::EndBootstrapping() {
-  for (list< scoped_ref<Tag> >::iterator it = tags_to_send_next_.begin();
+  for (list<TagToSend>::iterator it = tags_to_send_next_.begin();
       it != tags_to_send_next_.end(); ++it) {
-    if ( (*it)->timestamp_ms() < first_tag_timestamp_ms_ ) {
-      it->reset(it->get()->Clone(first_tag_timestamp_ms_));
+    if ( it->timestamp_ms_ < first_tag_timestamp_ms_ ) {
+      it->timestamp_ms_ = first_tag_timestamp_ms_;
       continue;
     }
     break;
@@ -299,7 +283,7 @@ void FlvTagSplitter::EndBootstrapping() {
 
   bootstrapping_ = false;
   tags_to_send_next_.push_back(
-      new BosTag(0, kDefaultFlavourMask, tag_timestamp_ms_));
+      TagToSend(new BosTag(0, kDefaultFlavourMask), first_tag_timestamp_ms_));
 }
 
 void FlvTagSplitter::UpdateMetadata(FlvTag::Metadata& metadata) {

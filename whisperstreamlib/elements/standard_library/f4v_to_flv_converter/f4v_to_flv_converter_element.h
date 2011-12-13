@@ -55,7 +55,7 @@ class F4vToFlvConverterElement : public FilteringElement {
 
     const string& creation_path() const;
 
-    virtual void FilterTag(const streaming::Tag* tag, TagList* out);
+    virtual void FilterTag(const Tag* tag, int64 timestamp_ms, TagList* out);
    private:
     static scoped_ref<FlvTag> PrepareCuePoint(FlvTag* cue_point,
         uint32 flavour_mask, int64 timestamp_ms);

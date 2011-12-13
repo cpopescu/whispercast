@@ -77,7 +77,7 @@ class FlvJoinProcessor : public streaming::JoinProcessor {
   virtual PROCESS_STATUS ProcessTag(const streaming::Tag* media_tag);
  private:
   // Helper - writes a cue point to writer_
-  void WriteCuePoint(int crt_cue, double position, uint32 timestamp);
+  void WriteCuePoint(int crt_cue, double position, int64 timestamp_ms);
   // Helper to process a metadata tag.
   // Checks if this metadata is compatible with the first one.
   // Params:
@@ -89,7 +89,7 @@ class FlvJoinProcessor : public streaming::JoinProcessor {
                        bool* skip_file);
 
   // Utilities for cue-point preparation
-  static void PrepareCuePoint(int index, double position, uint32 timestamp_ms,
+  static void PrepareCuePoint(int index, double position, int64 timestamp_ms,
                               rtmp::CMixedMap* out);
   static void PrepareCuePoints(const vector<CuePoint>& cues,
                                rtmp::CMixedMap* out);

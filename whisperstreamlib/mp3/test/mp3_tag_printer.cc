@@ -70,9 +70,10 @@ int main(int argc, char* argv[]) {
                                      << FLAGS_mp3_path << "]";
 
   while ( true ) {
-    scoped_ref<streaming::Tag> tag;
     uint64 pos = reader.Position();
-    streaming::TagReadStatus result = reader.Read(&tag);
+    int64 timestamp_ms;
+    scoped_ref<streaming::Tag> tag;
+    streaming::TagReadStatus result = reader.Read(&tag, &timestamp_ms);
     if ( result == streaming::READ_EOF ) {
       printf("EOF @%"PRIu64"\n", reader.Position());
       printf("Useless bytes at file end: %"PRIu64"\n", reader.Remaining());

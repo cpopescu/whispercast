@@ -34,14 +34,14 @@
 
 namespace streaming {
 
-scoped_ref<Tag> TagDropper::ProcessTag(streaming::Tag* tag) {
+scoped_ref<Tag> TagDropper::ProcessTag(streaming::Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ||
        tag->type() == Tag::TYPE_SOURCE_STARTED ) {
     is_audio_synced_ = is_video_synced_ = false;
   }
 
   // drop tags in the past
-  if ( tag->timestamp_ms() < 0 || tag->timestamp_ms() <= last_timestamp_ms_ ) {
+  if ( timestamp_ms < 0 || timestamp_ms <= last_timestamp_ms_ ) {
     if ( tag->is_audio_tag() ) {
       is_audio_synced_ = false;
     } else if ( tag->is_video_tag() ) {
@@ -64,8 +64,7 @@ scoped_ref<Tag> TagDropper::ProcessTag(streaming::Tag* tag) {
     is_video_synced_ = true;
   }
 
-  last_timestamp_ms_ = tag->timestamp_ms();
-
+  last_timestamp_ms_ = timestamp_ms;
   return tag;
 }
 

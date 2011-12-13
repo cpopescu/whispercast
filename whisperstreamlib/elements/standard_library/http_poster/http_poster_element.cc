@@ -140,7 +140,7 @@ void HttpPosterElement::Close(Closure* call_on_close) {
   call_on_close->Run();
 }
 
-void HttpPosterElement::ProcessTag(const Tag* tag) {
+void HttpPosterElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     CloseRequest(media_retry_timeout_ms_);
     return;
@@ -172,7 +172,7 @@ void HttpPosterElement::ProcessTag(const Tag* tag) {
     dropping_audio_ = false;
   }
   CHECK(http_protocol_ != NULL);
-  serializer_->Serialize(tag, &out_);
+  serializer_->Serialize(tag, timestamp_ms, &out_);
   if ( paused_ && out_.Size() > 8000 ) {
     paused_ = false;
     http_protocol_->ResumeWriting();

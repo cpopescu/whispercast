@@ -72,11 +72,11 @@ public:
   void SetMediaInfo(const MediaInfo& info);
 
   // Receive a tag from the library, send it to client through RTP.
-  void HandleTag(const streaming::Tag* tag);
+  void HandleTag(const streaming::Tag* tag, int64 timestamp_ms);
 private:
-  bool HandleFlvTag(const streaming::FlvTag& tag);
-  bool HandleF4vTag(const streaming::F4vTag& tag);
-  bool HandleMp3Tag(const streaming::Mp3FrameTag& tag, uint32 timestmap);
+  bool HandleFlvTag(const streaming::FlvTag& tag, int64 timestamp_ms);
+  bool HandleF4vTag(const streaming::F4vTag& tag, int64 timestamp_ms);
+  bool HandleMp3Tag(const streaming::Mp3FrameTag& tag, int64 timestamp_ms);
 
   bool RtpSend(const io::MemoryStream& frame_data, uint32 timestamp,
       bool is_audio);

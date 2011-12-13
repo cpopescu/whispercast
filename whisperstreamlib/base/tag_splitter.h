@@ -144,13 +144,16 @@ class TagSplitter {
   // is_at_eos: set to true if there is no more data to be appended to 'in'.
   //            When true, instead of READ_NO_DATA you get READ_EOF.
   // Read from "in" and return the next tag into 'tag'.
-  TagReadStatus GetNextTag(io::MemoryStream* in, scoped_ref<Tag>* tag,
+  TagReadStatus GetNextTag(io::MemoryStream* in,
+                           scoped_ref<Tag>* tag,
+                           int64* timestamp_ms,
                            bool is_at_eos);
 
  protected:
   // You need to override this in order to extract one tag from 'in' into 'tag'.
   virtual TagReadStatus GetNextTagInternal(io::MemoryStream* in,
                                            scoped_ref<Tag>* tag,
+                                           int64* timestamp_ms,
                                            bool is_at_eos) = 0;
  private:
   // Returns true if the given tag can be introduced in a composed tag

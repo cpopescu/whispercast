@@ -100,15 +100,17 @@ class TimedMediaData : public streaming::FilteringCallbackData {
     }
   }
 
-  virtual void FilterTag(const streaming::Tag* tag, TagList* out) {
+  virtual void FilterTag(const streaming::Tag* tag,
+                         int64 timestamp_ms,
+                         TagList* out) {
     // we update our internal state, and always FORWARD the tag
-    out->push_back(tag);
+    out->push_back(FilteredTag(tag, timestamp_ms));
 
     if ( state_keeper_ == NULL ) {
       return;
     }
 
-    stream_time_calculator_.ProcessTag(tag);
+    stream_time_calculator_.ProcessTag(tag, timestamp_ms);
 
     int64 now = timer::Date::Now();
 

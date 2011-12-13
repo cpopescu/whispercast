@@ -54,7 +54,7 @@ class KeyFrameExtractionState {
 
   // true = forward
   // false = drop
-  bool Filter(const streaming::Tag* tag);
+  bool Filter(const streaming::Tag* tag, int64 timestamp_ms);
 
  private:
   const int64 ms_between_video_frames_;
@@ -64,7 +64,8 @@ class KeyFrameExtractionState {
   int64 last_extracted_keyframe_time_offset_;
 };
 
-bool KeyFrameExtractionState::Filter(const streaming::Tag* tag) {
+bool KeyFrameExtractionState::Filter(const streaming::Tag* tag,
+                                     int64 timestamp_ms) {
   if ( tag->is_audio_tag() ) {    // maybe drop audio
     return !drop_audio_;
   }
@@ -72,13 +73,13 @@ bool KeyFrameExtractionState::Filter(const streaming::Tag* tag) {
     if ( !tag->can_resync() ) {   // drop interframes
       return false;
     }
-    if ( tag->timestamp_ms() > last_extracted_keyframe_time_offset_ &&
-         tag->timestamp_ms() - last_extracted_keyframe_time_offset_
+    if ( timestamp_ms > last_extracted_keyframe_time_offset_ &&
+         timestamp_ms - last_extracted_keyframe_time_offset_
          < ms_between_video_frames_ ) {
       return false;               // drop keyframes outside the time window
     }
     // now is the time to forward current frame -> pass
-    last_extracted_keyframe_time_offset_ = tag->timestamp_ms();
+    last_extracted_keyframe_time_offset_ = timestamp_ms;
     return true;
   }
   // forward everything else
@@ -97,7 +98,9 @@ class KeyFrameExtractorCallbackData : public streaming::FilteringCallbackData {
   //
   // FilteringCallbackData methods
   //
-  virtual void FilterTag(const streaming::Tag* tag, TagList* out);
+  virtual void FilterTag(const streaming::Tag* tag,
+                         int64 timestamp_ms,
+                         TagList* out);
 
   virtual bool Unregister(streaming::Request* req);
  private:
@@ -141,9 +144,10 @@ bool KeyFrameExtractorCallbackData::Unregister(streaming::Request* req) {
 }
 
 void KeyFrameExtractorCallbackData::FilterTag(const streaming::Tag* tag,
-    TagList* out) {
+                                              int64 timestamp_ms,
+                                              TagList* out) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
-    out->push_back(tag);
+    out->push_back(FilteredTag(tag, timestamp_ms));
     return; // forward tag
   }
 
@@ -156,7 +160,7 @@ void KeyFrameExtractorCallbackData::FilterTag(const streaming::Tag* tag,
     if ( droppers_[id] == NULL ) {
       RegisterFlavour(id);
     }
-    if ( droppers_[id]->Filter(tag) ) {
+    if ( droppers_[id]->Filter(tag, timestamp_ms) ) {
       flavours_to_keep |= (1 << id);
     }
   }
@@ -167,12 +171,12 @@ void KeyFrameExtractorCallbackData::FilterTag(const streaming::Tag* tag,
   }
   // forward tag
   if ( flavours_to_keep != tag->flavour_mask() ) {
-    streaming::Tag* const t = tag->Clone(-1);
+    streaming::Tag* const t = tag->Clone();
     t->set_flavour_mask(flavours_to_keep);
-    out->push_back(t);
+    out->push_back(FilteredTag(t, timestamp_ms));
     return;
   }
-  out->push_back(tag);
+  out->push_back(FilteredTag(tag, timestamp_ms));
 }
 }
 
@@ -234,13 +238,14 @@ void KeyFrameExtractorElement::SetBootstrap(const streaming::Tag* tag) {
 
 void KeyFrameExtractorElement::PlayBootstrap(
     streaming::ProcessingCallback* callback,
+    int64 timestamp_ms,
     uint32 flavour_mask) {
   while ( flavour_mask )  {
     const int id = RightmostFlavourId(flavour_mask);
     if ( last_extracted_keyframe_[id].get() != NULL ) {
       DLOG_DEBUG << name() << " Bootstraping: "
                  << last_extracted_keyframe_[id]->ToString();
-      callback->Run(last_extracted_keyframe_[id].get());
+      callback->Run(last_extracted_keyframe_[id].get(), timestamp_ms);
     }
   }
 }
@@ -250,7 +255,7 @@ void KeyFrameExtractorElement::ClearBootstrap() {
   }
 }
 
-void KeyFrameExtractorElement::ProcessTag(const Tag* tag) {
+void KeyFrameExtractorElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     mapper_->RemoveRequest(internal_req_, process_tag_callback_);
     delete process_tag_callback_;
@@ -291,6 +296,7 @@ bool KeyFrameExtractorElement::AddRequest(const char* media,
                                  this,
                                  &KeyFrameExtractorElement::PlayBootstrap,
                                  callback,
+                                 (int64)0,
                                  req->caps().flavour_mask_));
   return true;
 }

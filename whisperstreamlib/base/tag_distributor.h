@@ -60,6 +60,7 @@ class TagDistributor {
       bootstrapper_(bootstrap_media),
       flavour_mask_(flavour_mask),
       name_(name),
+      last_tag_ts_(0),
       distributing_tag_(false) {
     // sanity check: flavour_mask should contain only 1 flavour_id
     DCHECK(flavour_mask != 0 && (flavour_mask & (flavour_mask-1)) == 0)
@@ -86,16 +87,8 @@ class TagDistributor {
     return to_bootstrap_.size();
   }
 
-  // and I'll tell you the timestamp of the last tag
   int64 last_tag_ts() const {
-    return stream_time_calculator_.last_tag_ts();
-  }
-
-  int64 media_time_ms() const {
-    return stream_time_calculator_.media_time_ms();
-  }
-  int64 stream_time_ms() const {
-    return stream_time_calculator_.stream_time_ms();
+    return last_tag_ts_;
   }
 
   void add_callback(Request* req, ProcessingCallback* callback) {
@@ -127,16 +120,16 @@ class TagDistributor {
 
   // Runs PlayAtEnd() on the bootstrapper
   void Switch() {
-    int64 tag_time_ms = stream_time_calculator_.last_tag_ts();
-
     distributing_tag_ = true;
     for ( CallbackMap::iterator it = running_.begin();
           it != running_.end(); ++it ) {
-      bootstrapper_.PlayAtEnd(it->second.callback_, tag_time_ms, flavour_mask_);
+      bootstrapper_.PlayAtEnd(
+        it->second.callback_, last_tag_ts_, flavour_mask_);
     }
     distributing_tag_ = false;
 
     bootstrapper_.ClearBootstrap();
+    last_tag_ts_ = 0;
   }
 
   // Sends a SOURCE_ENDED to the running callbacks and
@@ -144,20 +137,20 @@ class TagDistributor {
   void Reset() {
     DCHECK(!distributing_tag_);
 
-    int64 tag_time_ms = stream_time_calculator_.last_tag_ts();
-
     distributing_tag_ = true;
 
     for ( CallbackMap::iterator it = running_.begin();
           it != running_.end(); ++it ) {
-      bootstrapper_.PlayAtEnd(it->second.callback_, tag_time_ms, flavour_mask_);
+      bootstrapper_.PlayAtEnd(
+        it->second.callback_, last_tag_ts_, flavour_mask_);
     }
 
     if ( !name_.empty() ) {
       scoped_ref<Tag> source_ended_tag(new SourceEndedTag(0, flavour_mask_,
-          0, name_, name_));
+          name_, name_));
 
-      DistributeTagInternal(running_, source_ended_tag.get());
+      DistributeTagInternal(
+        running_, source_ended_tag.get(), last_tag_ts_);
     }
 
     distributing_tag_ = false;
@@ -168,38 +161,39 @@ class TagDistributor {
     }
 
     bootstrapper_.ClearBootstrap();
+    last_tag_ts_ = 0;
   }
 
   // Sends a SOURCE_ENDED/EOS to the given callback
   void CloseCallback(Request* req, bool forced) {
     DCHECK(!distributing_tag_);
 
-    int64 tag_time_ms = stream_time_calculator_.last_tag_ts();
-
     scoped_ref<Tag> source_ended_tag_r(new SourceEndedTag(0, flavour_mask_,
-        0, name_, name_));
+        name_, name_));
     const Tag* source_ended_tag = name_.empty() ? NULL : source_ended_tag_r.get();
 
-    scoped_ref<Tag> eos_tag(new EosTag(0, flavour_mask_, tag_time_ms, forced));
+    scoped_ref<Tag> eos_tag(
+      new EosTag(0, flavour_mask_, forced));
 
     distributing_tag_ = true;
 
     CallbackMap::iterator it = running_.find(req);
     if ( it != running_.end() ) {
-      bootstrapper_.PlayAtEnd(it->second.callback_, tag_time_ms, flavour_mask_);
+      bootstrapper_.PlayAtEnd(
+        it->second.callback_, last_tag_ts_, flavour_mask_);
 
       DCHECK(!it->second.done_);
       if ( source_ended_tag != NULL) {
-        it->second.callback_->Run(source_ended_tag);
+        it->second.callback_->Run(source_ended_tag, 0);
       }
-      it->second.callback_->Run(eos_tag.get());
+      it->second.callback_->Run(eos_tag.get(), last_tag_ts_);
       it->second.done_ = true;
     } else {
       it = to_bootstrap_.find(req);
       DCHECK(it != to_bootstrap_.end());
 
       DCHECK(!it->second.done_);
-      it->second.callback_->Run(eos_tag.get());
+      it->second.callback_->Run(eos_tag.get(), last_tag_ts_);
       it->second.done_ = true;
     }
     distributing_tag_ = false;
@@ -208,31 +202,31 @@ class TagDistributor {
   void CloseAllCallbacks(bool forced) {
     DCHECK(!distributing_tag_);
 
-    int64 tag_time_ms = stream_time_calculator_.last_tag_ts();
-
     scoped_ref<Tag> source_ended_tag_r(new SourceEndedTag(0, flavour_mask_,
-        0, name_, name_));
+        name_, name_));
     Tag* source_ended_tag = name_.empty() ? NULL : source_ended_tag_r.get();
 
-    scoped_ref<Tag> eos_tag(new EosTag( 0, flavour_mask_, tag_time_ms, forced));
+    scoped_ref<Tag> eos_tag(
+      new EosTag( 0, flavour_mask_, forced));
 
     distributing_tag_ = true;
 
     for ( CallbackMap::iterator it = running_.begin();
           it != running_.end(); ++it ) {
-      bootstrapper_.PlayAtEnd(it->second.callback_, tag_time_ms, flavour_mask_);
+      bootstrapper_.PlayAtEnd(
+        it->second.callback_, last_tag_ts_, flavour_mask_);
 
       DCHECK(!it->second.done_);
       if ( source_ended_tag != NULL) {
-        it->second.callback_->Run(source_ended_tag);
+        it->second.callback_->Run(source_ended_tag, 0);
       }
-      it->second.callback_->Run(eos_tag.get());
+      it->second.callback_->Run(eos_tag.get(), last_tag_ts_);
       it->second.done_ = true;
     }
     for ( CallbackMap::iterator it = to_bootstrap_.begin();
           it != to_bootstrap_.end(); ++it ) {
       DCHECK(!it->second.done_);
-      it->second.callback_->Run(eos_tag.get());
+      it->second.callback_->Run(eos_tag.get(), last_tag_ts_);
       it->second.done_ = true;
     }
 
@@ -240,21 +234,16 @@ class TagDistributor {
   }
 
   // Distributes a tag to all our callbacks
-  void DistributeTag(const Tag* tag) {
+  void DistributeTag(const Tag* tag, int64 timestamp_ms) {
     DCHECK(!distributing_tag_);
-    distributing_tag_ = true;
 
     // eat the bootstrap begin/bootstrap end tags as we're doing our own
     if ( tag->type() == streaming::Tag::TYPE_BOOTSTRAP_BEGIN ||
          tag->type() == streaming::Tag::TYPE_BOOTSTRAP_END ) {
-      distributing_tag_ = false;
       return;
     }
 
-    stream_time_calculator_.ProcessTag(tag);
-
-    int64 tag_time_ms = stream_time_calculator_.last_tag_ts();
-    int64 media_time_ms = stream_time_calculator_.media_time_ms();
+    distributing_tag_ = true;
 
     // bootstrap new callbacks. These callbacks are also in callbacks_manager_.
     while ( !to_bootstrap_.empty() ) {
@@ -267,30 +256,27 @@ class TagDistributor {
       if ( !name_.empty() ) {
         callback->Run(scoped_ref<Tag>(new SourceStartedTag(
             0, flavour_mask_,
-            tag_time_ms,
-            name_, name_)).get());
+            name_, name_)).get(), timestamp_ms);
       }
-      callback->Run(scoped_ref<Tag>(new SegmentStartedTag(
-          0, flavour_mask_,
-          tag_time_ms,
-          media_time_ms)).get());
 
-      bootstrapper_.PlayAtBegin(callback, tag_time_ms, flavour_mask_);
+      bootstrapper_.PlayAtBegin(callback, timestamp_ms, flavour_mask_);
     }
 
-    bootstrapper_.ProcessTag(tag);
-    DistributeTagInternal(running_, tag);
+    bootstrapper_.ProcessTag(tag, timestamp_ms);
+    DistributeTagInternal(running_, tag, timestamp_ms);
 
     distributing_tag_ = false;
   }
 
 private:
   // Distributes a tag to all our callbacks
-  void DistributeTagInternal(CallbackMap& callbacks, const Tag* tag) {
+  void DistributeTagInternal(
+    CallbackMap& callbacks, const Tag* tag, int64 timestamp_ms) {
     for ( CallbackMap::const_iterator it = callbacks.begin();
           it != callbacks.end(); ++it ) {
-      it->second.callback_->Run(tag);
+      it->second.callback_->Run(tag, timestamp_ms);
     }
+    last_tag_ts_ = timestamp_ms;
   }
 
  private:
@@ -302,12 +288,11 @@ private:
   // the things that we need to bootstrap..
   CallbackMap to_bootstrap_;
 
-  // last media/stream time
-  StreamTimeCalculator stream_time_calculator_;
-
   uint32 flavour_mask_;
 
   string name_;
+
+  int64 last_tag_ts_;
 
   // Bug trap: whenever we send tags downstream we set this flag.
   // No changes (add_callback, remove_callback..) must come in between.

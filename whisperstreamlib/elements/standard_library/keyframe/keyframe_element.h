@@ -70,12 +70,13 @@ class KeyFrameExtractorElement : public FilteringElement {
  protected:
   void SetBootstrap(const streaming::Tag* tag);
   void PlayBootstrap(streaming::ProcessingCallback* callback,
+                     int64 timestamp_ms,
                      uint32 flavour_mask);
   void ClearBootstrap();
 
   // A dead-end callback, looks like a client callback for the element_.
   // We receive & process tags here, in order to update our bootstrap video tag.
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp);
 
   //////////////////////////////////////////////////////////////////
 

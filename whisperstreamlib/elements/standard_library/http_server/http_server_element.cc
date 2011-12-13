@@ -805,9 +805,11 @@ void HttpServerImportData::ProcessStreamDataInternal(
   }
 
   while ( true ) {
+    int64 timestamp_ms;
     scoped_ref<Tag> tag;
     streaming::TagReadStatus status =
-        splitter_->GetNextTag(&parse_buffer_, &tag, flush_parsing);
+        splitter_->GetNextTag(&parse_buffer_,
+            &tag, &timestamp_ms, flush_parsing);
 
     if ( status == streaming::READ_NO_DATA ) {
       break;
@@ -824,19 +826,19 @@ void HttpServerImportData::ProcessStreamDataInternal(
       return;
     }
 
-    distributor_.DistributeTag(tag.get());
+    distributor_.DistributeTag(tag.get(), timestamp_ms);
 
     if ( saver_ != NULL ) {
-      saver_->ProcessTag(tag.get());
+      saver_->ProcessTag(tag.get(), timestamp_ms);
     }
 
     if ( !flush_parsing ) {
       MaybeReregisterTagTimeout(false);
       if ( is_first_tag_ ) {
         is_first_tag_ = false;
-        first_tag_time_ = tag->timestamp_ms();
+        first_tag_time_ = timestamp_ms;
       } else {
-        const int64 delta = (tag->timestamp_ms() - first_tag_time_) -
+        const int64 delta = (timestamp_ms - first_tag_time_) -
                             (selector_->now() - start_decode_time_);
         if ( delta > advance_media_ms_ ) {
           break;

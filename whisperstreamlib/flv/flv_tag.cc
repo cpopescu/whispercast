@@ -55,6 +55,44 @@ void FlvHeader::AppendStandardHeader(io::MemoryStream* out,
 
 synch::MutexPool FlvTag::mutex_pool_(FlvTag::kNumMutexes);
 
+void FlvTag::update() {
+  switch ( body().type() ) {
+    case FLV_FRAMETYPE_VIDEO: {
+      const FlvTag::Video& video_body = this->video_body();
+      add_attributes(Tag::ATTR_VIDEO);
+      if ( video_body.video_frame_type() ==
+           FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ) {
+        add_attributes(Tag::ATTR_CAN_RESYNC);
+      }
+
+      if ( video_body.video_codec() == FLV_FLAG_VIDEO_CODEC_AVC ) {
+        mutable_video_body().set_video_avc_moov(
+          FlvCoder::DecodeAuxiliaryMoovTag(this));
+
+        if ( video_body.video_avc_packet_type() != AVC_SEQUENCE_HEADER ) {
+          add_attributes(Tag::ATTR_DROPPABLE);
+        }
+      } else {
+        add_attributes(Tag::ATTR_DROPPABLE);
+      }
+    }
+    break;
+    case FLV_FRAMETYPE_AUDIO: {
+      const FlvTag::Audio& audio_body = this->audio_body();
+      add_attributes(Tag::ATTR_AUDIO |
+                              Tag::ATTR_CAN_RESYNC);
+      if ( audio_body.audio_format() != FLV_FLAG_SOUND_FORMAT_AAC ||
+           !audio_body.audio_is_aac_header() ) {
+        add_attributes(Tag::ATTR_DROPPABLE);
+      }
+    }
+    break;
+    case FLV_FRAMETYPE_METADATA: {
+    }
+    break;
+  }
+}
+
 void FlvTag::Audio::append_data(const void* data, uint32 size) {
   data_.Write(data, size);
   FlvCoder::DecodeAudioFlags(data_, &audio_type_, &audio_format_,
@@ -198,29 +236,26 @@ void FlvTagSerializer::Initialize(io::MemoryStream* out) {
   }
 }
 bool FlvTagSerializer::SerializeInternal(const streaming::Tag* tag,
-                                         int64 base_timestamp_ms,
+                                         int64 timestamp_ms,
                                          io::MemoryStream* out) {
   if ( tag->type() == Tag::TYPE_FLV ) {
     const FlvTag* flv_tag = static_cast<const FlvTag*>(tag);
-    SerializeFlvTag(flv_tag, base_timestamp_ms, out);
+    SerializeFlvTag(flv_tag, timestamp_ms, out);
     return true;
   }
   return false;
 }
 
 void FlvTagSerializer::SerializeFlvTag(const FlvTag* flv_tag,
-                                       int64 base_timestamp_ms,
+                                       int64 timestamp_ms,
                                        io::MemoryStream* out) {
-  int32 timestamp_ms = 0;
-  last_timestamp_ms_ = base_timestamp_ms + flv_tag->timestamp_ms();
-  timestamp_ms = last_timestamp_ms_;
-
   io::NumStreamer::WriteInt32(out, previous_tag_size_, common::BIGENDIAN);
   const int32 initial_size = out->Size();
   io::NumStreamer::WriteByte(out, flv_tag->body().type());
   io::NumStreamer::WriteUInt24(out, flv_tag->body().Size(), common::BIGENDIAN);
   io::NumStreamer::WriteUInt24(out, timestamp_ms & 0xFFFFFF,  // 24 bit mask
                               common::BIGENDIAN);
+  timestamp_ms = (timestamp_ms < 0) ? flv_tag->timestamp_ms() : timestamp_ms;
   io::NumStreamer::WriteByte(out, (timestamp_ms >> 24) & 0xFF);
   io::NumStreamer::WriteUInt24(out, flv_tag->stream_id(), common::BIGENDIAN);
   flv_tag->body().Encode(out);

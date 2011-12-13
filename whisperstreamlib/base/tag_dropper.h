@@ -48,7 +48,7 @@ class TagDropper {
   ~TagDropper() {
   }
   // Give us a tag, we tell you what to send further .. (or NULL to drop);
-  scoped_ref<Tag> ProcessTag(streaming::Tag* tag);
+  scoped_ref<Tag> ProcessTag(streaming::Tag* tag, int64 timestamp_ms);
 
  private:
   bool is_audio_synced_;

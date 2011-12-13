@@ -81,11 +81,10 @@ class RawTag : public Tag {
     data_->DecRef();
   }
 
-  virtual int64 timestamp_ms() const { return 0; }
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return data()->Size(); }
   // the new tag shares the internal data buffer with this tag
-  virtual Tag* Clone(int64 timestamp_ms) const {
+  virtual Tag* Clone() const {
     return new RawTag(*this, false);
   }
   virtual string ToStringBody() const {
@@ -148,7 +147,10 @@ class RawTagSplitter : public streaming::TagSplitter {
 
  protected:
   virtual streaming::TagReadStatus GetNextTagInternal(
-      io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos);
+      io::MemoryStream* in,
+      scoped_ref<Tag>* tag,
+      int64* timestamp_ms,
+      bool is_at_eos);
 
  private:
   const int bits_per_second_;
@@ -173,7 +175,7 @@ class RawTagSerializer : public streaming::TagSerializer {
   virtual void Finalize(io::MemoryStream* out) {
   }
  protected:
-  virtual bool SerializeInternal(const Tag* tag, int64 base_timestamp_ms,
+  virtual bool SerializeInternal(const Tag* tag, int64 timestamp_ms,
                                  io::MemoryStream* out);
 
  private:

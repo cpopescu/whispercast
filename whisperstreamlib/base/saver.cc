@@ -228,7 +228,7 @@ void Saver::StopSaving() {
 }
 
 
-void Saver::ProcessTag(const Tag* tag) {
+void Saver::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   if ( !IsSaving() ) {
     // Happens when someone sends tags in a loop without acknowledging the
     // RemoveRequest (e.g. Bootstrapper, Filtering)
@@ -266,7 +266,7 @@ void Saver::ProcessTag(const Tag* tag) {
     }
   }
 
-  bootstrapper_.ProcessTag(tag);
+  bootstrapper_.ProcessTag(tag, timestamp_ms);
 
   if ( buffer_.Size() > kDumpBufferSize ) {
     Flush();
@@ -280,7 +280,7 @@ void Saver::ProcessTag(const Tag* tag) {
       return;
     }
   }
-  serializer_->Serialize(tag, &buffer_);
+  serializer_->Serialize(tag, timestamp_ms, &buffer_);
 }
 
 string Saver::GetNextFileForSaving(bool new_chunk) const {

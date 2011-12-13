@@ -50,6 +50,16 @@ class Bootstrapper {
     ClearBootstrap();
   }
 
+ public:
+  struct BootstrapTag {
+    BootstrapTag(const Tag* tag = NULL, int64 timestamp_ms = -1) :
+      tag_(tag), timestamp_ms_(timestamp_ms) {
+    }
+
+    scoped_ref<const Tag> tag_;
+    int64 timestamp_ms_;
+  };
+
   void set_keep_media(bool keep_media) {
     keep_media_ = keep_media;
     if ( !keep_media ) {
@@ -70,9 +80,9 @@ class Bootstrapper {
   void PlayAtEnd(streaming::CallbacksManager* callback_manager,
       int64 timestamp_ms, uint32 flavour_mask) const;
 
-  void GetBootstrapTags(vector< scoped_ref<const Tag> >* out);
+  void GetBootstrapTags(vector<BootstrapTag>* out);
 
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
   void ClearBootstrap();
   void ClearMediaBootstrap();
@@ -81,21 +91,21 @@ class Bootstrapper {
   bool keep_media_;
 
   // The stack of source started tags
-  deque< scoped_ref<const SourceStartedTag> > source_started_tags_;
+  deque<BootstrapTag> source_started_tags_;
 
   // Last remembered AVC video header
-  scoped_ref<const FlvTag> avc_sequence_header_;
+  BootstrapTag avc_sequence_header_;
   // AAC audio header
-  scoped_ref<const FlvTag> aac_header_tag_;
+  BootstrapTag aac_header_tag_;
   // Last remembered stream properties
-  scoped_ref<const FlvTag> metadata_;
+  BootstrapTag metadata_;
   // Cue points which enable downstream clients to seek
-  scoped_ref<const CuePointTag> cue_points_;
+  BootstrapTag cue_points_;
   // Moov header for h264
-  scoped_ref<const FlvTag> moov_tag_;
+  BootstrapTag moov_tag_;
 
   // Last keyframe + all intermediate tags until now
-  vector< scoped_ref<const Tag> > media_bootstrap_;
+  vector<BootstrapTag> media_bootstrap_;
 };
 
 }

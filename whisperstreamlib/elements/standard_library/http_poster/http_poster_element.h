@@ -88,7 +88,7 @@ class HttpPosterElement : public Element {
   void CloseRequest(int64 retry_timeout_ms);
 
   bool ProcessHttp(int32 available_out);
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
   void CreateSerializer();
 

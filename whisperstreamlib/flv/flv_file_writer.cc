@@ -46,16 +46,16 @@ bool FlvFileWriter::IsOpen() const {
   return file_.is_open();
 }
 
-bool FlvFileWriter::Write(const FlvTag& tag) {
-  encoder_.SerializeFlvTag(&tag, 0, &buf_);
+bool FlvFileWriter::Write(const FlvTag& tag, int64 timestamp_ms) {
+  encoder_.SerializeFlvTag(&tag, timestamp_ms, &buf_);
   written_tags_++;
   return Flush();
 }
-bool FlvFileWriter::Write(scoped_ref<FlvTag>& tag) {
-  return Write(*tag.get());
+bool FlvFileWriter::Write(scoped_ref<FlvTag>& tag, int64 timestamp_ms) {
+  return Write(*tag.get(), timestamp_ms);
 }
-bool FlvFileWriter::Write(scoped_ref<const FlvTag>& tag) {
-  return Write(*tag.get());
+bool FlvFileWriter::Write(scoped_ref<const FlvTag>& tag, int64 timestamp_ms) {
+  return Write(*tag.get(), timestamp_ms);
 }
 bool FlvFileWriter::Flush() {
   while ( !buf_.IsEmpty() ) {

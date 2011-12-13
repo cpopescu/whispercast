@@ -95,8 +95,9 @@ int64 JoinFlvFiles(const vector<string>& in_files,
 
     io::MemoryStream ms;
     while ( true ) {
+      int64 timestamp_ms;
       scoped_ref<Tag> tag;
-      streaming::TagReadStatus err = reader.Read(&tag);
+      streaming::TagReadStatus err = reader.Read(&tag, &timestamp_ms);
 
       if ( err == streaming::READ_EOF ) {
         LOG_INFO << "Joiner: [" << filename << "] EOF";

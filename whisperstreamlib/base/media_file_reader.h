@@ -56,7 +56,7 @@ public:
   bool Open(const string& filename,
             TagSplitter::Type ts_type = (TagSplitter::Type)-1);
   // read next tag from file.
-  TagReadStatus Read(scoped_ref<Tag>* out);
+  TagReadStatus Read(scoped_ref<Tag>* out, int64* timestamp_ms);
   // similar to the Read() above, but also returns raw data for the read tag.
   TagReadStatus Read(scoped_ref<Tag>* out, io::MemoryStream* out_data);
 

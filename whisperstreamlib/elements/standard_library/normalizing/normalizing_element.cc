@@ -42,7 +42,8 @@ class NormalizingStruct {
   ~NormalizingStruct();
 
   scoped_ref<const streaming::Tag>
-  ProcessTag(const streaming::Tag* tag);
+  ProcessTag(const streaming::Tag* tag, int64 timestamp_ms);
+
  private:
   void UnpauseFlowControl(int64 element_seq_id);
 
@@ -90,7 +91,7 @@ void NormalizingStruct::UnpauseFlowControl(int64 element_seq_id) {
 }
 
 scoped_ref<const streaming::Tag>
-NormalizingStruct::ProcessTag(const streaming::Tag* tag) {
+NormalizingStruct::ProcessTag(const streaming::Tag* tag, int64 timestamp_ms) {
   return tag;
   if ( flow_control_write_ahead_ms_ > 0 ) {
     const int64 now = selector_->now();
@@ -99,7 +100,7 @@ NormalizingStruct::ProcessTag(const streaming::Tag* tag) {
       return tag;
     }
 
-    stream_time_calculator_.ProcessTag(tag);
+    stream_time_calculator_.ProcessTag(tag, timestamp_ms);
     const int64 stream_time_ms = stream_time_calculator_.stream_time_ms();
 
     if ( tag->type() == streaming::Tag::TYPE_SOURCE_ENDED ) {
@@ -176,7 +177,9 @@ class NormalizingElementCallbackData
 
   /////////////////////////////////////////////////////////////////////
 
-  virtual void FilterTag(const streaming::Tag* tag, TagList* out);
+  virtual void FilterTag(const streaming::Tag* tag,
+                         int64 timestamp_ms,
+                         TagList* out);
 
  protected:
   virtual void RegisterFlavour(int flavour_id) {
@@ -223,7 +226,8 @@ NormalizingElementCallbackData::~NormalizingElementCallbackData() {
 }
 
 void NormalizingElementCallbackData::FilterTag(const streaming::Tag* tag,
-    TagList* out) {
+                                               int64 timestamp_ms,
+                                               TagList* out) {
   // We normalize on all flavours
   uint32 flavour_mask = tag->flavour_mask();
   if ( req_ != NULL ) {
@@ -238,10 +242,10 @@ void NormalizingElementCallbackData::FilterTag(const streaming::Tag* tag,
       RegisterFlavour(id);
     }
     scoped_ref<const streaming::Tag> tag_to_send =
-        normalizers_[id]->ProcessTag(tag);
+        normalizers_[id]->ProcessTag(tag, timestamp_ms);
     if ( tag_to_send.get() != NULL ) {
       // forward tag
-      out->push_back(tag_to_send);
+      out->push_back(FilteredTag(tag_to_send.get(), timestamp_ms));
     }
   }
   // default: drop tag

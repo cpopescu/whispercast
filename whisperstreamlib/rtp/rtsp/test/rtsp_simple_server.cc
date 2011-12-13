@@ -82,21 +82,22 @@ private:
       delete next_tag_callback_;
     }
     void NextTag() {
+      int64 timestamp_ms;
       scoped_ref<streaming::Tag> tag;
-      streaming::TagReadStatus result = reader_->Read(&tag);
+      streaming::TagReadStatus result = reader_->Read(&tag, &timestamp_ms);
       if ( result != streaming::READ_OK ) {
         master_->NotifyClose(this);
         return;
       }
       CHECK_NOT_NULL(tag.get());
-      broadcaster_->HandleTag(tag.get());
+      broadcaster_->HandleTag(tag.get(), timestamp_ms);
 
       int64 now = timer::TicksMsec();
       if ( first_tag_ts_ == 0 ) {
         first_tag_ts_ = now;
       }
       int64 real_delay = now - first_tag_ts_;
-      int64 stream_delay = tag->timestamp_ms();
+      int64 stream_delay = timestamp_ms;
       int64 delay = stream_delay - real_delay;
       selector_->RegisterAlarm(next_tag_callback_, delay);
     }

@@ -83,7 +83,7 @@ class RandomPolicy : public Policy {
     history_.clear();
     SaveState();
   }
-  virtual bool NotifyTag(const streaming::Tag*) {
+  virtual bool NotifyTag(const streaming::Tag*, int64) {
     return true;
   }
   virtual string GetPolicyConfig() { return ""; }
@@ -226,7 +226,7 @@ class PlaylistPolicy : public Policy,
     SaveState();
   }
 
-  virtual bool NotifyTag(const streaming::Tag*) {
+  virtual bool NotifyTag(const streaming::Tag*, int64) {
     return true;
   }
   virtual string GetPolicyConfig() { return ""; }
@@ -391,7 +391,7 @@ class TimedPlaylistPolicy : public Policy {
     last_switch_time_ = -1;
     SaveState();
   }
-  virtual bool NotifyTag(const streaming::Tag*) {
+  virtual bool NotifyTag(const streaming::Tag*, int64) {
     return true;
   }
   virtual string GetPolicyConfig() { return ""; }
@@ -564,7 +564,7 @@ class OnCommandPolicy : public Policy,
   virtual bool Initialize();
   virtual void Reset();
   virtual bool NotifyEos();
-  virtual bool NotifyTag(const Tag* tag);
+  virtual bool NotifyTag(const Tag* tag, int64 timestamp_ms);
   virtual string GetPolicyConfig();
 
   //////////////////////////////////////////////////////////////////////

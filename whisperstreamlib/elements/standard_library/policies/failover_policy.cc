@@ -145,7 +145,7 @@ bool FailoverPolicy::NotifyEos() {
   return true;
 }
 
-bool FailoverPolicy::NotifyTag(const Tag* tag) {
+bool FailoverPolicy::NotifyTag(const Tag* tag, int64 timestamp_ms) {
   if ( current_media_ != main_media_ &&
        tag->type() == streaming::Tag::TYPE_SOURCE_STARTED &&
        main_media_tags_received_ > main_media_tags_received_switch_limit_ ) {
@@ -160,7 +160,7 @@ string FailoverPolicy::GetPolicyConfig() {
   return "";
 }
 
-void FailoverPolicy::ProcessMainTag(const Tag* tag) {
+void FailoverPolicy::ProcessMainTag(const Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     CloseMedia();
     selector_->RegisterAlarm(open_media_callback_, 100);

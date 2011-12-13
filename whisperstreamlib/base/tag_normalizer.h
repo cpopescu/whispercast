@@ -64,7 +64,7 @@ class TagNormalizer {
   void Reset(streaming::Request* request);
 
   // Pause or resume the stream, so it flows at the normal rate
-  void ProcessTag(const streaming::Tag* tag);
+  void ProcessTag(const streaming::Tag* tag, int64 timestamp_ms);
 
  private:
   void Unpause(int64 element_seq_id);

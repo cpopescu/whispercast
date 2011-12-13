@@ -59,7 +59,7 @@ FilteringCallbackData::~FilteringCallbackData() {
   CHECK_NULL(here_process_tag_callback_);
 }
 
-void FilteringCallbackData::SendTag(const Tag* tag) {
+void FilteringCallbackData::SendTag(const Tag* tag, int64 timestamp_ms) {
   DCHECK(registered_type() != Tag::kInvalidType ||
          tag->type() == Tag::TYPE_EOS);
 
@@ -71,8 +71,8 @@ void FilteringCallbackData::SendTag(const Tag* tag) {
     eos_received_ = true;
   }
 
-  last_tag_ts_ = tag->timestamp_ms();
-  client_process_tag_callback_->Run(tag);
+  last_tag_ts_ = timestamp_ms;
+  client_process_tag_callback_->Run(tag, timestamp_ms);
 
 }
 
@@ -117,33 +117,33 @@ bool FilteringCallbackData::Unregister(streaming::Request* req) {
   return true;
 }
 
-void FilteringCallbackData::ProcessTag(const Tag* tag) {
+void FilteringCallbackData::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   IncRef();
   TagList tags;
-  FilterTag(tag, &tags);
+  FilterTag(tag, timestamp_ms, &tags);
 
   while ( !tags.empty() ) {
-    scoped_ref<const Tag> t = tags.front();
+    FilteredTag t = tags.front();
     tags.pop_front();
-    DCHECK(tags.empty() || t->type() != Tag::TYPE_EOS);
+    DCHECK(tags.empty() || t.tag_->type() != Tag::TYPE_EOS);
 
     if ( (private_flags_ & Flag_DontAppendNameToPath) == 0 ) {
-      if ( t->type() == Tag::TYPE_SOURCE_STARTED ||
-           t->type() == Tag::TYPE_SOURCE_ENDED ) {
+      if ( t.tag_->type() == Tag::TYPE_SOURCE_STARTED ||
+           t.tag_->type() == Tag::TYPE_SOURCE_ENDED ) {
         const SourceChangedTag* source_changed =
-            static_cast<const SourceChangedTag*>(t.get());
+            static_cast<const SourceChangedTag*>(t.tag_.get());
         if ( !source_changed->is_final() ) {
           scoped_ref<SourceChangedTag> td(static_cast<SourceChangedTag*>(
-              source_changed->Clone(-1)));
+              source_changed->Clone()));
           td->set_path(strutil::JoinMedia(filtering_element_name_,
               source_changed->path()));
-          t = td.get();
+          t.tag_ = td.get();
         }
       }
     }
 
     if ( client_process_tag_callback_ != NULL ) {
-      client_process_tag_callback_->Run(t.get());
+      client_process_tag_callback_->Run(t.tag_.get(), t.timestamp_ms_);
     }
   }
   CHECK(tags.empty());
@@ -152,7 +152,8 @@ void FilteringCallbackData::ProcessTag(const Tag* tag) {
 
 void FilteringCallbackData::Close() {
   Unregister(req_);
-  SendTag(scoped_ref<Tag>(new EosTag(0, kDefaultFlavourMask, 0, true)).get());
+  SendTag(scoped_ref<Tag>(
+      new EosTag(0, kDefaultFlavourMask, true)).get(), 0);
 }
 
 

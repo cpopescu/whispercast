@@ -82,9 +82,14 @@ class SplittingElementCallbackData
     return false;
   }
 
-  virtual void FilterTag(const streaming::Tag* tag, TagList* out);
+  virtual void FilterTag(const streaming::Tag* tag,
+                         int64 timestamp_ms,
+                         TagList* out);
+
  private:
-  void ProcessFilteredTag(const streaming::Tag* tag, TagList* tags);
+  void ProcessFilteredTag(const streaming::Tag* tag,
+                          int64 timestamp_ms,
+                          TagList* tags);
 
   net::Selector* const selector_;
   streaming::Capabilities caps_;
@@ -97,22 +102,25 @@ class SplittingElementCallbackData
 };
 
 void SplittingElementCallbackData::FilterTag(const streaming::Tag* tag,
-    TagList* out) {
+                                             int64 timestamp_ms,
+                                             TagList* out) {
   if ( tag->type() == streaming::Tag::TYPE_RAW ||
        tag->type() == streaming::Tag::TYPE_EOS ) {
     // forward 0 or more tags
-    ProcessFilteredTag(tag, out);
+    ProcessFilteredTag(tag, timestamp_ms, out);
     return;
   }
   // default: forward tag
-  out->push_back(tag);
+  out->push_back(FilteredTag(tag, timestamp_ms));
 }
 
 void SplittingElementCallbackData::ProcessFilteredTag(
-    const streaming::Tag* tag, TagList* tags) {
+    const streaming::Tag* tag,
+    int64 timestamp_ms,
+    TagList* tags) {
   // forward EOS
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
-    tags->push_back(tag);
+    tags->push_back(FilteredTag(tag, timestamp_ms));
     return;
   }
   // extract data from RAW tags
@@ -123,9 +131,10 @@ void SplittingElementCallbackData::ProcessFilteredTag(
   }
   // decode tags from raw data
   while ( true ) {
+    int64 timestamp_ms;
     scoped_ref<streaming::Tag> new_tag;
     streaming::TagReadStatus status = splitter_->GetNextTag(
-        &data_, &new_tag, false);
+        &data_, &new_tag, &timestamp_ms, false);
     if ( status == streaming::READ_SKIP ||
          status == streaming::READ_CORRUPTED_CONT ) {
       continue;
@@ -136,8 +145,8 @@ void SplittingElementCallbackData::ProcessFilteredTag(
                   << " for element: " << media_name()
                   << " size: " << data_.Size();
         if ( tag->type() != streaming::Tag::TYPE_EOS ) {
-          tags->push_back(new streaming::EosTag(
-              0, distributor_.flavour_mask(), last_tag_ts_));
+          tags->push_back(FilteredTag(new streaming::EosTag(
+              0, distributor_.flavour_mask(), false), last_tag_ts_));
         }
       }
       break;
@@ -146,13 +155,14 @@ void SplittingElementCallbackData::ProcessFilteredTag(
       // error cases
       LOG_ERROR << "Error reading next tag, on element: " << media_name()
                 << ", status: " << streaming::TagReadStatusName(status);
-      tags->push_back(new streaming::EosTag(
-          0, distributor_.flavour_mask(), last_tag_ts_));
+      tags->push_back(FilteredTag(new streaming::EosTag(
+          0, distributor_.flavour_mask(), false), last_tag_ts_));
       return;
     }
     CHECK_EQ(status, streaming::READ_OK);
     CHECK_NOT_NULL(new_tag.get());
-    tags->push_back(new_tag.get());
+    tags->push_back(FilteredTag(new_tag.get(), timestamp_ms));
+    last_tag_ts_ = timestamp_ms;
   }
 }
 }

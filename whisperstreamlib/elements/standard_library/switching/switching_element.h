@@ -137,7 +137,7 @@ class SwitchingElement :
 
   // Processing function - we call from this our underneath processing
   // callbacks
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
   // We call this internally when the current element signals sends us an EOS.
   void StreamEnded();

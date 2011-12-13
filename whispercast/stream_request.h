@@ -97,7 +97,7 @@ public:
 
   virtual bool CanSendTag() const;
   virtual void SetNotifyReady();
-  virtual void SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms);
+  virtual void SendTag(const streaming::Tag* tag, int64 timestamp_ms);
 
   virtual void AuthorizeCompleted(int64 seek_time_ms,
       streaming::Authorizer* authorizer);
@@ -108,7 +108,7 @@ public:
   void ResumeLocalizedTags();
 
  private:
-  void SendSimpleTag(const streaming::Tag* tag, int64 tag_timestamp_ms);
+  void SendSimpleTag(const streaming::Tag* tag, int64 timestamp_ms);
 
   void MediaRequestClosedCallback(http::HttpReturnCode reason);
   void HttpRequestClosedCallback();

@@ -212,8 +212,6 @@ JoinProcessor::PROCESS_STATUS FlvJoinProcessor::ProcessTag(const Tag* tag) {
   // update last timestamps
   last_in_timestamp_ms_ = flv_tag->timestamp_ms();
   last_out_timestamp_ms_ += delta;
-  // update tag timestamp
-  const_cast<streaming::FlvTag*>(flv_tag)->set_timestamp_ms(last_out_timestamp_ms_);
 
   // possibly mark a cue point
   if (cue_ms_time_ > 0 && !keep_all_metadata_ ) {
@@ -230,8 +228,8 @@ JoinProcessor::PROCESS_STATUS FlvJoinProcessor::ProcessTag(const Tag* tag) {
     }
   }
 
-  // write
-  if ( !writer_.Write(*flv_tag) ) {
+    // write
+  if ( !writer_.Write(*flv_tag, last_out_timestamp_ms_) ) {
     return PROCESS_ABANDON;
   }
 
@@ -240,14 +238,14 @@ JoinProcessor::PROCESS_STATUS FlvJoinProcessor::ProcessTag(const Tag* tag) {
 
 void FlvJoinProcessor::WriteCuePoint(int crt_cue,
                                      double position,
-                                     uint32 timestamp) {
-  scoped_ref<FlvTag> point(new FlvTag(0, kDefaultFlavourMask, timestamp,
+                                     int64 timestamp_ms) {
+  scoped_ref<FlvTag> point(new FlvTag(0, kDefaultFlavourMask, timestamp_ms,
       new FlvTag::Metadata()));
   point->set_stream_id(0);
   point->mutable_metadata_body().mutable_name()->set_value(streaming::kOnCuePoint);
-  PrepareCuePoint(crt_cue, position, timestamp,
+  PrepareCuePoint(crt_cue, position, timestamp_ms,
                   point->mutable_metadata_body().mutable_values());
-  writer_.Write(point);
+  writer_.Write(point, timestamp_ms);
 }
 
 int64 FlvJoinProcessor::FinalizeFile() {
@@ -316,7 +314,7 @@ int64 FlvJoinProcessor::FinalizeFile() {
 
     // Finally write metadata
     uint64 start_pos = writer_.Position();
-    writer_.Write(metadata_tag);
+    writer_.Write(metadata_tag, 0);
     uint64 encoded_size = writer_.Position() - start_pos;
     CHECK_EQ(metadata_size, encoded_size);
   }
@@ -326,8 +324,9 @@ int64 FlvJoinProcessor::FinalizeFile() {
   CHECK_EQ(reader.Position(), 0);
   int crt_cue = 0;
   while ( true ) {
+    int64 timestamp_ms;
     scoped_ref<streaming::Tag> media_tag;
-    streaming::TagReadStatus err = reader.Read(&media_tag);
+    streaming::TagReadStatus err = reader.Read(&media_tag, &timestamp_ms);
     if ( err == streaming::READ_EOF ) {
       LOG_INFO << "EOF at position: " << reader.Position()
                << ", useless bytes: " << reader.Remaining();
@@ -374,7 +373,7 @@ int64 FlvJoinProcessor::FinalizeFile() {
                << ", ts: " << cues_[crt_cue].timestamp_ << " ms"
                   ", position: " << cues_[crt_cue].position_
                << ", before tag: " << flv_tag->ToString();
-      CHECK_EQ(cues_[crt_cue].timestamp_, flv_tag->timestamp_ms());
+      CHECK_EQ(cues_[crt_cue].timestamp_, timestamp_ms);
       CHECK_EQ(cues_[crt_cue].position_, writer_.Position());
       if ( has_video_ ) {
         // a cue point always comes before a keyframe (except first cue_point
@@ -386,7 +385,7 @@ int64 FlvJoinProcessor::FinalizeFile() {
       crt_cue++;
     }
     // write tag
-    writer_.Write(*flv_tag);
+    writer_.Write(*flv_tag, timestamp_ms);
   }
 done:
   LOG_INFO << "Done, output file: [" << out_file_ << "]"
@@ -401,7 +400,7 @@ done:
 }
 
 void FlvJoinProcessor::PrepareCuePoint(int index, double position,
-    uint32 timestamp_ms, rtmp::CMixedMap* out) {
+    int64 timestamp_ms, rtmp::CMixedMap* out) {
   out->Set("time", new rtmp::CNumber(timestamp_ms / 1000.0));
   rtmp::CMixedMap* param_map = new rtmp::CMixedMap();
   param_map->Set("pos", new rtmp::CNumber(position));

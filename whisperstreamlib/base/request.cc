@@ -68,13 +68,13 @@ void Request::SetFromUrl(const URL& url) {
       errno = 0;
       if ( comp[i].first == FLAGS_req_seek_pos_key ) {
         const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) info_.seek_pos_ms_ = n;
+        if ( !errno ) info_.seek_pos_ms_ = max((int64)(0), n);
       } else if ( comp[i].first == FLAGS_req_media_origin_key ) {
         const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) info_.media_origin_pos_ms_ = n;
+        if ( !errno ) info_.media_origin_pos_ms_ = max((int64)(0), n);
       } else if ( comp[i].first == FLAGS_req_limit_key ) {
         const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) info_.limit_ms_ = n;
+        if ( !errno ) info_.limit_ms_ = max((int64)(0), n);
       } else if ( comp[i].first == FLAGS_req_session_key ) {
         info_.session_id_ = comp[i].second;
       } else if ( comp[i].first == FLAGS_req_affiliate_key ) {
@@ -89,14 +89,7 @@ void Request::SetFromUrl(const URL& url) {
     info_.auth_req_.ReadQueryComponents(comp);
   }
 
-  info_.seek_pos_ms_ = max(static_cast<int64>(0),
-                           info_.seek_pos_ms_);
-  info_.media_origin_pos_ms_ = max(static_cast<int64>(0),
-                                   info_.media_origin_pos_ms_);
-  info_.limit_ms_ = max(static_cast<int64>(0),
-                                   info_.limit_ms_);
-
-  if ( info_.limit_ms_ > 0 ) {
+  if ( info_.limit_ms_ >= 0 ) {
     info_.seek_pos_ms_ = min(info_.seek_pos_ms_, info_.limit_ms_);
   }
 

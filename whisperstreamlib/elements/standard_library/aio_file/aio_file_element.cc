@@ -370,9 +370,10 @@ class AioFileReadingStruct : public ElementController {
         return;
       }
 
+      int64 timestamp_ms;
       scoped_ref<Tag> tag;
       TagReadStatus err = splitter_->GetNextTag(
-          &buf_, &tag, is_eof_);
+          &buf_, &tag, &timestamp_ms, is_eof_);
 
       if ( err == streaming::READ_CORRUPTED_FAIL ||
            err == streaming::READ_OVERSIZED_TAG ||
@@ -415,7 +416,7 @@ class AioFileReadingStruct : public ElementController {
 
         // If an initial seek was requested then stop and do the seek
         if ( req_->info().media_origin_pos_ms_ > 0 ||
-            req_->info().seek_pos_ms_ > 0 ) {
+            req_->info().seek_pos_ms_ >= 0 ) {
           if ( !Seek(req_->info().seek_pos_ms_) ) {
             StopElement(false);
 
@@ -426,7 +427,7 @@ class AioFileReadingStruct : public ElementController {
         }
 
         // End bootstrapping now and proceed
-        EndBootstrapping(tag->timestamp_ms(), false);
+        EndBootstrapping(timestamp_ms, false);
         continue;
       }
 
@@ -436,10 +437,10 @@ class AioFileReadingStruct : public ElementController {
       }
       // If a seek operation is complete then send SeekPerformedTag when done
       if ( seek_pos_ms_ >= 0 ) {
-        if (tag->timestamp_ms() < seek_pos_ms_) {
+        if (timestamp_ms < seek_pos_ms_) {
           // Eat the tags while we're still bootstrapping
           if ( bootstrapping_ ) {
-            bootstrapper_.ProcessTag(tag.get());
+            bootstrapper_.ProcessTag(tag.get(), timestamp_ms);
             continue;
           }
           // Eat the tags that are too early
@@ -450,29 +451,29 @@ class AioFileReadingStruct : public ElementController {
           // End bootstrapping now, clearing any media bootstrap we might have
           bootstrapper_.ClearMediaBootstrap();
           //... this will also send SeekPerformed
-          EndBootstrapping(tag->timestamp_ms(), (req_->info().seek_pos_ms_>0));
+          EndBootstrapping(timestamp_ms, (req_->info().seek_pos_ms_ >= 0));
         } else {
             // Send SeekPerformedTag now
             SendTag(scoped_ref<Tag>(
                 new SeekPerformedTag(0,
-                                     kDefaultFlavourMask,
-                                     tag->timestamp_ms())).get());
+                                     kDefaultFlavourMask)).get(),
+                                     timestamp_ms);
         }
 
         seek_pos_ms_ = -1;
       } else {
         // Eat the tags while we're still bootstrapping
         if ( bootstrapping_ ) {
-          bootstrapper_.ProcessTag(tag.get());
+          bootstrapper_.ProcessTag(tag.get(), timestamp_ms);
           continue;
         }
       }
 
       // Check the limit
-      if ( req_->info().limit_ms_ > 0 ) {
-        if ( tag->timestamp_ms() >=
+      if ( req_->info().limit_ms_ >= 0 ) {
+        if ( timestamp_ms >=
             (req_->info().media_origin_pos_ms_ + req_->info().limit_ms_) ) {
-          ILOG_INFO << "Stopping element on limit: " << tag->timestamp_ms()
+          ILOG_INFO << "Stopping element on limit: " << timestamp_ms
               << " >= "
               << (req_->info().media_origin_pos_ms_ + req_->info().limit_ms_);
           StopElement(false);
@@ -482,7 +483,7 @@ class AioFileReadingStruct : public ElementController {
         }
       }
 
-      SendTag(tag.get());
+      SendTag(tag.get(), timestamp_ms - req_->info().media_origin_pos_ms_);
 
       // If pausing, don't read tags
       if ( pause_count_ > 0 ) {
@@ -512,11 +513,11 @@ class AioFileReadingStruct : public ElementController {
     }
   }
 
-  void SendTag(const Tag* tag) {
+  void SendTag(const Tag* tag, int64 timestamp_ms) {
     DCHECK(!bootstrapping_);
 
     in_tag_processing_ = true;
-    callback_->Run(tag);
+    callback_->Run(tag, timestamp_ms);
     in_tag_processing_ = false;
   }
   void EndBootstrapping(int64 timestamp_ms, bool send_seek) {
@@ -527,29 +528,22 @@ class AioFileReadingStruct : public ElementController {
     SendTag(scoped_ref<Tag>(
         new SourceStartedTag(0,
             kDefaultFlavourMask,
-            req_->info().media_origin_pos_ms_,
             strutil::JoinPaths(element_name_, filename_relative_to_element_),
             strutil::JoinPaths(element_name_, filename_relative_to_element_))
-            ).get());
-    SendTag(scoped_ref<Tag>(
-        new SegmentStartedTag(0,
-            kDefaultFlavourMask,
-            req_->info().media_origin_pos_ms_,
-            0)
-            ).get());
+            ).get(),
+            0);
 
     in_tag_processing_ = true;
     // Send the bootstrap
     bootstrapper_.PlayAtBegin(
-      callback_, req_->info().media_origin_pos_ms_, kDefaultFlavourMask);
+      callback_, 0, kDefaultFlavourMask);
     in_tag_processing_ = false;
 
     // Send SeekPerformedTag if requested
     if ( send_seek ) {
       SendTag(scoped_ref<Tag>(
           new SeekPerformedTag(0,
-                               kDefaultFlavourMask,
-                               timestamp_ms)).get());
+                               kDefaultFlavourMask)).get(), timestamp_ms);
     }
   }
 
@@ -558,16 +552,16 @@ class AioFileReadingStruct : public ElementController {
               << splitter_->stats().ToString();
     if ( !bootstrapping_ ) {
       SendTag(scoped_ref<Tag>(new SourceEndedTag(
-          0, kDefaultFlavourMask, 0,
+          0, kDefaultFlavourMask,
           strutil::JoinPaths(element_name_, filename_relative_to_element_),
           strutil::JoinPaths(element_name_, filename_relative_to_element_))).
-          get());
+          get(), 0);
     } else {
       bootstrapping_ = false;
     }
 
     SendTag(scoped_ref<Tag>(new EosTag(
-        0, kDefaultFlavourMask, 0, forced)).get());
+        0, kDefaultFlavourMask, forced)).get(), 0);
   }
   void ClearFileOperation() {
     if ( buffer_ != NULL ) {

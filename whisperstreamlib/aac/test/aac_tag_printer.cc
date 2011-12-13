@@ -60,8 +60,9 @@ DEFINE_string(aac_path,
 
 //////////////////////////////////////////////////////////////////////
 
-void PrintAacTag(const streaming::Tag* media_tag, uint64 file_pos) {
-  printf("@%"PRIu64" TAG : @%"PRId64" %s\n", file_pos, media_tag->timestamp_ms(),
+void PrintAacTag(const streaming::Tag* media_tag,
+    int64 timestamp_ms, uint64 file_pos) {
+  printf("@%"PRIu64" TAG : @%"PRId64" %s\n", file_pos, timestamp_ms,
          media_tag->ToString().c_str());
 }
 int main(int argc, char* argv[]) {
@@ -72,9 +73,10 @@ int main(int argc, char* argv[]) {
     common::Exit(1);
   }
   while ( true ) {
-    scoped_ref<streaming::Tag> tag;
     uint64 file_pos = reader.Position();
-    streaming::TagReadStatus err = reader.Read(&tag);
+    int64 timestamp_ms;
+    scoped_ref<streaming::Tag> tag;
+    streaming::TagReadStatus err = reader.Read(&tag, &timestamp_ms);
     if ( err == streaming::READ_EOF ) {
       printf("EOF @%"PRIu64", useless bytes at file end: %"PRIu64"",
              file_pos, reader.Remaining());
@@ -84,7 +86,7 @@ int main(int argc, char* argv[]) {
       LOG_FATAL << "Error reading tag: " << streaming::TagReadStatusName(err);
       break;
     }
-    PrintAacTag(tag.get(), file_pos);
+    PrintAacTag(tag.get(), timestamp_ms, file_pos);
   };
   printf("STATISTICS:\n%s\n", reader.splitter()->stats().ToString().c_str());
 }

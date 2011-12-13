@@ -67,9 +67,9 @@ class FlvFileWriter {
 
   // Writes the tag to file. Flushes from time to time.
   // Returns success.
-  bool Write(const FlvTag& tag);
-  bool Write(scoped_ref<FlvTag>& tag);
-  bool Write(scoped_ref<const FlvTag>& tag);
+  bool Write(const FlvTag& tag, int64 timestamp_ms);
+  bool Write(scoped_ref<FlvTag>& tag, int64 timestamp_ms);
+  bool Write(scoped_ref<const FlvTag>& tag, int64 timestamp_ms);
   // Flush internal buffer to file.
   // Returns success.
   bool Flush();

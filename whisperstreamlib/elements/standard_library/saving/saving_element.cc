@@ -93,13 +93,13 @@ void SavingElement::Close(Closure* call_on_close) {
   }
 }
 
-void SavingElement::ProcessTag(const Tag* tag) {
+void SavingElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     CloseMedia();
     return;
   }
   CHECK_NOT_NULL(saver_);
-  saver_->ProcessTag(tag);
+  saver_->ProcessTag(tag, timestamp_ms);
 }
 
 void SavingElement::OpenMedia() {

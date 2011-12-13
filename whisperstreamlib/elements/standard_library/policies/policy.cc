@@ -341,7 +341,7 @@ bool OnCommandPolicy::NotifyEos() {
   return PlayMedia(media);
 }
 
-bool OnCommandPolicy::NotifyTag(const Tag* tag) {
+bool OnCommandPolicy::NotifyTag(const Tag* tag, int64 timestamp_ms) {
   return true;
 }
 

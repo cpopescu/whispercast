@@ -45,7 +45,10 @@ const TagSplitter::Type RawTagSplitter::kType = TagSplitter::TS_RAW;
 synch::MutexPool RawTag::mutex_pool_(RawTag::kNumMutexes);
 
 streaming::TagReadStatus RawTagSplitter::GetNextTagInternal(
-    io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos) {
+    io::MemoryStream* in,
+    scoped_ref<Tag>* tag,
+    int64* timestamp_ms,
+    bool is_at_eos) {
   *tag = NULL;
   if ( in->IsEmpty() ) {
     return READ_NO_DATA;
@@ -53,13 +56,16 @@ streaming::TagReadStatus RawTagSplitter::GetNextTagInternal(
   const int32 size = min(in->Size(), FLAGS_raw_tag_max_size);
   RawTag* const raw_tag = new RawTag(0, kDefaultFlavourMask);
   raw_tag->mutable_data()->AppendStream(in, size);
+
+  *timestamp_ms = 0;
   *tag = raw_tag;
+
   total_size_ += size;
   return READ_OK;
 }
 
 bool RawTagSerializer::SerializeInternal(const Tag* tag,
-    int64 base_timestamp_ms, io::MemoryStream* out) {
+    int64 timestamp_ms, io::MemoryStream* out) {
   if ( tag->type() != Tag::TYPE_RAW ) {
     return true;
   }

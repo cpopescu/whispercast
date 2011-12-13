@@ -81,8 +81,9 @@ int main(int argc, char* argv[]) {
   CHECK(reader.Open(FLAGS_in_path)) << "Cannot open input file: ["
                                     << FLAGS_in_path << "]";
 
+  int64 timestamp_ms;
   scoped_ref<streaming::Tag> first_tag;
-  streaming::TagReadStatus result = reader.Read(&first_tag);
+  streaming::TagReadStatus result = reader.Read(&first_tag, &timestamp_ms);
   if ( result != streaming::READ_OK ) {
     LOG_ERROR << "Failed to read first tag. Input file is probably corrupt.";
     common::Exit(1);
@@ -101,8 +102,9 @@ int main(int argc, char* argv[]) {
                                << tmp_path << "]";
 
   while ( true ) {
+    int64 timestamp_ms;
     scoped_ref<streaming::Tag> tag;
-    streaming::TagReadStatus result = reader.Read(&tag);
+    streaming::TagReadStatus result = reader.Read(&tag, &timestamp_ms);
     if ( result == streaming::READ_EOF ) {
       break;
     }
@@ -115,7 +117,7 @@ int main(int argc, char* argv[]) {
     }
     streaming::FlvTag* flv_tag = static_cast<streaming::FlvTag*>(tag.get());
     if ( flv_tag->body().type() == streaming::FLV_FRAMETYPE_METADATA ) {
-      writer.Write(*flv_tag);
+      writer.Write(*flv_tag, -1);
       continue;
     }
     if ( flv_tag->body().type() == streaming::FLV_FRAMETYPE_VIDEO &&
@@ -123,13 +125,13 @@ int main(int argc, char* argv[]) {
              streaming::FLV_FLAG_VIDEO_CODEC_AVC &&
          flv_tag->video_body().video_avc_packet_type() ==
              streaming::AVC_SEQUENCE_HEADER ) {
-      writer.Write(*flv_tag);
+      writer.Write(*flv_tag, -1);
       continue;
     }
 
     if ( flv_tag->timestamp_ms() >= FLAGS_start_sec * 1000 &&
          flv_tag->timestamp_ms() <= FLAGS_end_sec * 1000 ) {
-      writer.Write(*flv_tag);
+      writer.Write(*flv_tag, -1);
       continue;
     }
   }

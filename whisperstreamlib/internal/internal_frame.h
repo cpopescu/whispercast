@@ -64,6 +64,8 @@ class InternalFrameTag : public streaming::Tag  {
   virtual ~InternalFrameTag() {
   }
 
+  int64 timestamp_ms() const { return header_.timestamp_; }
+
   // Reads frame data from the given input stream. Call it multiple times
   // until READ_OK is returned. On READ_OK it advances the stream pointer,
   // else will leave it as it has received it.
@@ -73,10 +75,9 @@ class InternalFrameTag : public streaming::Tag  {
   const char* ContentType() const {
     return mime_type_.c_str();
   }
-  virtual int64 timestamp_ms() const { return header_.timestamp_; }
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return data_.size(); }
-  virtual Tag* Clone(int64 timestamp_ms) const {
+  virtual Tag* Clone() const {
     return new InternalFrameTag(*this);
   }
   virtual string ToStringBody() const;

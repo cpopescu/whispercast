@@ -58,7 +58,7 @@ F4vToFlvConverterElement::ClientCallbackData::PrepareCuePoint(FlvTag* cue_point,
 }
 
 void F4vToFlvConverterElement::ClientCallbackData::FilterTag(
-    const streaming::Tag* tag, TagList* out) {
+    const streaming::Tag* tag, int64 timestamp_ms, TagList* out) {
   scoped_ref<FlvTag> cue_point;
   if ( tag->type() == Tag::TYPE_F4V ) {
     const streaming::F4vTag* f4v_tag =
@@ -71,8 +71,8 @@ void F4vToFlvConverterElement::ClientCallbackData::FilterTag(
       scoped_ref<FlvTag>& flv_tag = converted_flv[i];
       flv_tag->set_attributes(tag->attributes());
       flv_tag->set_flavour_mask(tag->flavour_mask());
-      flv_tag->set_timestamp_ms(tag->timestamp_ms());
-      out->push_back(flv_tag.get());
+      flv_tag->set_timestamp_ms(f4v_tag->timestamp_ms());
+      out->push_back(FilteredTag(flv_tag.get(), timestamp_ms));
       // forward the converted tags
     }
     converted_flv.clear();
@@ -80,14 +80,15 @@ void F4vToFlvConverterElement::ClientCallbackData::FilterTag(
     if ( f4v_tag->is_frame() &&
          f4v_tag->frame()->header().is_keyframe() ) {
       // forward cue point
-      out->push_front(PrepareCuePoint(converter_.CreateCuePoint(
+      out->push_front(FilteredTag(PrepareCuePoint(converter_.CreateCuePoint(
             f4v_tag->frame()->header(), 0, cue_point_number_),
-          tag->flavour_mask(), tag->timestamp_ms()).get());
+          tag->flavour_mask(), timestamp_ms).get(), timestamp_ms));
       ++cue_point_number_;
     }
     return;
   }
   if ( tag->type() == Tag::TYPE_COMPOSED ) {
+    /*
     const ComposedTag* ctd = static_cast<const ComposedTag*>(tag);
     if ( ctd->sub_tag_type() == Tag::TYPE_F4V ) {
       ComposedTag* new_ctd = new ComposedTag(
@@ -104,9 +105,9 @@ void F4vToFlvConverterElement::ClientCallbackData::FilterTag(
         if ( f4v_tag->is_frame() &&
              f4v_tag->frame()->header().is_keyframe() ) {
           // forward cue point
-          out->push_front(PrepareCuePoint(converter_.CreateCuePoint(
+          out->push_front(FilteredTag(PrepareCuePoint(converter_.CreateCuePoint(
                 f4v_tag->frame()->header(), 0, cue_point_number_),
-              tag->flavour_mask(), tag->timestamp_ms()).get());
+              tag->flavour_mask(), tag->timestamp_ms()).get(), timestamp_ms));
           ++cue_point_number_;
         }
         // insert converted tags into the new composed tag
@@ -120,13 +121,15 @@ void F4vToFlvConverterElement::ClientCallbackData::FilterTag(
         converted_flv.clear();
       }
       // forward the new composed tag
-      out->push_back(new_ctd);
+      out->push_back(FilteredTag(new_ctd, timestamp_ms));
       return;
     }
+    */
+    return;
   }
 
   // default: forward original tag
-  out->push_back(tag);
+  out->push_back(FilteredTag(tag, timestamp_ms));
 
   return;
 }

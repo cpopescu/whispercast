@@ -63,7 +63,7 @@ class CallbacksManager {
   }
 
   // Distributes a tag to all our callbacks
-  void DistributeTag(const Tag* tag);
+  void DistributeTag(const Tag* tag, int64 timestamp_ms);
 
   // remove all callbacks from us, add them to 'out'
   void MoveAllCallbacks(map<Request*, ProcessingCallback*>* out) {

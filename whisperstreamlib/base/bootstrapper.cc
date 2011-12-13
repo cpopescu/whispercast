@@ -35,24 +35,17 @@ namespace streaming {
 
 namespace {
 void MaybeSendTag(CallbacksManager* callback_manager,
-    int64 timestamp, const Tag* tag) {
-  if ( tag != NULL ) {
-    if ( timestamp >= 0 ) {
-      callback_manager->DistributeTag(scoped_ref<Tag>(
-          tag->Clone(timestamp)).get());
-    } else {
-      callback_manager->DistributeTag(tag);
-    }
+    int64 timestamp, const Bootstrapper::BootstrapTag& tag) {
+  if ( tag.tag_.get() != NULL ) {
+    callback_manager->DistributeTag(tag.tag_.get(),
+      (timestamp < 0) ? tag.timestamp_ms_ : timestamp);
   }
 }
 void MaybeSendTag(ProcessingCallback* callback,
-    int64 timestamp, const Tag* tag) {
-  if ( tag != NULL ) {
-    if ( timestamp >= 0 ) {
-      callback->Run(scoped_ref<Tag>(tag->Clone(timestamp)).get());
-    } else {
-      callback->Run(tag);
-    }
+    int64 timestamp, const Bootstrapper::BootstrapTag& tag) {
+  if ( tag.tag_.get() != NULL ) {
+    callback->Run(tag.tag_.get(),
+      (timestamp < 0) ? tag.timestamp_ms_ : timestamp);
   }
 }
 }
@@ -60,102 +53,107 @@ void MaybeSendTag(ProcessingCallback* callback,
 // bootstrap tags are to be sent at the stream begin
 void Bootstrapper::PlayAtBegin(CallbacksManager* callback_manager,
     int64 timestamp_ms, uint32 flavour_mask) const {
+  timestamp_ms = (timestamp_ms < 0) ? 0 : timestamp_ms;
+
   // The begin bootstrap tag
   callback_manager->DistributeTag(scoped_ref<Tag>(
-      new BootstrapBeginTag(0,
-          flavour_mask,
-          (timestamp_ms < 0) ? 0 : timestamp_ms)).get());
+      new BootstrapBeginTag(0, flavour_mask)).get(), 0);
 
   // regular bootstrap
-  for (deque< scoped_ref<const SourceStartedTag> >::const_iterator it =
+  for (deque<BootstrapTag>::const_iterator it =
       source_started_tags_.begin(); it != source_started_tags_.end(); ++it) {
-    MaybeSendTag(callback_manager, timestamp_ms, it->get());
+    MaybeSendTag(callback_manager, timestamp_ms, *it);
   }
 
-  MaybeSendTag(callback_manager, timestamp_ms, metadata_.get());
-  MaybeSendTag(callback_manager, timestamp_ms, cue_points_.get());
-  MaybeSendTag(callback_manager, timestamp_ms, avc_sequence_header_.get());
-  MaybeSendTag(callback_manager, timestamp_ms, aac_header_tag_.get());
-  MaybeSendTag(callback_manager, timestamp_ms, moov_tag_.get());
+  MaybeSendTag(callback_manager, timestamp_ms, metadata_);
+  MaybeSendTag(callback_manager, timestamp_ms, cue_points_);
+  MaybeSendTag(callback_manager, timestamp_ms, avc_sequence_header_);
+  MaybeSendTag(callback_manager, timestamp_ms, aac_header_tag_);
+  MaybeSendTag(callback_manager, timestamp_ms, moov_tag_);
 
   // media bootstrap
   for ( int i = 0; i < media_bootstrap_.size(); ++i ) {
-    MaybeSendTag(callback_manager, timestamp_ms, media_bootstrap_[i].get());
+    MaybeSendTag(callback_manager, timestamp_ms, media_bootstrap_[i]);
   }
 
   // The end bootstrap tag
   callback_manager->DistributeTag(scoped_ref<Tag>(
-      new BootstrapEndTag(0,
-          flavour_mask,
-          (timestamp_ms < 0) ? 0 : timestamp_ms)).get());
+      new BootstrapEndTag(0, flavour_mask)).get(),
+          (timestamp_ms < 0) ? 0 : timestamp_ms);
 }
 
 void Bootstrapper::PlayAtBegin(ProcessingCallback* callback,
     int64 timestamp_ms, uint32 flavour_mask) const {
+  timestamp_ms = (timestamp_ms < 0) ? 0 : timestamp_ms;
+
   // The begin bootstrap tag
   callback->Run(scoped_ref<Tag>(
-      new BootstrapBeginTag(0,
-          flavour_mask,
-          (timestamp_ms < 0) ? 0 : timestamp_ms)).get());
+      new BootstrapBeginTag(0, flavour_mask)).get(), 0);
 
   // regular bootstrap
-  for (deque< scoped_ref<const SourceStartedTag> >::const_iterator it =
+  for (deque<BootstrapTag>::const_iterator it =
       source_started_tags_.begin(); it != source_started_tags_.end(); ++it) {
-    MaybeSendTag(callback, timestamp_ms, it->get());
+    MaybeSendTag(callback, 0, *it);
   }
 
-  MaybeSendTag(callback, timestamp_ms, metadata_.get());
-  MaybeSendTag(callback, timestamp_ms, cue_points_.get());
-  MaybeSendTag(callback, timestamp_ms, avc_sequence_header_.get());
-  MaybeSendTag(callback, timestamp_ms, aac_header_tag_.get());
-  MaybeSendTag(callback, timestamp_ms, moov_tag_.get());
+  MaybeSendTag(callback, timestamp_ms, metadata_);
+  MaybeSendTag(callback, timestamp_ms, cue_points_);
+  MaybeSendTag(callback, timestamp_ms, avc_sequence_header_);
+  MaybeSendTag(callback, timestamp_ms, aac_header_tag_);
+  MaybeSendTag(callback, timestamp_ms, moov_tag_);
 
   // media bootstrap
   for ( int i = 0; i < media_bootstrap_.size(); ++i ) {
-    MaybeSendTag(callback, timestamp_ms, media_bootstrap_[i].get());
+    MaybeSendTag(callback, timestamp_ms, media_bootstrap_[i]);
   }
 
   // The end bootstrap tag
   callback->Run(scoped_ref<Tag>(
       new BootstrapEndTag(0,
-          flavour_mask,
-          (timestamp_ms < 0) ? 0 : timestamp_ms)).get());
+          flavour_mask)).get(), timestamp_ms);
 }
 
 void Bootstrapper::PlayAtEnd(ProcessingCallback* callback,
     int64 timestamp_ms, uint32 flavour_mask) const {
+  timestamp_ms = (timestamp_ms < 0) ? 0 : timestamp_ms;
+
   // synthesize source ended tags
-  for (deque< scoped_ref<const SourceStartedTag> >::const_reverse_iterator it =
+  for (deque<BootstrapTag>::const_reverse_iterator it =
       source_started_tags_.rbegin(); it != source_started_tags_.rend(); ++it) {
-    if ( ((*it)->flavour_mask() & flavour_mask) != 0 ) {
+    if ( ((*it).tag_.get()->flavour_mask() & flavour_mask) != 0 ) {
       scoped_ref<SourceEndedTag> tag(new SourceEndedTag(
-        (*it)->attributes(),
-        (*it)->flavour_mask(),
-        0,
-        (*it)->source_element_name(),
-        (*it)->path(),
-        (*it)->is_final()
+        (*it).tag_.get()->attributes(),
+        (*it).tag_.get()->flavour_mask(),
+        reinterpret_cast<const SourceStartedTag*>((*it).tag_.get())->
+          source_element_name(),
+        reinterpret_cast<const SourceStartedTag*>((*it).tag_.get())->
+          path(),
+        reinterpret_cast<const SourceStartedTag*>((*it).tag_.get())->
+          is_final()
       ));
-      MaybeSendTag(callback, -1, tag.get());
+      MaybeSendTag(callback, timestamp_ms, BootstrapTag(tag.get(), 0));
     }
   }
 }
 
 void Bootstrapper::PlayAtEnd(streaming::CallbacksManager* callback_manager,
     int64 timestamp_ms, uint32 flavour_mask) const {
-  // synthesize source ended tags
-  for (deque< scoped_ref<const SourceStartedTag> >::const_reverse_iterator it =
+  timestamp_ms = (timestamp_ms < 0) ? 0 : timestamp_ms;
+
+  for (deque<BootstrapTag>::const_reverse_iterator it =
       source_started_tags_.rbegin(); it != source_started_tags_.rend(); ++it) {
-    if ( ((*it)->flavour_mask() & flavour_mask) != 0 ) {
+    if ( ((*it).tag_.get()->flavour_mask() & flavour_mask) != 0 ) {
       scoped_ref<SourceEndedTag> tag(new SourceEndedTag(
-        (*it)->attributes(),
-        (*it)->flavour_mask(),
-        0,
-        (*it)->source_element_name(),
-        (*it)->path(),
-        (*it)->is_final()
+        (*it).tag_.get()->attributes(),
+        (*it).tag_.get()->flavour_mask(),
+        reinterpret_cast<const SourceStartedTag*>((*it).tag_.get())->
+          source_element_name(),
+        reinterpret_cast<const SourceStartedTag*>((*it).tag_.get())->
+          path(),
+        reinterpret_cast<const SourceStartedTag*>((*it).tag_.get())->
+          is_final()
       ));
-      MaybeSendTag(callback_manager, -1, tag.get());
+      MaybeSendTag(callback_manager, timestamp_ms, BootstrapTag(tag.get(), 0));
     }
   }
 }
@@ -167,44 +165,45 @@ void Bootstrapper::ClearMediaBootstrap() {
 void Bootstrapper::ClearBootstrap() {
   source_started_tags_.clear();
 
-  avc_sequence_header_ = NULL;
-  aac_header_tag_ = NULL;
-  metadata_ = NULL;
-  cue_points_ = NULL;
-  moov_tag_ = NULL;
+  avc_sequence_header_ = BootstrapTag();
+  aac_header_tag_ = BootstrapTag();
+  metadata_ = BootstrapTag();
+  cue_points_ = BootstrapTag();
+  moov_tag_ = BootstrapTag();
 }
 
-void Bootstrapper::GetBootstrapTags(vector< scoped_ref<const Tag> >* out) {
-  for (deque< scoped_ref<const SourceStartedTag> >::const_iterator it =
+void Bootstrapper::GetBootstrapTags(vector<BootstrapTag>* out) {
+  for (deque<BootstrapTag>::const_iterator it =
       source_started_tags_.begin(); it != source_started_tags_.end(); ++it) {
-    out->push_back(it->get());
+    out->push_back(*it);
   }
 
-  if ( metadata_.get() != NULL ) {
-    out->push_back(metadata_.get());
+  if ( metadata_.tag_.get() != NULL ) {
+    out->push_back(metadata_);
   }
-  if ( cue_points_.get() != NULL ) {
-    out->push_back(cue_points_.get());
+  if ( cue_points_.tag_.get() != NULL ) {
+    out->push_back(cue_points_);
   }
-  if ( avc_sequence_header_.get() != NULL ) {
-    out->push_back(avc_sequence_header_.get());
+  if ( avc_sequence_header_.tag_.get() != NULL ) {
+    out->push_back(avc_sequence_header_);
   }
-  if ( aac_header_tag_.get() != NULL ) {
-    out->push_back(aac_header_tag_.get());
+  if ( aac_header_tag_.tag_.get() != NULL ) {
+    out->push_back(aac_header_tag_);
   }
-  if ( moov_tag_.get() != NULL ) {
-    out->push_back(moov_tag_.get());
+  if ( moov_tag_.tag_.get() != NULL ) {
+    out->push_back(moov_tag_);
   }
 }
 
-void Bootstrapper::ProcessTag(const Tag* tag) {
+void Bootstrapper::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == Tag::TYPE_SOURCE_ENDED ) {
     const streaming::SourceEndedTag* source_ended =
         static_cast<const streaming::SourceEndedTag*>(tag);
 
     if ( !source_started_tags_.empty() ) {
       scoped_ref<const streaming::SourceStartedTag> source_started =
-          *source_started_tags_.rbegin();
+          reinterpret_cast<const SourceStartedTag*>(
+              source_started_tags_.rbegin()->tag_.get());
       source_started_tags_.pop_back();
 
       if ( source_started->source_element_name() !=
@@ -224,11 +223,11 @@ void Bootstrapper::ProcessTag(const Tag* tag) {
 
     media_bootstrap_.clear();
 
-    avc_sequence_header_ = NULL;
-    aac_header_tag_ = NULL;
-    metadata_ = NULL;
-    cue_points_ = NULL;
-    moov_tag_ = NULL;
+    avc_sequence_header_ = BootstrapTag();
+    aac_header_tag_ = BootstrapTag();
+    metadata_ = BootstrapTag();
+    cue_points_ = BootstrapTag();
+    moov_tag_ = BootstrapTag();
 
     return;
   }
@@ -236,41 +235,45 @@ void Bootstrapper::ProcessTag(const Tag* tag) {
   //////////////////////////////////////////////////////////////////////////
   // extract bootstrap tags
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
-    source_started_tags_.push_back(static_cast<const SourceStartedTag*>(tag));
+    source_started_tags_.push_back(BootstrapTag(
+        reinterpret_cast<const SourceStartedTag*>(tag), timestamp_ms));
   }
 
   if ( tag->type() == Tag::TYPE_FLV ) {
-    const FlvTag* flv_tag = static_cast<const FlvTag*>(tag);
+    const FlvTag* flv_tag = reinterpret_cast<const FlvTag*>(tag);
 
     if ( flv_tag->body().type() == FLV_FRAMETYPE_VIDEO &&
          flv_tag->video_body().video_codec() == FLV_FLAG_VIDEO_CODEC_AVC &&
          flv_tag->video_body().video_avc_packet_type() == AVC_SEQUENCE_HEADER ) {
-      avc_sequence_header_ = flv_tag;
+      avc_sequence_header_ = BootstrapTag(
+          tag, timestamp_ms);
       return;
     }
 
     if ( flv_tag->body().type() == FLV_FRAMETYPE_VIDEO &&
          flv_tag->video_body().video_avc_moov().get() != NULL ) {
-      moov_tag_ = flv_tag->video_body().video_avc_moov();
+      moov_tag_ = BootstrapTag(
+          flv_tag->video_body().video_avc_moov().get(), timestamp_ms);
       return;
     }
 
     if ( flv_tag->body().type() == FLV_FRAMETYPE_METADATA &&
          flv_tag->metadata_body().name().value() == kOnMetaData ) {
-      metadata_ = flv_tag;
+      metadata_ = BootstrapTag(
+          tag, timestamp_ms);
       return;
     }
 
     if ( flv_tag->body().type() == FLV_FRAMETYPE_AUDIO &&
          flv_tag->audio_body().audio_format() == FLV_FLAG_SOUND_FORMAT_AAC &&
          flv_tag->audio_body().audio_is_aac_header() ) {
-      aac_header_tag_ = flv_tag;
+      aac_header_tag_ = BootstrapTag(
+          tag, timestamp_ms);
       return;
     }
   }
   if ( tag->type() == Tag::TYPE_CUE_POINT ) {
-    const CuePointTag* cue_tag = static_cast<const CuePointTag*>(tag);
-    cue_points_ = cue_tag;
+    cue_points_ = BootstrapTag(tag, timestamp_ms);
     return;
   }
 
@@ -285,7 +288,7 @@ void Bootstrapper::ProcessTag(const Tag* tag) {
     if ( media_bootstrap_.empty() && !keyframe ) {
       return;
     }
-    media_bootstrap_.push_back(tag);
+    media_bootstrap_.push_back(BootstrapTag(tag, timestamp_ms));
   }
 }
 }

@@ -92,21 +92,22 @@ class Tag : public streaming::Tag {
   const Frame* release_frame() const {
     const Frame* a = frame(); un_.frame_ = NULL; return a; }
 
+  int64 timestamp_ms() const {
+    return is_atom() ? 0LL : frame()->header().timestamp();
+  }
+
   //////////////////////////////////////////////////////////////////////
   //
   // Methods from Tag
   //
  public:
-  virtual int64 timestamp_ms() const {
-    return is_atom() ? 0LL : frame()->header().timestamp();
-  }
   virtual int64 duration_ms() const {
     return is_atom() ? 0LL : frame()->header().duration();
   }
   virtual uint32 size() const {
     return is_atom() ? atom()->size() : frame()->header().size();
   }
-  virtual streaming::Tag* Clone(int64 timestamp_ms) const {
+  virtual streaming::Tag* Clone() const {
     return new Tag(*this);
   }
   virtual string ToStringBody() const {

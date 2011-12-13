@@ -13,10 +13,10 @@ ElementMapperMediaInterface::~ElementMapperMediaInterface() {
 }
 
 void ElementMapperMediaInterface::ProcessTag(rtp::Broadcaster* broadcaster,
-    BData* bdata, const Tag* tag) {
+    BData* bdata, const Tag* tag, int64 timestamp_ms) {
   uint32 outbuf_size = broadcaster->sender()->OutQueueSpace();
 
-  broadcaster->HandleTag(tag);
+  broadcaster->HandleTag(tag, timestamp_ms);
   if ( bdata->state_ == BData::PAUSE ) {
     return;
   }

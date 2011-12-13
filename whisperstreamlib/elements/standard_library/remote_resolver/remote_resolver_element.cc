@@ -236,8 +236,7 @@ void RemoteResolverElement::Close(Closure* call_on_close) {
     if ( !it->second->lookup_cancelled_ ) {
       it->second->is_processing_ = true;
       it->second->callback_->Run(scoped_ref<Tag>(new EosTag(
-          0, it->second->req_->caps().flavour_mask_,
-          0, true)).get());
+          0, it->second->req_->caps().flavour_mask_, true)).get(), 0);
       it->second->is_processing_ = false;
       it->second->lookup_cancelled_ = true;
     }
@@ -246,8 +245,7 @@ void RemoteResolverElement::Close(Closure* call_on_close) {
         it != active_reqs_.end(); ++it ) {
     it->second->is_processing_ = true;
     it->second->callback_->Run(scoped_ref<Tag>(new EosTag(
-        0, it->second->req_->caps().flavour_mask_,
-        0, true)).get());
+        0, it->second->req_->caps().flavour_mask_, true)).get(), 0);
     delete it->second;
   }
   active_reqs_.clear();
@@ -293,7 +291,7 @@ void RemoteResolverElement::LookupCompleted(
         streaming::Request* saved_req = req->req_;
         delete req;
         callback->Run(scoped_ref<Tag>(new EosTag(
-            0, saved_req->caps().flavour_mask_, 0)).get());
+            0, saved_req->caps().flavour_mask_, 0)).get(), 0);
       }
     } else {
       CHECK(lookup_ops_.erase(req->req_));
@@ -307,7 +305,9 @@ void RemoteResolverElement::LookupCompleted(
   }
 }
 
-void RemoteResolverElement::ProcessTag(RequestStruct* req, const Tag* tag) {
+void RemoteResolverElement::ProcessTag(RequestStruct* req,
+                                       const Tag* tag,
+                                       int64 timestamp_ms) {
   if ( req->is_orphaned_ ) {
     active_reqs_.erase(req->req_);
     delete req;
@@ -325,14 +325,8 @@ void RemoteResolverElement::ProcessTag(RequestStruct* req, const Tag* tag) {
     req->callback_->Run(scoped_ref<Tag>(
         new SourceStartedTag(0,
             req->req_->caps().flavour_mask_,
-            tag->timestamp_ms(),
             name(),
-            name())).get());
-    req->callback_->Run(scoped_ref<Tag>(
-        new SegmentStartedTag(0,
-                req->req_->caps().flavour_mask_,
-                tag->timestamp_ms(),
-                0)).get());
+            name())).get(), timestamp_ms);
     req->is_processing_ = false;
 
   }
@@ -345,7 +339,7 @@ void RemoteResolverElement::ProcessTag(RequestStruct* req, const Tag* tag) {
     // Just pass it forward .. good things will happen
     ContinuePlaySequence(req, false);
   } else {
-    req->callback_->Run(tag);
+    req->callback_->Run(tag, timestamp_ms);
   }
 }
 
@@ -413,13 +407,13 @@ SendEos:
   if ( req->source_start_sent_ ) {
     req->is_processing_ = true;
     req->callback_->Run(scoped_ref<Tag>(new SourceEndedTag(
-        0, req->req_->caps().flavour_mask_, 0,
-        name(), name())).get());
+        0, req->req_->caps().flavour_mask_,
+        name(), name())).get(), 0);
     req->is_processing_ = false;
   }
   if ( !req->is_orphaned_ ) {
     req->callback_->Run(scoped_ref<Tag>(new EosTag(0,
-        req->req_->caps().flavour_mask_, 0)).get());
+        req->req_->caps().flavour_mask_, 0)).get(), 0);
   }
   return false;
 }

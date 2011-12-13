@@ -51,7 +51,7 @@ class StreamRenamerCallbackData : public streaming::FilteringCallbackData {
   //
   // FilteringCallbackData methods
   //
-  virtual void FilterTag(const streaming::Tag* tag, TagList* out) {
+  virtual void FilterTag(const Tag* tag, int64 timestamp_ms,  TagList* out) {
     if ( tag->type() == streaming::Tag::TYPE_SOURCE_STARTED ||
          tag->type() == streaming::Tag::TYPE_SOURCE_ENDED ) {
       const streaming::SourceChangedTag* source_change =
@@ -62,7 +62,7 @@ class StreamRenamerCallbackData : public streaming::FilteringCallbackData {
         LOG_WARNING << "No match for pattern: [" << re_.regex() << "] and"
                        " stream_name: [" << old_stream_name << "]";
         // forward tag
-        out->push_back(tag);
+        out->push_back(FilteredTag(tag, timestamp_ms));
         return;
       }
 
@@ -87,15 +87,15 @@ class StreamRenamerCallbackData : public streaming::FilteringCallbackData {
       //
 
       SourceChangedTag* td = static_cast<SourceChangedTag*>(
-          source_change->Clone(-1));
+          source_change->Clone());
       td->set_source_element_name(new_stream_name);
       td->set_path(new_path);
       // forward tag
-      out->push_back(td);
+      out->push_back(FilteredTag(td, timestamp_ms));
       return;
     }
     // default: forward tag
-    out->push_back(tag);
+    out->push_back(FilteredTag(tag, timestamp_ms));
   }
   virtual bool Unregister(streaming::Request* req) {
     return FilteringCallbackData::Unregister(req);

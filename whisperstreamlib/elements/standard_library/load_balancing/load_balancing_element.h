@@ -80,7 +80,7 @@ class LoadBalancingElement : public Element {
       delete added_callback_;
     }
   };
-  void ProcessTag(ReqStruct* rs, const streaming::Tag* tag);
+  void ProcessTag(ReqStruct* rs, const streaming::Tag* tag, int64 timestamp_ms);
 
   typedef hash_map<Request*, ReqStruct*> ReqMap;
   ReqMap req_map_;

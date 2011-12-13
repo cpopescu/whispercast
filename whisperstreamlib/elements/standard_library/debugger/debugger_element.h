@@ -43,9 +43,9 @@ class DebuggerElementCallbackData : public FilteringCallbackData {
   DebuggerElementCallbackData()
       : FilteringCallbackData() {
   }
-  virtual void FilterTag(const Tag* tag, TagList* out) {
+  virtual void FilterTag(const Tag* tag, int64 timestamp_ms, TagList* out) {
     LOG_INFO << media_name() << tag->ToString();
-    out->push_back(tag);
+    out->push_back(FilteredTag(tag, timestamp_ms));
   }
 };
 

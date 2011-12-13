@@ -180,7 +180,7 @@ void LoadBalancingElement::Close(Closure* call_on_close) {
   }
   for ( int i = 0; i < callbacks.size(); ++i ) {
     callbacks[i].second->Run(scoped_ref<Tag>(new streaming::EosTag(
-        0, callbacks[i].first->caps().flavour_mask_, 0, true)).get());
+        0, callbacks[i].first->caps().flavour_mask_, true)).get(), 0);
   }
 
   // NEXT: each client is responsible to call RemoveRequest() from us.
@@ -189,7 +189,8 @@ void LoadBalancingElement::Close(Closure* call_on_close) {
 
 
 void LoadBalancingElement::ProcessTag(ReqStruct* rs,
-                                      const streaming::Tag* tag) {
+                                      const streaming::Tag* tag,
+                                      int64 timestamp_ms) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     if ( rs->eos_received_ ) {
       return;
@@ -207,15 +208,15 @@ void LoadBalancingElement::ProcessTag(ReqStruct* rs,
         source_change->source_element_name().c_str(), '/');
     if ( media_name_pair.first == rs->new_element_name_ ) {
       scoped_ref<SourceChangedTag> td(static_cast<SourceChangedTag*>(
-          source_change->Clone(-1)));
+          source_change->Clone()));
       td->set_source_element_name(
           strutil::JoinMedia(name(), media_name_pair.second));
       td->set_path(strutil::JoinMedia(name(), media_path_pair.second));
-      rs->callback_->Run(td.get());
+      rs->callback_->Run(td.get(), timestamp_ms);
       return;
     }
   }
-  rs->callback_->Run(tag);
+  rs->callback_->Run(tag, timestamp_ms);
 }
 
 }

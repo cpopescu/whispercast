@@ -91,9 +91,10 @@ bool MediaFileReader::Open(const string& filename, TagSplitter::Type ts_type) {
 
   return true;
 }
-TagReadStatus MediaFileReader::Read(scoped_ref<Tag>* out) {
+TagReadStatus MediaFileReader::Read(scoped_ref<Tag>* out, int64* timestamp_ms) {
   while ( true ) {
-    TagReadStatus result = splitter_->GetNextTag(&buf_, out, file_eof_reached_);
+    TagReadStatus result = splitter_->GetNextTag(
+        &buf_, out, timestamp_ms, file_eof_reached_);
     //LOG_WARNING << "GetNextTag => " << TagReadStatusName(result) << " *out=" << *out;
     if ( result == READ_NO_DATA ) {
       CHECK_NULL(out->get());
@@ -126,7 +127,8 @@ TagReadStatus MediaFileReader::Read(scoped_ref<Tag>* out) {
 TagReadStatus MediaFileReader::Read(scoped_ref<Tag>* out,
                                     io::MemoryStream* out_data) {
   buf_.MarkerSet();
-  TagReadStatus result = Read(out);
+  int64 timestamp_ms;
+  TagReadStatus result = Read(out, &timestamp_ms);
   const int32 end_size = buf_.Size();
   buf_.MarkerRestore();
   const int32 start_size = buf_.Size();

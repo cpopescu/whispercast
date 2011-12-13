@@ -252,7 +252,7 @@ void StreamRequest::SetNotifyReady() {
       NewCallback(this, &StreamRequest::ResumeLocalizedTags),
       http_request_->protocol_params().max_reply_buffer_size_/4);
 }
-void StreamRequest::SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms) {
+void StreamRequest::SendTag(const streaming::Tag* tag, int64 timestamp_ms) {
   DCHECK(net_selector_->IsInSelectThread());
 
   if ( http_request_ == NULL ) {
@@ -260,6 +260,7 @@ void StreamRequest::SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms) {
   }
 
   if ( tag->type() == streaming::Tag::TYPE_COMPOSED ) {
+    /*
     const streaming::ComposedTag* composed_tag =
         static_cast<const streaming::ComposedTag*>(tag);
     for ( int i = 0;
@@ -267,8 +268,9 @@ void StreamRequest::SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms) {
       const streaming::Tag* ltag = composed_tag->tags().tag(i).get();
       SendSimpleTag(ltag, tag_timestamp_ms + ltag->timestamp_ms());
     }
+    */
   } else {
-    SendSimpleTag(tag, tag_timestamp_ms);
+    SendSimpleTag(tag, timestamp_ms);
   }
 
   if ( http_request_ == NULL ) {
@@ -283,7 +285,7 @@ void StreamRequest::SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms) {
 //////////////////////////////////////////////////////////////////////
 
 void StreamRequest::SendSimpleTag(const streaming::Tag* tag,
-    int64 tag_timestamp_ms) {
+    int64 timestamp_ms) {
   DCHECK(net_selector_->IsInSelectThread());
 
   if ( http_request_ == NULL ) {
@@ -308,8 +310,9 @@ void StreamRequest::SendSimpleTag(const streaming::Tag* tag,
   }
 
   serializer_->Serialize(tag,
-                         http_request_->request()->server_data(),
-                         tag_timestamp_ms);
+                         timestamp_ms,
+                         http_request_->request()->server_data());
+
 }
 
 //////////////////////////////////////////////////////////////////////

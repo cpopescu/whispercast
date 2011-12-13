@@ -58,12 +58,16 @@ void TagNormalizer::Reset(streaming::Request* request) {
   unpause_flow_control_alarm_.Stop();
 }
 
-void TagNormalizer::ProcessTag(const streaming::Tag* tag) {
-  stream_time_calculator_.ProcessTag(tag);
+void TagNormalizer::ProcessTag(const streaming::Tag* tag, int64 timestamp_ms) {
+  stream_time_calculator_.ProcessTag(tag, timestamp_ms);
 
   if ( flow_control_write_ahead_ms_ > 0 ) {
-    if ( tag->type() == streaming::Tag::TYPE_EOS ||
-         tag->type() == streaming::Tag::TYPE_FLV_HEADER ) {
+    // the timestamp of these tags is not relevant
+    if ( tag->type() == Tag::TYPE_FLV_HEADER ||
+        tag->type() == Tag::TYPE_BOOTSTRAP_BEGIN ||
+        tag->type() == Tag::TYPE_BOOTSTRAP_END ||
+        tag->type() == Tag::TYPE_EOS ||
+        tag->type() == Tag::TYPE_SOURCE_ENDED ) {
       return;
     }
 
@@ -79,8 +83,11 @@ void TagNormalizer::ProcessTag(const streaming::Tag* tag) {
          tag->type() == streaming::Tag::TYPE_SEEK_PERFORMED ) {
 
       // restart flow control from scratch
-      if ( tag->type() == streaming::Tag::TYPE_SEEK_PERFORMED ) {
-        flow_control_first_tag_time_ = now - stream_time_ms;
+      flow_control_first_tag_time_ = now - stream_time_ms;
+      if (tag->type() == streaming::Tag::TYPE_SEEK_PERFORMED) {
+        LOG_ERROR << "============= SEEK PERFORMED @" << stream_time_ms;
+      } else {
+        LOG_ERROR << "============= SOURCE STARTED @" << stream_time_ms;
       }
 
       if ( unpause_flow_control_alarm_.IsStarted() ) {
@@ -95,7 +102,7 @@ void TagNormalizer::ProcessTag(const streaming::Tag* tag) {
     }
 
     if ( is_flow_control_first_tag_ ) {
-      flow_control_first_tag_time_ = now;
+      flow_control_first_tag_time_ = now - stream_time_ms;
       is_flow_control_first_tag_ = false;
     } else {
       int64 real_ts = now - flow_control_first_tag_time_;

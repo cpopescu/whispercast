@@ -645,9 +645,11 @@ void HttpClientElementData::ProcessStreamData() {
   }
 
   while ( true ) {
+    int64 timestamp_ms;
     scoped_ref<Tag> tag;
     TagReadStatus status = splitter_->GetNextTag(
-        http_req_->request()->server_data(), &tag, http_req_->is_finalized());
+        http_req_->request()->server_data(),
+        &tag, &timestamp_ms, http_req_->is_finalized());
     if ( status == streaming::READ_UNKNOWN ||
          status == streaming::READ_EOF ||
          status == streaming::READ_CORRUPTED_FAIL ||
@@ -675,14 +677,14 @@ void HttpClientElementData::ProcessStreamData() {
       continue;
     }
 
-    distributor_.DistributeTag(tag.get());
+    distributor_.DistributeTag(tag.get(), timestamp_ms);
 
     if ( status == streaming::READ_OK ) {
       if ( is_first_tag_ ) {
         is_first_tag_ = false;
-        first_tag_time_ = distributor_.stream_time_ms();
+        first_tag_time_ = distributor_.last_tag_ts();
       } else {
-        const int64 delta = (distributor_.stream_time_ms() - first_tag_time_) -
+        const int64 delta = (distributor_.last_tag_ts() - first_tag_time_) -
                             (selector_->now() - start_decode_time_);
         if ( delta > advance_media_ms_ ) {
           break;

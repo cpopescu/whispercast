@@ -76,7 +76,7 @@ public:
 
 private:
   void ProcessTag(rtp::Broadcaster* broadcaster, BData* bdata,
-      const Tag* tag);
+      const Tag* tag, int64 timestamp_ms);
   void RestartFlow();
 
   void AddBroadcaster(rtp::Broadcaster* broadcaster, BData* bdata);

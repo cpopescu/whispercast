@@ -37,10 +37,13 @@ namespace streaming {
 const TagSplitter::Type InternalTagSplitter::kType = TagSplitter::TS_INTERNAL;
 
 streaming::TagReadStatus InternalTagSplitter::GetNextTagInternal(
-    io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos) {
+    io::MemoryStream* in,
+    scoped_ref<Tag>* tag,
+    int64* timestamp_ms,
+    bool is_at_eos) {
   *tag = NULL;
   if ( crt_tag_ == NULL ) {
-    crt_tag_ = new InternalFrameTag(0,kDefaultFlavourMask,mime_type_,"");
+    crt_tag_ = new InternalFrameTag(0, kDefaultFlavourMask, mime_type_, "");
   }
   streaming::TagReadStatus err = crt_tag_->Read(in);
   if ( err != streaming::READ_OK ) {
@@ -59,7 +62,10 @@ streaming::TagReadStatus InternalTagSplitter::GetNextTagInternal(
        streaming::Tag::ATTR_CAN_RESYNC : 0) |
       (((crt_tag_->header().flags_ & streaming::HEADER) != 0) ?
        streaming::Tag::ATTR_DROPPABLE : 0));
+
+  *timestamp_ms = crt_tag_->timestamp_ms();
   *tag = crt_tag_;
+
   crt_tag_ = NULL;
   return streaming::READ_OK;
 }

@@ -65,7 +65,7 @@ class FailoverPolicy : public Policy {
   // Policy interface:
   virtual bool Initialize();
   virtual bool NotifyEos();
-  virtual bool NotifyTag(const Tag* tag);
+  virtual bool NotifyTag(const Tag* tag, int64 timestamp_ms);
   virtual void Reset();
   virtual string GetPolicyConfig();
 
@@ -73,7 +73,7 @@ class FailoverPolicy : public Policy {
  private:
   void OpenMedia();
   void CloseMedia();
-  void ProcessMainTag(const Tag* tag);
+  void ProcessMainTag(const Tag* tag, int64 timestamp);
   void TagReceiveTimeout();
   bool MaybeReregisterTagTimeout(bool force, int32 tag_timeout);
 

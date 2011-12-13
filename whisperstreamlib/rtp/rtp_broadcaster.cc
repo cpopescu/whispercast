@@ -120,18 +120,20 @@ void Broadcaster::SetMediaInfo(const MediaInfo& info) {
   }
 }
 
-void Broadcaster::HandleTag(const streaming::Tag* tag) {
+void Broadcaster::HandleTag(const streaming::Tag* tag, int64 timestamp_ms) {
   bool success = true;
   switch ( tag->type() ) {
     case Tag::TYPE_FLV:
-      success = HandleFlvTag(static_cast<const streaming::FlvTag&>(*tag));
+      success = HandleFlvTag(
+        static_cast<const streaming::FlvTag&>(*tag), timestamp_ms);
       break;
     case Tag::TYPE_F4V:
-      success = HandleF4vTag(static_cast<const streaming::F4vTag&>(*tag));
+      success = HandleF4vTag(
+        static_cast<const streaming::F4vTag&>(*tag), timestamp_ms);
       break;
     case Tag::TYPE_MP3:
-      success = HandleMp3Tag(static_cast<const streaming::Mp3FrameTag&>(*tag),
-          tag->timestamp_ms());
+      success = HandleMp3Tag(
+        static_cast<const streaming::Mp3FrameTag&>(*tag), timestamp_ms);
       break;
     case Tag::TYPE_EOS:
       eos_callback_->Run(false);
@@ -146,20 +148,22 @@ void Broadcaster::HandleTag(const streaming::Tag* tag) {
     eos_callback_->Run(true);
   }
 }
-bool Broadcaster::HandleFlvTag(const streaming::FlvTag& tag) {
+bool Broadcaster::HandleFlvTag(
+  const streaming::FlvTag& tag, int64 timestamp_ms) {
   if ( tag.body().type() == streaming::FLV_FRAMETYPE_METADATA ) {
     RTP_LOG_WARNING << "Metadata: " << tag.ToString();
     return true;
   }
   bool is_audio = (tag.body().type() == streaming::FLV_FRAMETYPE_AUDIO);
   uint32 timestamp = (uint32)(is_audio
-      ? (((uint64)tag.timestamp_ms()) * rtp_audio_sample_rate_ / 1000)
-      : (((uint64)tag.timestamp_ms()) * rtp_video_clock_rate_ / 1000));
+      ? (((uint64)timestamp_ms) * rtp_audio_sample_rate_ / 1000)
+      : (((uint64)timestamp_ms) * rtp_video_clock_rate_ / 1000));
   const io::MemoryStream& data = is_audio ?
       tag.audio_body().data() : tag.video_body().data();
   return RtpSend(data, timestamp, is_audio);
 }
-bool Broadcaster::HandleF4vTag(const streaming::F4vTag& tag) {
+bool Broadcaster::HandleF4vTag(
+  const streaming::F4vTag& tag, int64 timestamp_ms) {
   if ( !tag.is_frame() ) {
     return true;
   }
@@ -175,9 +179,9 @@ bool Broadcaster::HandleF4vTag(const streaming::F4vTag& tag) {
                                  * (rtp_video_clock_rate_ / 1000);
   return RtpSend(frame->data(), timestamp, is_audio);
 }
-bool Broadcaster::HandleMp3Tag(const streaming::Mp3FrameTag& tag,
-    uint32 timestamp) {
-  return RtpSend(tag.data(), timestamp * 90, true);
+bool Broadcaster::HandleMp3Tag(
+  const streaming::Mp3FrameTag& tag, int64 timestamp_ms) {
+  return RtpSend(tag.data(), (uint32)timestamp_ms * 90, true);
 }
 
 bool Broadcaster::RtpSend(const io::MemoryStream& frame_data,

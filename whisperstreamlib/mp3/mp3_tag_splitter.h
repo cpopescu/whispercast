@@ -60,7 +60,10 @@ class Mp3TagSplitter : public streaming::TagSplitter {
     streaming::Tag** tag, const char* buffer);
 
   virtual streaming::TagReadStatus GetNextTagInternal(
-      io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos);
+      io::MemoryStream* in,
+      scoped_ref<Tag>* tag,
+      int64* timestamp_ms,
+      bool is_at_eos);
 
  private:
   int64 stream_offset_ms_;

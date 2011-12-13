@@ -35,6 +35,8 @@
 #include <glog/logging.h>
 #include <whisperlib/common/base/errno.h>
 
+#include <iomanip>
+
 // To be used in context of VLOG(..)
 static const int LDEBUG    = 4;
 static const int LINFO     = 3;
@@ -63,7 +65,8 @@ static const int LFATAL    = 0;
 #define LOG_INFO_IF(cond) if ( cond ) LOG_INFO
 
 // Log the given value in hexadecimal with 0x prefix
-#define LHEX(v) showbase << hex << v << dec << noshowbase
+#define LHEX(v) showbase << hex << (v) << dec << noshowbase
+#define LTIMESTAMP(v) right << setw(8) << (v) << setw(0) << left
 
 #define CHECK_NOT_NULL(p)                                               \
   if ( (p) != NULL );                                                   \

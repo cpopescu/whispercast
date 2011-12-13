@@ -387,10 +387,10 @@ class ExporterT {
     OnTerminate(reason);
   }
 
-  void ProcessTag(const streaming::Tag* tag) {
+  void ProcessTag(const streaming::Tag* tag, int64 timestamp_ms) {
     DCHECK(media_selector_->IsInSelectThread());
 
-    normalizer_.ProcessTag(tag);
+    normalizer_.ProcessTag(tag, timestamp_ms);
 
     switch ( tag->type() ) {
       case streaming::Tag::TYPE_SOURCE_ENDED: {
@@ -493,10 +493,6 @@ class ExporterT {
         HandleTag(tag);
         return;
 
-      // these are processed by the stream time calculator above
-      case streaming::Tag::TYPE_SEGMENT_STARTED:
-        break;
-
       // these are just ignored
       case streaming::Tag::TYPE_BOS:
       case streaming::Tag::TYPE_FLV_HEADER:
@@ -584,7 +580,8 @@ class ExporterT {
       if ( flv_tag->body().type() == FLV_FRAMETYPE_METADATA ) {
         scoped_ref<streaming::FlvTag> metadata =
             new streaming::FlvTag(*flv_tag, -1, true);
-        UpdateFlvMetadata(metadata->mutable_metadata_body());
+        UpdateFlvMetadata(metadata->mutable_metadata_body(),
+            normalizer_.stream_time_ms());
         ScheduleTag(metadata.get());
         return;
       }
@@ -677,7 +674,8 @@ class ExporterT {
   }
 
  private:
-  void UpdateFlvMetadata(streaming::FlvTag::Metadata& metadata) {
+  void UpdateFlvMetadata(streaming::FlvTag::Metadata& metadata,
+      int64 timestamp_ms) {
     // metadata should be updated from media thread, before sending to net
     CHECK(media_selector_->IsInSelectThread());
     if ( metadata.name().value() == streaming::kOnMetaData ) {
@@ -693,6 +691,8 @@ class ExporterT {
         metadata.mutable_values()->Set(
             "unpausable", new rtmp::CBoolean(true));
       }
+      metadata.mutable_values()->Set(
+          "origin", new rtmp::CNumber(timestamp_ms/1000.0));
       metadata.mutable_values()->Erase("cuePoints");
     } else if ( metadata.name().value() != streaming::kOnCuePoint ) {
     }

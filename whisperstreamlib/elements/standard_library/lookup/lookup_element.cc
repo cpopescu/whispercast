@@ -187,11 +187,11 @@ void LookupElement::Close(Closure* call_on_close) {
   }
   closing_ = true;
   scoped_ref<Tag> eos_tag(
-      new EosTag(0, streaming::kDefaultFlavourMask, 0, true));
+      new EosTag(0, streaming::kDefaultFlavourMask, true));
   for ( LookupMap::const_iterator it = lookup_ops_.begin();
         it != lookup_ops_.end(); ++it ) {
     if ( !it->second->cancelled_ ) {
-      it->second->callback_->Run(eos_tag.get());
+      it->second->callback_->Run(eos_tag.get(), 0);
       it->second->cancelled_ = true;
     }
   }
@@ -293,7 +293,7 @@ void LookupElement::LookupCompleted(LookupReqStruct* lr) {
       delete lr;
       if ( !fetch_started ) {
         callback->Run(scoped_ref<Tag>(new EosTag(
-            0, streaming::kDefaultFlavourMask, 0)).get());
+            0, streaming::kDefaultFlavourMask, 0)).get(), 0);
       }
     } else {
       CHECK(lookup_ops_.erase(lr->req_));

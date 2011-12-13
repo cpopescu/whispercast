@@ -61,7 +61,7 @@ AacTagSplitter::~AacTagSplitter() {
 }
 
 streaming::TagReadStatus AacTagSplitter::ReadHeader(
-  io::MemoryStream* in, scoped_ref<Tag>* tag) {
+  io::MemoryStream* in, scoped_ref<Tag>* tag, int64* timestamp_ms) {
   uint8 buf2[2];
   // Skip until we get an 0xff 0xfX
   while ( true ) {
@@ -105,6 +105,7 @@ streaming::TagReadStatus AacTagSplitter::ReadHeader(
   in->MarkerRestore();
   in->Skip(size);
 
+  *timestamp_ms = 0;
   *tag = new AacFrameTag(Tag::ATTR_CAN_RESYNC,
                          kDefaultFlavourMask,
                          0,
@@ -143,9 +144,12 @@ streaming::TagReadStatus AacTagSplitter::MaybeFinalizeFrame(
 }
 
 streaming::TagReadStatus AacTagSplitter::GetNextTagInternal(
-    io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos) {
+    io::MemoryStream* in,
+    scoped_ref<Tag>* tag,
+    int64* timestamp_ms,
+    bool is_at_eos) {
   if ( !header_extracted_ ) {
-    return ReadHeader(in, tag);
+    return ReadHeader(in, tag, timestamp_ms);
   }
   *tag = NULL;
 

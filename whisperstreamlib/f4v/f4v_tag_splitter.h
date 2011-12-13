@@ -65,7 +65,10 @@ class F4vTagSplitter : public streaming::TagSplitter {
 
   // Read data from 'in', assemble and return a new Tag in '*tag'
   virtual streaming::TagReadStatus GetNextTagInternal(
-      io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos);
+      io::MemoryStream* in,
+      scoped_ref<Tag>* tag,
+      int64* timestamp_ms,
+      bool is_at_eos);
 
  private:
   f4v::Decoder f4v_decoder_;

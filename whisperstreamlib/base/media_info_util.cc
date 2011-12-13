@@ -274,8 +274,9 @@ bool ExtractMediaInfoFromFile(const string& filename, MediaInfo* out) {
   scoped_ref<const FlvTag> flv_audio;
   scoped_ref<const FlvTag> flv_video;
   while ( true ) {
+    int64 timestamp_ms;
     scoped_ref<Tag> tag;
-    TagReadStatus status = reader.Read(&tag);
+    TagReadStatus status = reader.Read(&tag, &timestamp_ms);
     if ( status != READ_OK ) {
       LOG_ERROR << "failed to extract media info from file: ["
                 << filename << "], status: " << TagReadStatusName(status);

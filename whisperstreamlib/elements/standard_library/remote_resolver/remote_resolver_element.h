@@ -139,7 +139,7 @@ class RemoteResolverElement : public Element {
   };
 
 
-  void ProcessTag(RequestStruct* req, const Tag* tag);
+  void ProcessTag(RequestStruct* req, const Tag* tag, int64 timestamp_ms);
   void LookupCompleted(
       RequestStruct* req,
       const rpc::CallResult< ResolveSpec > & response);

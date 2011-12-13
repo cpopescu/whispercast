@@ -62,7 +62,9 @@ RedirectingElement::~RedirectingElement() {
   redirections_.clear();
 }
 
-void RedirectingElement::ProcessTag(ReqStruct* rs, const streaming::Tag* tag) {
+void RedirectingElement::ProcessTag(ReqStruct* rs,
+                                    const streaming::Tag* tag,
+                                    int64 timestamp_ms) {
   CHECK_NOT_NULL(rs);
   if ( (tag->type() == streaming::Tag::TYPE_SOURCE_STARTED ||
         tag->type() == streaming::Tag::TYPE_SOURCE_ENDED) &&
@@ -74,7 +76,7 @@ void RedirectingElement::ProcessTag(ReqStruct* rs, const streaming::Tag* tag) {
       LOG_ERROR << name() << ": Strange " << tag->type_name() << " tag"
                    ", media: [" << media_old << "] does not start with "
                    "redirection path: [" << rs->redirection_path_ << "]";
-      rs->downstream_callback_->Run(tag);
+      rs->downstream_callback_->Run(tag, timestamp_ms);
       return;
     }
     const string media_orig = media_old.substr(rs->redirection_path_.size());
@@ -82,12 +84,12 @@ void RedirectingElement::ProcessTag(ReqStruct* rs, const streaming::Tag* tag) {
     LOG_INFO << name() << ": ProcessTag modifying " << tag->type_name()
              << " tag from: [" << media_old << "] to: [" << media_new << "]";
     scoped_ref<SourceChangedTag> td(static_cast<SourceChangedTag*>(
-        source_change->Clone(-1)));
+        source_change->Clone()));
     td->set_path(media_new);
-    rs->downstream_callback_->Run(td.get());
+    rs->downstream_callback_->Run(td.get(), timestamp_ms);
     return;
   }
-  rs->downstream_callback_->Run(tag);
+  rs->downstream_callback_->Run(tag, timestamp_ms);
 }
 
 bool RedirectingElement::Initialize() {

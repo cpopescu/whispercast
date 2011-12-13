@@ -71,7 +71,7 @@ class RedirectingElement : public Element {
 
  private:
   struct ReqStruct;
-  void ProcessTag(ReqStruct* rs, const streaming::Tag* tag);
+  void ProcessTag(ReqStruct* rs, const streaming::Tag* tag, int64 timestamp_ms);
 
  public:
   ///////////////////////////////////////////////////////////////////////

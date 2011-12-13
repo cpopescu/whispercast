@@ -333,7 +333,7 @@ bool ConvertF4vToFlv(const string& in_f4v_file, const string& out_flv_file) {
     // 4. write flv_tags
     for ( uint32 i = 0; i < flv_tags.size(); i++ ) {
       scoped_ref<streaming::FlvTag>& flv_tag = flv_tags[i];
-      file_writer.Write(*flv_tag);
+      file_writer.Write(*flv_tag, -1);
       out_tag_count++;
       LOG_DEBUG << "Write FlvTag: " << flv_tag->ToString();
     }

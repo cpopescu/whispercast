@@ -210,9 +210,9 @@ void SwitchingElement::Unregister(bool send_source_ended, bool send_flush) {
     const int id = RightmostFlavourId(flavour_mask);
 
     if ( send_flush ) {
-      scoped_ref<Tag> flush_tag(new FlushTag(0, 1 << id,
-          distributors_[id]->last_tag_ts()));
-      distributors_[id]->DistributeTag(flush_tag.get());
+      scoped_ref<Tag> flush_tag(new FlushTag(0, 1 << id));
+      distributors_[id]->DistributeTag(
+        flush_tag.get(), distributors_[id]->last_tag_ts());
     }
 
     if (send_source_ended) {
@@ -290,8 +290,8 @@ void SwitchingElement::TagReceiveTimeout() {
 //////////////////////////////////////////////////////////////////
 
 // DOES: send tag downstream, notify policy
-void SwitchingElement::ProcessTag(const Tag* tag) {
-  normalizer_.ProcessTag(tag);
+void SwitchingElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
+  normalizer_.ProcessTag(tag, timestamp_ms);
 
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     ILOG_INFO << "EOS received";
@@ -302,13 +302,13 @@ void SwitchingElement::ProcessTag(const Tag* tag) {
   scoped_ref<SourceChangedTag> clone;
   if ( tag->type() == streaming::Tag::TYPE_SOURCE_STARTED ||
        tag->type() == streaming::Tag::TYPE_SOURCE_ENDED ) {
-    clone = static_cast<SourceChangedTag*>(tag->Clone(-1));
+    clone = static_cast<SourceChangedTag*>(tag->Clone());
     clone->set_is_final();
 
     tag = clone.get();
   }
 
-  if ( policy_ != NULL && !policy_->NotifyTag(tag) ) {
+  if ( policy_ != NULL && !policy_->NotifyTag(tag, timestamp_ms) ) {
     return;
   }
 
@@ -318,7 +318,7 @@ void SwitchingElement::ProcessTag(const Tag* tag) {
   while ( flavour_mask ) {
     const int id = RightmostFlavourId(flavour_mask);
     if ( distributors_[id] != NULL ) {
-      distributors_[id]->DistributeTag(tag);
+      distributors_[id]->DistributeTag(tag, timestamp_ms);
     }
   }
 }

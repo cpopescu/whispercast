@@ -249,7 +249,7 @@ void PublishStream::CanPublishCompleted(int channel_id,
 void PublishStream::Stop(bool forced) {
   if ( callback_ != NULL ) {
     callback_->Run(scoped_ref<streaming::Tag>(new streaming::EosTag(0,
-        streaming::kDefaultFlavourMask, 0, forced)).get());
+        streaming::kDefaultFlavourMask, forced)).get(), 0);
 
     manager_->StoppedPublisher(this);
     callback_ = NULL;
@@ -319,15 +319,22 @@ bool PublishStream::SendTag(io::MemoryStream* tag_content,
     return false;
   }
 
+  // update the attributes
+  flv_tag->update();
+  // adn send it downstream
+  callback_->Run(flv_tag.get(), timestamp_ms);
+  /*
   scoped_ref<streaming::RawTag> raw_tag(new streaming::RawTag(
       0, streaming::kDefaultFlavourMask));
   if ( stream_offset_ == 0 ) {
     serializer_.Initialize(raw_tag->mutable_data());
   }
-  serializer_.SerializeFlvTag(flv_tag.get(), 0, raw_tag->mutable_data());
+  serializer_.SerializeFlvTag(flv_tag.get(),
+      timestamp_ms, raw_tag->mutable_data());
 
-  callback_->Run(raw_tag.get());
+  callback_->Run(raw_tag.get(), timestamp_ms);
   stream_offset_ += raw_tag->data()->Size();
+  */
   return true;
 }
 

@@ -62,7 +62,10 @@ Serializer::Serializer()
 Serializer::~Serializer() {
 }
 
-bool Serializer::Serialize(const f4v::Tag& f4v_tag, io::MemoryStream* out) {
+bool Serializer::Serialize(const f4v::Tag& f4v_tag,
+                           int64 timestamp_ms,
+                           io::MemoryStream* out) {
+  // TODO: Should take timestamp_ms into account
   reorder_.Push(new F4vTag(f4v_tag));
 
   while ( true ) {
@@ -81,12 +84,12 @@ void Serializer::Initialize(io::MemoryStream* out) {
 void Serializer::Finalize(io::MemoryStream* out) {
 }
 bool Serializer::SerializeInternal(const streaming::Tag* tag,
-                                   int64 base_timestamp_ms,
+                                   int64 timestamp_ms,
                                    io::MemoryStream* out) {
   if ( tag->type() != Tag::TYPE_F4V ) {
     return false;
   }
-  return Serialize(static_cast<const F4vTag&>(*tag), out);
+  return Serialize(static_cast<const F4vTag&>(*tag), timestamp_ms, out);
 }
 }
 }

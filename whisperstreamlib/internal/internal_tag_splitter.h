@@ -57,7 +57,10 @@ class InternalTagSplitter : public streaming::TagSplitter {
 
  protected:
   virtual streaming::TagReadStatus GetNextTagInternal(
-      io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos);
+      io::MemoryStream* in,
+      scoped_ref<Tag>* tag,
+      int64* timestamp_ms,
+      bool is_at_eos);
 
  private:
   string mime_type_;

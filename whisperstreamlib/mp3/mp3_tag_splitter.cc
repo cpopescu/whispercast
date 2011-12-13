@@ -37,7 +37,10 @@ namespace streaming {
 const TagSplitter::Type Mp3TagSplitter::kType = TagSplitter::TS_MP3;
 
 streaming::TagReadStatus Mp3TagSplitter::GetNextTagInternal(
-    io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos) {
+    io::MemoryStream* in,
+    scoped_ref<Tag>* tag,
+    int64* timestamp_ms,
+    bool is_at_eos) {
   *tag = NULL;
   if ( crt_tag_ == NULL ) {
     crt_tag_ = new Mp3FrameTag(
@@ -60,7 +63,9 @@ streaming::TagReadStatus Mp3TagSplitter::GetNextTagInternal(
   crt_tag_->set_timestamp_ms(stream_offset_ms_);
   stream_offset_ms_ += crt_tag_->duration_ms();
 
+  *timestamp_ms = 0;
   *tag = crt_tag_;
+
   crt_tag_ = NULL;
   return streaming::READ_OK;
 }

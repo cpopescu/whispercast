@@ -46,12 +46,12 @@ void CallbacksManager::remove_callback(Request* req) {
   callbacks_.erase(req);
 }
 
-void CallbacksManager::DistributeTag(const Tag* tag) {
+void CallbacksManager::DistributeTag(const Tag* tag, int64 timestamp_ms) {
   CHECK(!distributing_tag_);
   distributing_tag_ = true;
   for ( CallbackMap::const_iterator it = callbacks_.begin();
         it != callbacks_.end(); ++it ) {
-    it->second->Run(tag);
+    it->second->Run(tag, timestamp_ms);
   }
   distributing_tag_ = false;
 }

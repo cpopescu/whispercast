@@ -78,7 +78,7 @@ class StreamDroppingUtil {
   // Returns:
   //   true = forward
   //   false = drop
-  bool Filter(const streaming::Tag* tag);
+  bool Filter(const streaming::Tag* tag, int64 timestamp_ms);
 
  private:
   // We have periods of accept and periods of dropping. Each acceptance period
@@ -108,12 +108,12 @@ class StreamDroppingUtil {
   int64 next_time_to_switch_audio_;
 };
 
-bool StreamDroppingUtil::Filter(const streaming::Tag* tag) {
+bool StreamDroppingUtil::Filter(const streaming::Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == streaming::Tag::TYPE_SOURCE_STARTED ) {
     if ( is_dropping_video_ )
-      next_time_to_switch_video_ = tag->timestamp_ms();
+      next_time_to_switch_video_ = timestamp_ms;
     if ( is_dropping_audio_ )
-      next_time_to_switch_audio_ = tag->timestamp_ms();
+      next_time_to_switch_audio_ = timestamp_ms;
   }
 
   bool to_drop = false;
@@ -130,7 +130,7 @@ bool StreamDroppingUtil::Filter(const streaming::Tag* tag) {
       is_dropping_audio_ = audio_accept_period_ms_ <= 0;
       next_time_to_switch_audio_ =
           audio_drop_period_ms_ > 0 ?
-          tag->timestamp_ms() + audio_accept_period_ms_ : kMaxInt64;
+          timestamp_ms + audio_accept_period_ms_ : kMaxInt64;
     }
     if ( first_video_tag_ ) {
       if ( video_grace_period_key_frames_ <=
@@ -139,7 +139,7 @@ bool StreamDroppingUtil::Filter(const streaming::Tag* tag) {
         is_dropping_video_ = video_accept_period_ms_ <= 0;
         next_time_to_switch_video_ =
             video_drop_period_ms_ > 0 ?
-            tag->timestamp_ms() + video_accept_period_ms_ : kMaxInt64;
+            timestamp_ms + video_accept_period_ms_ : kMaxInt64;
       }
     }
 
@@ -154,18 +154,18 @@ bool StreamDroppingUtil::Filter(const streaming::Tag* tag) {
         }
         return true;
       }
-      if ( tag->timestamp_ms() >= next_time_to_switch_video_ ) {
+      if ( timestamp_ms >= next_time_to_switch_video_ ) {
         if ( is_dropping_video_ && video_accept_period_ms_ > 0 ) {
           if ( tag->can_resync() ) {
               video_key_frame_sent_ = true;
               is_dropping_video_ = false;
-              next_time_to_switch_video_ = (tag->timestamp_ms() +
+              next_time_to_switch_video_ = (timestamp_ms +
                                             video_accept_period_ms_);
           }
         } else if ( !is_dropping_video_ && video_key_frame_sent_ ) {
           is_dropping_video_ = true;
           video_key_frame_sent_ = false;
-          next_time_to_switch_video_ = (tag->timestamp_ms() +
+          next_time_to_switch_video_ = (timestamp_ms +
                                         video_drop_period_ms_);
         }
       }
@@ -178,18 +178,18 @@ bool StreamDroppingUtil::Filter(const streaming::Tag* tag) {
 
       // AUDIO     (damn I hate code cut&past)..
 
-      if ( tag->timestamp_ms() >= next_time_to_switch_audio_ ) {
+      if ( timestamp_ms >= next_time_to_switch_audio_ ) {
         if ( is_dropping_audio_ && audio_accept_period_ms_ > 0 ) {
             if ( tag->can_resync() ) {
               audio_key_frame_sent_ = true;
               is_dropping_audio_ = false;
-              next_time_to_switch_audio_ = (tag->timestamp_ms() +
+              next_time_to_switch_audio_ = (timestamp_ms +
                                             audio_accept_period_ms_);
             }
         } else if ( !is_dropping_audio_ && audio_key_frame_sent_ ) {
           is_dropping_audio_ = true;
           audio_key_frame_sent_ = false;
-          next_time_to_switch_audio_ = (tag->timestamp_ms() +
+          next_time_to_switch_audio_ = (timestamp_ms +
                                         audio_drop_period_ms_);
         }
       }
@@ -216,7 +216,9 @@ class DroppingElementCallbackData : public streaming::FilteringCallbackData {
 
   /////////////////////////////////////////////////////////////////////
   // FilteringCallbackData methods
-  virtual void FilterTag(const streaming::Tag* tag, TagList* out);
+  virtual void FilterTag(const streaming::Tag* tag,
+                         int64 timestamp_ms,
+                         TagList* out);
   virtual bool Unregister(streaming::Request* req);
  protected:
   virtual void RegisterFlavour(int flavour_id) {
@@ -267,9 +269,10 @@ bool DroppingElementCallbackData::Unregister(streaming::Request* req) {
 }
 
 void DroppingElementCallbackData::FilterTag(const streaming::Tag* tag,
-    TagList* out) {
+                                            int64 timestamp_ms,
+                                            TagList* out) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
-    out->push_back(tag);
+    out->push_back(FilteredTag(tag, timestamp_ms));
     return;
   }
   // Treat tag on all flavours..
@@ -281,7 +284,7 @@ void DroppingElementCallbackData::FilterTag(const streaming::Tag* tag,
     if ( droppers_[id] == NULL ) {
       RegisterFlavour(id);
     }
-    if ( droppers_[id]->Filter(tag) ) {
+    if ( droppers_[id]->Filter(tag, timestamp_ms) ) {
       flavours_to_keep |= (1 << id);
     }
   }
@@ -291,12 +294,12 @@ void DroppingElementCallbackData::FilterTag(const streaming::Tag* tag,
   }
   // forward the tag
   if ( flavours_to_keep != tag->flavour_mask() ) {
-    streaming::Tag* t = tag->Clone(-1);
+    streaming::Tag* t = tag->Clone();
     t->set_flavour_mask(flavours_to_keep);
-    out->push_back(t);
+    out->push_back(FilteredTag(t, timestamp_ms));
     return;
   }
-  out->push_back(tag);
+  out->push_back(FilteredTag(tag, timestamp_ms));
 }
 }
 
@@ -360,13 +363,14 @@ bool DroppingElement::Initialize() {
 }
 
 void DroppingElement::PlayBootstrap(streaming::ProcessingCallback* callback,
+                                    int64 timestamp_ms,
                                     uint32 flavour_mask) {
   while ( flavour_mask )  {
     const int id = RightmostFlavourId(flavour_mask);
     if ( video_bootstrap_[id].get() != NULL ) {
       DLOG_DEBUG << name() << " Bootstraping: "
                  << video_bootstrap_[id]->ToString();
-      callback->Run(video_bootstrap_[id].get());
+      callback->Run(video_bootstrap_[id].get(), timestamp_ms);
     }
   }
 }
@@ -376,7 +380,7 @@ void DroppingElement::ClearBootstrap() {
     video_bootstrap_[i] = NULL;
   }
 }
-void DroppingElement::ProcessTag(const Tag* tag) {
+void DroppingElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     mapper_->RemoveRequest(internal_req_, process_tag_callback_);
     delete process_tag_callback_;
@@ -425,6 +429,7 @@ bool DroppingElement::AddRequest(const char* media,
   selector_->RunInSelectLoop(NewCallback(this,
                                          &DroppingElement::PlayBootstrap,
                                          callback,
+                                         (int64)0,
                                          req->caps().flavour_mask_));
   return true;
 }

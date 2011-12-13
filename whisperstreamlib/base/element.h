@@ -169,7 +169,7 @@ class Policy {
   // Notifications for the tags required to be processed
   // return: true => forward tag
   //         false => drop tag
-  virtual bool NotifyTag(const Tag* tag) = 0;
+  virtual bool NotifyTag(const Tag* tag, int64 timestamp_ms) = 0;
 
   // Returns the current config for this element - as a json string,
   // from which an element can be created by its element library.

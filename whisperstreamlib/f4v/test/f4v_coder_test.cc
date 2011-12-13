@@ -237,7 +237,7 @@ void SerializeToFile(const streaming::f4v::Tag& tag,
                      streaming::f4v::Serializer& serializer,
                      io::File& file) {
   io::MemoryStream ms;
-  bool success = serializer.Serialize(tag, &ms);
+  bool success = serializer.Serialize(tag, 0, &ms);
   CHECK(success);
   while ( !ms.IsEmpty() ) {
     uint8 tmp[512] = {0};
@@ -337,7 +337,7 @@ int main(int argc, char* argv[]) {
       // make a clone of the original tag
       //
       scoped_ref<const streaming::F4vTag> clone(
-          static_cast<const streaming::F4vTag*>(tag->Clone(-1)));
+          static_cast<const streaming::F4vTag*>(tag->Clone()));
 
       // test tag->encode == original data
       // test tag->clone->encode == original data

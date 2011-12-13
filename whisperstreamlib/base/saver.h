@@ -83,7 +83,7 @@ class Saver {
 
   // Processes a tag - writes it to the internal buffer and may be
   // flushes the buffer if necessary
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
   bool CreateSignalingFile(const string& name, const string& content);
  private:
@@ -98,10 +98,11 @@ class Saver {
 
  public:
   void SaveBootstrap() {
-    vector< scoped_ref<const Tag> > bootstrap;
+    vector<Bootstrapper::BootstrapTag> bootstrap;
     bootstrapper_.GetBootstrapTags(&bootstrap);
     for ( int i = 0; i < bootstrap.size(); ++i ) {
-      serializer_->Serialize(bootstrap[i].get(), &buffer_);
+      serializer_->Serialize(
+        bootstrap[i].tag_.get(), bootstrap[i].timestamp_ms_, &buffer_);
     }
   }
 

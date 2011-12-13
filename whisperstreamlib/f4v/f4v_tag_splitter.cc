@@ -62,7 +62,10 @@ void F4vTagSplitter::set_limits(int64 media_origin_pos_ms,
 }
 */
 streaming::TagReadStatus F4vTagSplitter::GetNextTagInternal(
-    io::MemoryStream* in, scoped_ref<Tag>* tag, bool is_at_eos) {
+    io::MemoryStream* in,
+    scoped_ref<Tag>* tag,
+    int64* timestamp_ms,
+    bool is_at_eos) {
   *tag = NULL;
 
   if ( generate_cue_point_table_now_ ) {
@@ -123,6 +126,7 @@ streaming::TagReadStatus F4vTagSplitter::GetNextTagInternal(
     }
   }
 
+  *timestamp_ms = f4v_tag->timestamp_ms();
   *tag = f4v_tag.get();
   return streaming::READ_OK;
 }

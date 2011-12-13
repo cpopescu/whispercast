@@ -86,12 +86,13 @@ class FlvHeader : public streaming::Tag {
   // Write header to memory stream.
   void Write(io::MemoryStream* out) const;
 
-  virtual int64 timestamp_ms() const { return timestamp_ms_; }
+  int64 timestamp_ms() const { return timestamp_ms_; }
+
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return kFlvHeaderSize; }
 
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new FlvHeader(*this, timestamp_ms);
+  virtual Tag* Clone() const {
+    return new FlvHeader(*this);
   }
 
   virtual string ToStringBody() const {
@@ -340,12 +341,15 @@ class FlvTag : public streaming::Tag {
   virtual ~FlvTag() {
   }
 
-  virtual int64 timestamp_ms() const { return timestamp_ms_; }
-  virtual int64 duration_ms() const { return 0; }
+  void update();
+
+  int64 timestamp_ms() const { return timestamp_ms_; }
+
+  virtual int64 duration_ms() const { return body_->Size(); }
   virtual uint32 size() const { return body_->Size(); }
   // the new tag shares the internal data buffer with this tag
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new FlvTag(*this, timestamp_ms, false);
+  virtual Tag* Clone() const {
+    return new FlvTag(*this, -1, false);
   }
 
   uint32 previous_tag_size() const {
@@ -439,7 +443,7 @@ class FlvTagSerializer : public streaming::TagSerializer {
   virtual void Finalize(io::MemoryStream* out);
 
   // The stuf that actually writes a flv tag - for easy access
-  void SerializeFlvTag(const FlvTag* tag, int64 base_timestamp_ms,
+  void SerializeFlvTag(const FlvTag* tag, int64 timestamp_ms,
                        io::MemoryStream* out);
 
   // Returns the serialized tag size.
@@ -450,7 +454,7 @@ class FlvTagSerializer : public streaming::TagSerializer {
   // Methods from TagSerializer:
   // The main interface function - puts "tag" into "out"
   virtual bool SerializeInternal(const Tag* tag,
-                                 int64 base_timestamp_ms,
+                                 int64 timestamp_ms,
                                  io::MemoryStream* out);
  private:
   bool write_header_;

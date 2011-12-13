@@ -54,7 +54,9 @@ DEFINE_string(url_path,
 
 //////////////////////////////////////////////////////////////////////
 
-void PrintTag(net::Selector* selector, const streaming::Tag* media_tag) {
+void PrintTag(net::Selector* selector,
+    const streaming::Tag* media_tag,
+    int64 timestamp_ms) {
   if ( media_tag->type() == streaming::Tag::TYPE_EOS ) {
     selector->MakeLoopExit();
   } else {

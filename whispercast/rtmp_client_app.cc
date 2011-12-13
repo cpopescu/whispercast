@@ -190,7 +190,7 @@ class TestConnection {
         break;
       }
       if ( out_file_.IsOpen() ) {
-        out_file_.Write(tag);
+        out_file_.Write(tag, -1);
       }
 
       // see how far from realtime is the incoming tag

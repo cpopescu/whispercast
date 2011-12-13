@@ -523,11 +523,14 @@ void PlayStream::SetNotifyReady() {
 void PlayStream::SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms) {
   DCHECK(net_selector_->IsInSelectThread());
 
+  //LOG_ERROR << "@" << LTIMESTAMP(tag_timestamp_ms) << tag->ToString();
+
   if ( is_closed() ) {
     return;
   }
 
   if ( tag->type() == streaming::Tag::TYPE_COMPOSED ) {
+    /*
     const streaming::ComposedTag* composed_tag =
         static_cast<const streaming::ComposedTag*>(tag);
     for ( int i = 0; i < composed_tag->tags().size(); ++i ) {
@@ -538,6 +541,7 @@ void PlayStream::SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms) {
       const streaming::Tag* ltag = composed_tag->tags().tag(i).get();
       SendSimpleTag(ltag, tag_timestamp_ms + ltag->timestamp_ms());
     }
+    */
   } else {
     SendSimpleTag(tag, tag_timestamp_ms);
   }
@@ -580,7 +584,6 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
 
   if ( tag->type() == streaming::Tag::TYPE_SOURCE_STARTED ) {
     send_reset_audio_ = true;
-    //send_reset_pings_ = true;
     return;
   }
   if ( tag->type() == streaming::Tag::TYPE_SOURCE_ENDED ) {
@@ -667,6 +670,26 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
     return;
   }
 
+  if ( send_switch_media_ ) {
+    SendEvent(
+        protocol_->CreateStatusEvent(
+          stream_id(),
+          Protocol::kReplyChannel,
+          0,
+          "NetStream.Play.Complete", "SWITCH",
+          stream_name_.c_str()),
+          tag_timestamp_ms,  NULL, true);
+    SendEvent(
+        protocol_->CreateStatusEvent(
+          stream_id(),
+          Protocol::kReplyChannel,
+          0,
+          "NetStream.Play.Switch", "SWITCH",
+          stream_name_.c_str()),
+          tag_timestamp_ms,  NULL, true);
+    send_switch_media_ = false;
+  }
+
   if ( send_reset_pings_ ) {
     // the pings are going through stream 0 (system stream)...
     protocol_->system_stream()->SendEvent(
@@ -689,26 +712,6 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
     SendFlvTag(audio.get(), tag_timestamp_ms);
 
     send_reset_audio_ = false;
-  }
-
-  if ( send_switch_media_ ) {
-    SendEvent(
-        protocol_->CreateStatusEvent(
-          stream_id(),
-          Protocol::kReplyChannel,
-          0,
-          "NetStream.Play.Complete", "EOS",
-          stream_name_.c_str()),
-          tag_timestamp_ms,  NULL, true);
-    SendEvent(
-        protocol_->CreateStatusEvent(
-          stream_id(),
-          Protocol::kReplyChannel,
-          0,
-          "NetStream.Play.Switch", "EOS",
-          stream_name_.c_str()),
-          tag_timestamp_ms,  NULL, true);
-    send_switch_media_ = false;
   }
 
   if ( tag->type() == streaming::Tag::TYPE_FLV ) {

@@ -157,8 +157,10 @@ class CommandElementData {
     CHECK_NOT_NULL(splitter_);
     CHECK(pid_ != -1);
     while ( true ) {
+      int64 timestamp_ms;
       scoped_ref<Tag> tag;
-      TagReadStatus status = splitter_->GetNextTag(io, &tag, true);
+      TagReadStatus status = splitter_->GetNextTag(
+          io, &tag, &timestamp_ms, true);
       if ( status == streaming::READ_UNKNOWN ||
            status == streaming::READ_CORRUPTED_FAIL ||
            status == streaming::READ_EOF ||
@@ -173,8 +175,8 @@ class CommandElementData {
       if ( status != streaming::READ_OK ) {
         break;
       }
-      stream_ts_ = tag->timestamp_ms();
-      distributor_.DistributeTag(tag.get());
+      stream_ts_ = timestamp_ms;
+      distributor_.DistributeTag(tag.get(), timestamp_ms);
     };
   }
   // Callback when pipe is closed (i.e. command ended)
@@ -222,7 +224,7 @@ class CommandElementData {
       return;
     }
     distributor_.DistributeTag(scoped_ref<Tag>(new SourceEndedTag(
-          0, kDefaultFlavourMask, 0, name_, name_)).get());
+          0, kDefaultFlavourMask, name_, name_)).get(), 0);
     distributor_.CloseAllCallbacks(true);
   }
 

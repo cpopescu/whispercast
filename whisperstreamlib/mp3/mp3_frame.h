@@ -123,6 +123,7 @@ class Mp3FrameTag : public streaming::Tag {
   bool padding() const { return padding_; }
   int frame_length_bytes() const { return frame_length_bytes_; }
   const io::MemoryStream& data() const { return data_; }
+  int64 timestamp_ms() const { return timestamp_ms_; }
   void set_timestamp_ms(int64 timestamp_ms) {
     timestamp_ms_ = timestamp_ms;
   }
@@ -130,10 +131,9 @@ class Mp3FrameTag : public streaming::Tag {
   const char* VersionName() const { return VersionName(version_); }
   const char* LayerName() const { return LayerName(layer_); }
   const char* ChannelModeName() const { return ChannelModeName(channel_mode_); }
-  virtual int64 timestamp_ms() const { return timestamp_ms_; }
   virtual int64 duration_ms() const { return TimeLengthInMs(); }
   virtual uint32 size() const { return data_.Size(); }
-  virtual Tag* Clone(int64 timestamp_ms) const {
+  virtual Tag* Clone() const {
     return new Mp3FrameTag(*this);
   }
 
@@ -167,7 +167,8 @@ class Mp3TagSerializer : public streaming::TagSerializer {
   virtual void Initialize(io::MemoryStream* out) {}
   virtual void Finalize(io::MemoryStream* out) {}
  protected:
-  virtual bool SerializeInternal(const Tag* tag, int64 base_timestamp_ms,
+  virtual bool SerializeInternal(const Tag* tag,
+                                 int64 timestamp_ms,
                                  io::MemoryStream* out) {
     if ( tag->type() != Tag::TYPE_MP3 ) {
       return false;

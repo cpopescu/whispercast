@@ -275,7 +275,7 @@ CuePointTag* Decoder::GenerateCuePointTableTag() const {
     return NULL;
   }
 
-  CuePointTag* cue_point_tag = new CuePointTag(0, kDefaultFlavourMask, 0);
+  CuePointTag* cue_point_tag = new CuePointTag(0, kDefaultFlavourMask);
   // build a map of [timestamp_ms -> file offset]
   vector<pair<int64, int64> >& cue_points = cue_point_tag->mutable_cue_points();
   for ( uint32 i = 0; i < mdat_order_frames_.size(); i++ ) {

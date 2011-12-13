@@ -79,8 +79,6 @@ class Tag : public RefCounted {
     TYPE_SOURCE_STARTED,
     // notifies that a source has stopped producing tags
     TYPE_SOURCE_ENDED,
-    // a new contiguous sequence of tags will be produced
-    TYPE_SEGMENT_STARTED,
     // this is a composed tag (from several tags of the same type)
     TYPE_COMPOSED,
     // denotes that the data_ is an OsdTag
@@ -145,7 +143,6 @@ class Tag : public RefCounted {
 
   // Every tag is responsible with implementing these.
   // If a tag does not care for some of these it should return 0.
-  virtual int64 timestamp_ms() const = 0;
   virtual int64 duration_ms() const = 0;
   virtual uint32 size() const = 0;
 
@@ -188,9 +185,7 @@ class Tag : public RefCounted {
     return *this;
   }
 
-  // if timestamp_ms == -1, the result copies the parent timestamp
-  // else, the result has the given timestamp_ms
-  virtual Tag* Clone(int64 timestamp_ms)  const = 0;
+  virtual Tag* Clone()  const = 0;
 
   virtual string ToStringBody() const {
     return "{}";
@@ -198,8 +193,7 @@ class Tag : public RefCounted {
 
   const string ToString() const {
     return strutil::StringPrintf(
-        "@%8"PRId64" - %s [%s] fl:%x -> %s",
-        (timestamp_ms()),
+        "@ %s [%s] fl:%x -> %s",
         type_name(),
         attributes_name().c_str(),
         flavour_mask_,
@@ -229,24 +223,20 @@ class CuePointTag : public Tag {
  public:
   static const Type kType;
   CuePointTag(uint32 attributes,
-              uint32 flavour_mask,
-              int64 timestamp_ms)
-    : Tag(kType, attributes, flavour_mask),
-      timestamp_ms_(timestamp_ms) {
+              uint32 flavour_mask)
+    : Tag(kType, attributes, flavour_mask) {
   }
-  CuePointTag(const CuePointTag& other, int64 timestamp_ms)
-    : Tag(other),
-      timestamp_ms_(timestamp_ms != -1 ? timestamp_ms : other.timestamp_ms_) {
+  CuePointTag(const CuePointTag& other)
+    : Tag(other) {
     cue_points_.resize(other.cue_points_.size());
-    copy(other.cue_points_.begin(), other.cue_points_.end(),
-         cue_points_.begin());
+    copy(other.cue_points_.begin(),
+        other.cue_points_.end(),cue_points_.begin());
   }
 
  public:
   virtual ~CuePointTag() {
   }
 
-  virtual int64 timestamp_ms() const { return timestamp_ms_; }
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
 
@@ -271,8 +261,8 @@ class CuePointTag : public Tag {
     }
     return l;
   }
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new CuePointTag(*this, timestamp_ms);
+  virtual Tag* Clone() const {
+    return new CuePointTag(*this);
   }
   virtual string ToStringBody() const {
     string s = "{\n";
@@ -288,7 +278,6 @@ class CuePointTag : public Tag {
   }
 
  private:
-  const int64 timestamp_ms_;
   // Pair of timestamp_ms_ / file_pos_
   vector< pair<int64, int64> > cue_points_;
 };
@@ -301,17 +290,14 @@ class FeatureFoundTag : public Tag {
   FeatureFoundTag(uint32 attributes,
                   uint32 flavour_mask,
                   const string& name,
-                  int64 timestamp_ms,
                   int64 length_ms)
       : Tag(kType, attributes, flavour_mask),
         name_(name),
-        timestamp_ms_(timestamp_ms),
         length_ms_(length_ms) {
   }
-  FeatureFoundTag(const FeatureFoundTag& other, int64 timestamp_ms)
+  FeatureFoundTag(const FeatureFoundTag& other)
     : Tag(other),
       name_(other.name_),
-      timestamp_ms_(timestamp_ms != -1 ? timestamp_ms : other.timestamp_ms_),
       length_ms_(other.length_ms_) {
   }
 
@@ -319,12 +305,11 @@ class FeatureFoundTag : public Tag {
   virtual ~FeatureFoundTag() {
   }
 
-  virtual int64 timestamp_ms() const { return timestamp_ms_; }
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
 
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new FeatureFoundTag(*this, timestamp_ms);
+  virtual Tag* Clone() const {
+    return new FeatureFoundTag(*this);
   }
   virtual string ToStringBody() const {
     return strutil::StringPrintf(
@@ -337,7 +322,6 @@ class FeatureFoundTag : public Tag {
 
  private:
   const string name_;
-  int64 timestamp_ms_;
   const int64 length_ms_;
 };
 
@@ -348,19 +332,16 @@ class SourceChangedTag : public Tag {
   SourceChangedTag(Type type,
                    uint32 attributes,
                    uint32 flavour_mask,
-                   int64 timestamp_ms,
                    const string& source_element_name,
                    const string& path,
                    bool is_final = false)
     : Tag(type, attributes, flavour_mask),
-      timestamp_ms_(timestamp_ms),
       source_element_name_(source_element_name),
       path_(path),
       is_final_(is_final) {
   }
-  SourceChangedTag(const SourceChangedTag& other, int64 timestamp_ms)
+  SourceChangedTag(const SourceChangedTag& other)
     : Tag(other),
-      timestamp_ms_(timestamp_ms != -1 ? timestamp_ms : other.timestamp_ms_),
       source_element_name_(other.source_element_name_),
       path_(other.path_),
       is_final_(other.is_final_) {
@@ -387,12 +368,10 @@ class SourceChangedTag : public Tag {
   //////////////////////////////////////////////////////////////////////
   // Methods from Tag
   //
-  virtual int64 timestamp_ms() const { return timestamp_ms_; }
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
 
  private:
-  const int64 timestamp_ms_;
   // The very source element name (e.g. "aio_file/spiderman.flv")
   // This name doesn't change while the tag circulates through
   // filtering elements.
@@ -411,16 +390,14 @@ class TSourceChangedTag : public SourceChangedTag {
   static const Type kType;
   TSourceChangedTag(uint32 attributes,
                     uint32 flavour_mask,
-                    int64 timestamp_ms,
                     const string& source_element_name,
                     const string& path,
                     bool is_final = false)
-    : SourceChangedTag(kType, attributes, flavour_mask, timestamp_ms,
+    : SourceChangedTag(kType, attributes, flavour_mask,
         source_element_name, path, is_final) {
   }
-  TSourceChangedTag(const TSourceChangedTag<TYPE>& other,
-                    int64 timestamp_ms)
-    : SourceChangedTag(other, timestamp_ms) {
+  TSourceChangedTag(const TSourceChangedTag<TYPE>& other)
+    : SourceChangedTag(other) {
   }
 
  public:
@@ -428,15 +405,14 @@ class TSourceChangedTag : public SourceChangedTag {
   }
 
 public:
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new TSourceChangedTag<TYPE>(*this, timestamp_ms);
+  virtual Tag* Clone() const {
+    return new TSourceChangedTag<TYPE>(*this);
   }
   virtual string ToStringBody() const {
     return strutil::StringPrintf(
-        "{ name_: %s, timestamp_ms_: %"PRId64", source_element_name_: %s, "
+        "{ name_: %s, source_element_name_: %s, "
         "path_: %s, is_final_: %s }",
         type_name(),
-        timestamp_ms(),
         source_element_name().c_str(),
         path().c_str(),
         strutil::BoolToString(is_final()).c_str());
@@ -533,17 +509,14 @@ class ComposedTag : public Tag {
   static const Type kType;
   ComposedTag(uint32 attributes,
               uint32 flavour_mask,
-              int64 timestamp_ms,
               Type sub_tag_type = kAnyType,
               TagSet* tags = NULL)
       : Tag(kType, attributes, flavour_mask),
-        timestamp_ms_(timestamp_ms),
         sub_tag_type_(sub_tag_type),
         tags_(tags == NULL ? new TagSet() : tags) {
   }
-  ComposedTag(const ComposedTag& other, int64 timestamp_ms)
+  ComposedTag(const ComposedTag& other)
       : Tag(other),
-        timestamp_ms_(timestamp_ms != -1 ? timestamp_ms : other.timestamp_ms_),
         sub_tag_type_(other.sub_tag_type_),
         tags_(other.tags_) {
   }
@@ -555,15 +528,14 @@ class ComposedTag : public Tag {
   // Adds a clone of the given tag to our list
   // IMPORTANT NOTE: we don't 'consume' the tag - is your job to take care
   //                 of the given argument from now on
-  int64 add_tag(const Tag* tag) {
+  int64 add_tag(const Tag* tag, int64 timestamp_ms) {
     DCHECK(!tags_->is_full());
     if ( sub_tag_type_ == kAnyType ) {
-      timestamp_ms_ = tag->timestamp_ms();
       sub_tag_type_ = tag->type();
     }
     CHECK_EQ(sub_tag_type_, tag->type());
     add_attributes(tag->attributes());
-    tags_->add_tag(tag->Clone(tag->timestamp_ms() - timestamp_ms_));
+    tags_->add_tag(tag->Clone());
     return duration_ms();
   }
   // Adds the given tag to our list.
@@ -573,15 +545,11 @@ class ComposedTag : public Tag {
   void add_prepared_tag(Tag* tag) {
     DCHECK(!tags_->is_full());
     if ( sub_tag_type_ == kAnyType ) {
-      timestamp_ms_ = tag->timestamp_ms();
       sub_tag_type_ = tag->type();
     }
     CHECK_EQ(sub_tag_type_, tag->type());
     add_attributes(tag->attributes());
     tags_->add_tag(tag);
-  }
-  virtual int64 timestamp_ms() const {
-    return timestamp_ms_;
   }
   virtual int64 duration_ms() const {
     int64 d = 0;
@@ -597,8 +565,8 @@ class ComposedTag : public Tag {
     }
     return s;
   }
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new ComposedTag(*this, timestamp_ms);
+  virtual Tag* Clone() const {
+    return new ComposedTag(*this);
   }
   virtual string ToStringBody() const {
     string s(strutil::StringPrintf(
@@ -616,7 +584,6 @@ class ComposedTag : public Tag {
   Type sub_tag_type() const      { return sub_tag_type_; }
 
  private:
-  int64 timestamp_ms_;
   Type sub_tag_type_;
   scoped_ref<TagSet> tags_;
 };
@@ -626,14 +593,11 @@ class TSignalTag : public Tag {
  public:
   static const Type kType;
   TSignalTag(uint32 attributes,
-            uint32 flavour_mask,
-            int64 timestamp_ms)
-      : Tag(kType, attributes, flavour_mask),
-        timestamp_ms_(timestamp_ms) {
+            uint32 flavour_mask)
+      : Tag(kType, attributes, flavour_mask) {
   }
-  TSignalTag(const TSignalTag<TYPE>& other, int64 timestamp_ms)
-      : Tag(other),
-        timestamp_ms_(timestamp_ms != -1 ? timestamp_ms : other.timestamp_ms_) {
+  TSignalTag(const TSignalTag<TYPE>& other)
+      : Tag(other) {
   }
 
  public:
@@ -644,36 +608,29 @@ class TSignalTag : public Tag {
   //
   // Tag interface methods
   //
-  virtual int64 timestamp_ms() const { return timestamp_ms_; }
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
 
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new TSignalTag<TYPE>(*this, timestamp_ms);
+  virtual Tag* Clone() const {
+    return new TSignalTag<TYPE>(*this);
   }
 
   virtual string ToStringBody() const {
     return strutil::StringPrintf("{ name_: %s }", type_name());
   }
-
- private:
-  const int64 timestamp_ms_;
 };
 
 typedef TSignalTag<Tag::TYPE_BOS> BosTag;
 class EosTag : public TSignalTag<Tag::TYPE_EOS> {
  public:
   EosTag(uint32 attributes,
-                uint32 flavour_mask,
-                int64 timestamp_ms,
-                bool forced = false)
-      : TSignalTag<Tag::TYPE_EOS>(
-          attributes, flavour_mask, timestamp_ms),
+         uint32 flavour_mask,
+         bool forced)
+      : TSignalTag<Tag::TYPE_EOS>(attributes, flavour_mask),
           forced_(forced) {
   }
-  EosTag(const EosTag& other, int64 timestamp_ms)
-      : TSignalTag<Tag::TYPE_EOS>(other,
-          timestamp_ms != -1 ? timestamp_ms : other.timestamp_ms()),
+  EosTag(const EosTag& other)
+      : TSignalTag<Tag::TYPE_EOS>(other),
         forced_(other.forced_) {
   }
 
@@ -689,8 +646,8 @@ class EosTag : public TSignalTag<Tag::TYPE_EOS> {
   //
   // Tag interface methods
   //
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    return new EosTag(*this, timestamp_ms);
+  virtual Tag* Clone() const {
+    return new EosTag(*this);
   }
 
   virtual string ToStringBody() const {
@@ -709,55 +666,6 @@ typedef TSignalTag<Tag::TYPE_SEEK_PERFORMED> SeekPerformedTag;
 
 typedef TSignalTag<Tag::TYPE_FLUSH> FlushTag;
 
-class SegmentStartedTag : public TSignalTag<Tag::TYPE_SEGMENT_STARTED> {
- public:
-  SegmentStartedTag(uint32 attributes,
-                   uint32 flavour_mask,
-                   int64 timestamp_ms,
-                   int64 media_timestamp_ms)
-    : TSignalTag<Tag::TYPE_SEGMENT_STARTED>(
-          attributes,
-          flavour_mask,
-          timestamp_ms),
-          media_timestamp_ms_(media_timestamp_ms) {
-  }
-  SegmentStartedTag(const SegmentStartedTag& other)
-    : TSignalTag<Tag::TYPE_SEGMENT_STARTED>(
-          other.attributes(),
-          other.flavour_mask(),
-          other.timestamp_ms()),
-          media_timestamp_ms_(other.media_timestamp_ms_) {
-  }
-
- public:
-  virtual ~SegmentStartedTag() {
-  }
-
-  int64 media_timestamp_ms() const {
-    return media_timestamp_ms_;
-  }
-
-  //////////////////////////////////////////////////////////////////////////
-  //
-  // Tag interface methods
-  //
-  virtual Tag* Clone(int64 timestamp_ms) const {
-    CHECK(timestamp_ms == -1)
-        << "SegmentStartedTag cannot be cloned w/ a different timestamp";
-    return new SegmentStartedTag(*this);
-  }
-
-  virtual string ToStringBody() const {
-    return strutil::StringPrintf(
-        "{ timestamp_ms_: %"PRId64", media_timestamp_ms_: %"PRId64", }",
-        timestamp_ms(),
-        media_timestamp_ms());
-  }
-
-private:
-  int64 media_timestamp_ms_;
-};
-
 //////////////////////////////////////////////////////////////////////
 //
 // General interface for saving a tag to some place..
@@ -773,13 +681,11 @@ class TagSerializer {
   virtual void Initialize(io::MemoryStream* out) = 0;
   // The main interface function - puts "tag" into "out".
   // It mainly calls serialize internal, but breaking composed tags
-  bool Serialize(const Tag* tag, io::MemoryStream* out,
-                 int64 timestamp_ms = -1) {
+  bool Serialize(const Tag* tag, int64 timestamp_ms, io::MemoryStream* out) {
     if ( tag->type() != Tag::TYPE_COMPOSED ) {
-      if (timestamp_ms < 0)
-        return SerializeInternal(tag, 0, out);
-      return SerializeInternal(tag, timestamp_ms-tag->timestamp_ms(), out);
+      return SerializeInternal(tag, timestamp_ms, out);
     } else {
+      /*
       const ComposedTag* ctd = static_cast<const ComposedTag*>(tag);
       bool is_ok = true;
       if ( timestamp_ms < 0 )
@@ -792,6 +698,8 @@ class TagSerializer {
                                    out);
       }
       return is_ok;
+      */
+      return false;
     }
   }
   // If any finishing touches things are necessary to be serialized after the
@@ -800,7 +708,8 @@ class TagSerializer {
 
  protected:
   // Override this to do your serialization
-  virtual bool SerializeInternal(const Tag* tag, int64 base_timestamp_ms,
+  virtual bool SerializeInternal(const Tag* tag,
+                                 int64 timestamp_ms,
                                  io::MemoryStream* out) = 0;
  private:
   DISALLOW_EVIL_CONSTRUCTORS(TagSerializer);
@@ -833,7 +742,7 @@ class StreamTimeCalculator {
   virtual ~StreamTimeCalculator();
 
   // give me all stream tags...
-  void ProcessTag(const Tag* tag);
+  void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
   // and I'll tell you the timestamp of the last tag
   int64 last_tag_ts() const { return last_tag_ts_; }
@@ -845,9 +754,8 @@ class StreamTimeCalculator {
   int64 stream_time_ms() const { return stream_time_ms_; }
 
  private:
-  // timestamps of the last processed segment started tag
-  int64 last_segment_tag_ts_;
-  int64 last_segment_media_ts_;
+  // first tag flag
+  bool is_first_tag_;
   // timestamp of the last processed tag
   int64 last_tag_ts_;
   // time inside current media segment
