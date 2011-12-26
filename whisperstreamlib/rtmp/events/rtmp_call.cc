@@ -64,7 +64,7 @@
 
 namespace rtmp {
 
-const char* Call::StatusName(CallStatus status) {
+const char* Call::CallStatusName(CallStatus status) {
   switch ( status ) {
     CONSIDER(CALL_STATUS_PENDING);
     CONSIDER(CALL_STATUS_SUCCESS_RESULT);
@@ -76,29 +76,30 @@ const char* Call::StatusName(CallStatus status) {
     CONSIDER(CALL_STATUS_INVOCATION_EXCEPTION);
     CONSIDER(CALL_STATUS_GENERAL_EXCEPTION);
   }
-  LOG_FATAL << "Unknown CALL_STATUS: " << status;
+  LOG_FATAL << "Illegal CallStatus: " << status;
   return "CALL_STATUS_UNKOWN";   // keep g++ happy
 }
 string Call::ToString() const {
-  string s(string(" status: ") + GetStatusName() +
-           " service: [" + service_name_ +
-           "] method: [" + method_name_ +
-           "] invokeid: " + strutil::StringPrintf("%d", invoke_id_) +
-           "\nParams:\n");
+  ostringstream oss;
+  oss << " status: " << status_name()
+      << ", service: " << service_name_
+      << ", method: " << method_name_
+      << ", invoke_id: " << invoke_id_
+      << ", connection_params: ";
   if ( connection_params_ != NULL ) {
-    s += connection_params_->ToString();
+    oss << connection_params_->ToString();
   } else {
-    s += "NULL";
+    oss << "NULL";
   }
   for ( int i = 0; i < arguments_.size(); i++ ) {
-    s += strutil::StringPrintf("\n\tArg %d: ", i);
+    oss << "\n\tArg " << i << ": ";
     if ( arguments_[i] != NULL ) {
-      s += arguments_[i]->ToString();
+      oss << arguments_[i]->ToString();
     } else {
-      s += "NULL";
+      oss << "NULL";
     }
   }
-  return s;
+  return oss.str();
 }
 
 AmfUtil::ReadStatus Call::ReadCallData(io::MemoryStream* in,

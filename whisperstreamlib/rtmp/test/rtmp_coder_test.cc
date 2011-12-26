@@ -30,18 +30,17 @@
 // Author: Catalin Popescu
 
 
+#include <deque>
 #include <whisperlib/common/base/types.h>
 #include <whisperlib/common/base/log.h>
 #include <whisperlib/common/base/system.h>
 #include <whisperlib/common/base/gflags.h>
 #include <whisperlib/common/io/buffer/memory_stream.h>
-
 #include <whisperstreamlib/rtmp/objects/amf/amf0_util.h>
 #include <whisperstreamlib/rtmp/objects/amf/amf_util.h>
-
-#include <whisperstreamlib/rtmp/rtmp_protocol.h>
-#include <whisperstreamlib/rtmp/rtmp_coder.h>
 #include <whisperstreamlib/rtmp/events/rtmp_event.h>
+#include <whisperstreamlib/rtmp/rtmp_coder.h>
+#include <whisperstreamlib/rtmp/rtmp_protocol_data.h>
 
 //////////////////////////////////////////////////////////////////////
 
@@ -68,7 +67,7 @@ C* PrepareBulkData(int size, rtmp::Header* header) {
 int main(int argc, char* argv[]) {
   common::Init(argc, argv);
 
-  vector <rtmp::Event*> initial;
+  vector <scoped_ref<rtmp::Event> > initial;
   vector <bool> is_bulk;
   rtmp::ProtocolData protocol;
 
@@ -165,7 +164,8 @@ int main(int argc, char* argv[]) {
     h->set_timestamp_ms(random() % 0xffffff);
     initial[i]->WriteToMemoryStream(&tmp, rtmp::AmfUtil::AMF0_VERSION);
     h->set_event_size(tmp.Size());
-    rtmp::Event* p = rtmp::Coder::CreateEvent(new rtmp::Header(&protocol, *h));
+    scoped_ref<rtmp::Event> p = rtmp::Coder::CreateEvent(
+        new rtmp::Header(&protocol, *h));
     if ( i == 12 ) {
       LOG_INFO << " Break Here !!!";
     }
@@ -176,14 +176,13 @@ int main(int argc, char* argv[]) {
                                          << " ID: " << i
                                          << " for " << *initial[i];
     CHECK(tmp.IsEmpty());
-    CHECK(p->Equals(initial[i]))
+    CHECK(p->Equals(initial[i].get()))
       << "ID: " << i << " Error for: \n" << *initial[i] << "\nvs.\n" << *p;
-    delete p;
   }
   {
     rtmp::Coder coder0(&protocol, 4 << 20);
     rtmp::Coder coder1(&protocol, 4 << 20);
-    rtmp::EventAudioData* ev = PrepareBulkData<rtmp::EventAudioData>(
+    scoped_ref<rtmp::EventAudioData> ev = PrepareBulkData<rtmp::EventAudioData>(
         101, new rtmp::Header(&protocol));
     ev->mutable_header()->set_stream_id(1);  // avoid notify ..
     ev->mutable_header()->set_channel_id(5);
@@ -194,31 +193,29 @@ int main(int argc, char* argv[]) {
 
     io::MemoryStream buf0;
 
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev);
+    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
     ev->mutable_header()->set_is_timestamp_relative(true);
     ev->mutable_header()->set_timestamp_ms(50);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev);
+    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
     ev->mutable_header()->set_timestamp_ms(25);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev);
+    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
     ev->mutable_header()->set_timestamp_ms(50);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev);
+    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
+    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
+    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
     for ( int i = 0; i < 6; ++i ) {
-      rtmp::Event* crt = NULL;
+      scoped_ref<rtmp::Event> crt;
       rtmp::AmfUtil::ReadStatus err = coder1.Decode(
           &buf0,
           rtmp::AmfUtil::AMF0_VERSION,
           &crt);
       CHECK_EQ(err, rtmp::AmfUtil::READ_OK);
-      delete crt;
     }
-    delete ev;
   }
 
   rtmp::Coder coder(&protocol, 4 << 20);
 
-  deque <rtmp::Event*> written;
+  deque <scoped_ref<rtmp::Event> > written;
   deque <bool> written_is_bulk;
   io::MemoryStream written_buffer;
   io::MemoryStream decode_buffer;
@@ -246,40 +243,36 @@ int main(int argc, char* argv[]) {
       decode_buffer.AppendStreamNonDestructive(&written_buffer,
                                                num_to_transfer);
       CHECK_EQ(written_buffer.Skip(num_to_transfer), num_to_transfer);
-      rtmp::Event* event = NULL;
-      do {
+
+      while ( true ) {
+        scoped_ref<rtmp::Event> event;
         rtmp::AmfUtil::ReadStatus err = coder.Decode(
             &decode_buffer,
             rtmp::AmfUtil::AMF0_VERSION,
             &event);
-        CHECK(err == rtmp::AmfUtil::READ_OK ||
-              err == rtmp::AmfUtil::READ_NO_DATA)
-            << "Invalid error: " << rtmp::AmfUtil::ReadStatusName(err);
-        if ( event != NULL ) {
-          if ( err != rtmp::AmfUtil::READ_OK )
-            LOG_ERROR << "Invalid error for " << *event;
-          CHECK(event->Equals(written.front()))
-            << " Error for: \n" << *written.front() << "\nvs.\n" << *event;
-          LOG_INFO << " ===> READ : " << *event;
-          delete event;
-          written.pop_front();
-          written_is_bulk.pop_front();
+        if ( err == rtmp::AmfUtil::READ_NO_DATA ) {
+          break;
         }
-      } while ( event != NULL );
+        CHECK(err == rtmp::AmfUtil::READ_OK)
+            << "Invalid error: " << rtmp::AmfUtil::ReadStatusName(err);
+        CHECK(event->Equals(written.front().get()))
+          << " Error for: \n" << *written.front() << "\nvs.\n" << *event;
+        LOG_INFO << " ===> READ : " << event->ToString();
+        written.pop_front();
+        written_is_bulk.pop_front();
+      };
     } else {
       int id = (FLAGS_fixed_event < 0
                 ? random() % initial.size()
                 : FLAGS_fixed_event);
 
-      coder.Encode(&written_buffer, rtmp::AmfUtil::AMF0_VERSION, initial[id]);
+      coder.Encode(&written_buffer, rtmp::AmfUtil::AMF0_VERSION,
+                   initial[id].get());
       written.push_back(initial[id]);
       written_is_bulk.push_back(is_bulk[id]);
       LOG_INFO << " ===> WRIT: " << *initial[id]
                << " NOW: " << written_buffer.Size();
     }
-  }
-  for ( int i = 0; i < initial.size(); ++i ) {
-    delete initial[i];
   }
   LOG_INFO << "PASS";
 }

@@ -74,7 +74,7 @@ class Call {
     // General exception constant
     CALL_STATUS_GENERAL_EXCEPTION = 0x14,
   };
-  static const char* StatusName(CallStatus status);
+  static const char* CallStatusName(CallStatus status);
 
  public:
   Call()
@@ -82,17 +82,14 @@ class Call {
         status_(CALL_STATUS_PENDING),
         connection_params_(NULL) {
   }
-  explicit Call(CallStatus status)
-      : invoke_id_(0),
-        status_(status),
-        connection_params_(NULL) {
-  }
-  Call(const string& service_name, const string& method_name) :
+  // we take control of 'connection_params'
+  Call(const string& service_name, const string& method_name, uint32 invoke_id,
+       CallStatus status, CObject* connection_params) :
       service_name_(service_name),
       method_name_(method_name),
-      invoke_id_(0),
-      status_(CALL_STATUS_PENDING),
-      connection_params_(NULL) {
+      invoke_id_(invoke_id),
+      status_(status),
+      connection_params_(connection_params) {
   }
   virtual ~Call() {
     while ( !arguments_.empty() ) {
@@ -108,9 +105,16 @@ class Call {
             status_ == CALL_STATUS_SUCCESS_NULL ||
             status_ == CALL_STATUS_SUCCESS_VOID);
   }
-  const char* GetStatusName() const {
-    return StatusName(status_);
+  CallStatus status() const {
+    return status_;
   }
+  const char* status_name() const {
+    return CallStatusName(status_);
+  }
+  void set_status(CallStatus status) {
+    status_ = status;
+  }
+
   const string& method_name() const {
     return method_name_;
   }
@@ -155,13 +159,6 @@ class Call {
     }
   }
 
-  CallStatus status() const {
-    return status_;
-  }
-  void set_status(CallStatus status) {
-    status_ = status;
-  }
-
   virtual string ToString() const;
 
   // Serialization method
@@ -196,12 +193,14 @@ class PendingCall : public Call {
   PendingCall()
       : Call(), result_(NULL) {
   }
-  explicit PendingCall(Call::CallStatus status)
-      : Call(status), result_(NULL) {
-  }
-  PendingCall(const string& service_name, const string& method_name)
-      : Call(service_name, method_name),
+  // we take control of both 'connection_params' and 'result'
+  PendingCall(const string& service_name, const string& method_name, uint32 invoke_id,
+              CallStatus status, CObject* connection_params, CObject* result)
+      : Call(service_name, method_name, invoke_id, status, connection_params),
         result_(NULL) {
+    if ( result != NULL ) {
+      set_result(status, result);
+    }
   }
   virtual ~PendingCall() {
     // causes proper destruction of result_

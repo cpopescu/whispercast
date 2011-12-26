@@ -64,9 +64,9 @@ link_libraries(${COMMON_LINK_LIBRARIES})
 ####################
 
 ADD_EXECUTABLE(whispercast
-  stream_server.cc
+  media_mapper.cc
   stream_request.cc
-  media_mapper.cc)
+  stream_server.cc)
 
 ADD_DEPENDENCIES(whispercast
   whisper_lib

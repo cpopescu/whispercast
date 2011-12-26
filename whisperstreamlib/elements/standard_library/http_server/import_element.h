@@ -49,17 +49,17 @@ class ImportElement
   typedef map<string, Import*> ImportMap;
   typedef map<streaming::Request*, Import*> RequestMap;
  public:
-  ImportElement(const char* class_name,
-                const char* name,
-                const char* id,
+  ImportElement(const string& class_name,
+                const string& name,
+                const string& id,
                 streaming::ElementMapper* mapper,
                 net::Selector* selector,
-                const char* media_dir,
-                const char* rpc_path,
+                const string& media_dir,
+                const string& rpc_path,
                 rpc::HttpServer* rpc_server,
                 io::StateKeepUser* state_keeper,
                 streaming::SplitterCreator* splitter_creator,
-                const char* authorizer_name);
+                const string& authorizer_name);
 
   virtual ~ImportElement();
 

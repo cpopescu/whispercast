@@ -73,7 +73,6 @@ class ElementFactory :
                  http::Server* http_server,
                  rpc::HttpServer* rpc_server,
                  map<string, io::AioManager*>* aio_managers,
-                 rtmp::StreamManager* rtmp_manager,
                  io::BufferManager* buffer_manager,
                  const Host2IpMap* host_aliases,
                  const char* base_media_dir,
@@ -260,7 +259,6 @@ class ElementFactory :
   http::Server* const http_server_;
   rpc::HttpServer* const   rpc_server_;
   map<string, io::AioManager*>* const aio_managers_;
-  rtmp::StreamManager* const rtmp_manager_;
   io::BufferManager* const buffer_manager_;
   const Host2IpMap* const host_aliases_;
   const string base_media_dir_;

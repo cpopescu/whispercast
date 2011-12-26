@@ -34,34 +34,47 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <whisperlib/common/base/types.h>
-#include WHISPER_HASH_SET_HEADER
+#include <whisperlib/common/base/alarm.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
 #include <whisperlib/net/base/connection.h>
-
+#include <whisperlib/net/util/ipclassifier.h>
 #include <whisperstreamlib/stats2/stats_collector.h>
-
-#include <whisperstreamlib/rtmp/rtmp_protocol.h>
+#include <whisperstreamlib/rtmp/events/rtmp_event.h>
+#include <whisperstreamlib/rtmp/events/rtmp_event_ping.h>
+#include <whisperstreamlib/rtmp/events/rtmp_event_invoke.h>
 #include <whisperstreamlib/rtmp/rtmp_flags.h>
-
-namespace net {
-class IpClassifier;
-}
+#include <whisperstreamlib/rtmp/rtmp_stream.h>
+#include <whisperstreamlib/rtmp/rtmp_protocol_data.h>
+#include <whisperstreamlib/rtmp/rtmp_coder.h>
 
 namespace rtmp {
 class StreamManager;
-class Protocol;
 
+// Rtmp connection on server side. Acts as a link between physical network
+// connection and the more advanced Stream.
 class ServerConnection {
-  static const int64 kWriteEvent = 1;
+  // timeout IDs
+  static const int64 kConnectTimeoutID = 1;
+  static const int64 kWriteTimeoutID   = 2;
+
+  // ???
+  static const int kMaxChunkSize = 65536;
 
  public:
-  typedef Callback1<const ServerConnection*> ConnCallback;
+  enum State {
+    HANDSHAKE_WAIT_INIT = 0,
+    HANDSHAKE_WAIT_REPLY = 1,
+    HANDSHAKED = 2,
+    CONNECTED = 3,
+    CLOSED = 4,
+  };
+  static const char* StateName(State state);
 
-  // Constructor for serving connection
-  // By default AUTO deletes on close.
   ServerConnection(net::Selector* net_selector,
                    net::Selector* media_selector,
-                   rtmp::StreamManager* rtmp_stream_manager,
+                   streaming::ElementMapper* element_mapper,
                    net::NetConnection* net_connection,
                    const string& connection_id,
                    streaming::StatsCollector* stats_collector,
@@ -70,150 +83,215 @@ class ServerConnection {
                    const rtmp::ProtocolFlags* flags);
   virtual ~ServerConnection();
 
+  net::Selector* media_selector() { return media_selector_; }
+  net::Selector* net_selector() { return net_selector_; }
+  const ProtocolFlags& flags() const { return *flags_; }
+  bool is_closed() const {
+    return state_ == CLOSED;
+  }
+  const string& info() const {
+    return info_;
+  }
+  const State state() const {
+    return state_;
+  }
+  const char* state_name() const {
+    return StateName(state());
+  }
   const net::HostPort& local_address() const {
-    DCHECK(net_connection_ != NULL);
-    return net_connection_->local_address();
+    return connection_->local_address();
   }
   const net::HostPort& remote_address() const {
-    DCHECK(net_connection_ != NULL);
-    return net_connection_->remote_address();
+    return connection_->remote_address();
   }
   const ConnectionBegin& connection_begin_stats() const {
-    DCHECK(net_connection_ != NULL);
     return connection_begin_stats_;
   }
   const ConnectionEnd& connection_end_stats() const {
-    DCHECK(net_connection_ != NULL);
     return connection_end_stats_;
   }
-
-  io::MemoryStream* outbuf() {
-    DCHECK(net_connection_ != NULL);
-    return net_connection_->outbuf();
+  Stream* system_stream() {
+    return system_stream_;
   }
+  ProtocolData* mutable_protocol_data() {
+    return &protocol_data_;
+  }
+
+  //io::MemoryStream* outbuf() {
+  //  DCHECK(connection_ != NULL);
+  //  return connection_->outbuf();
+  //}
   int32 outbuf_size() const {
-    DCHECK(net_connection_ != NULL);
-    return net_connection_->outbuf()->Size();
+    DCHECK(connection_ != NULL);
+    return connection_->outbuf()->Size();
   }
 
-  // close server connection
+  // self explanatory
   void CloseConnection();
+
+  // Helpers to create specific events
+  scoped_ref<Event> CreateClearPing(int stream_id, int arg) {
+    return new rtmp::EventPing(
+        rtmp::EventPing::STREAM_CLEAR, arg,
+        &protocol_data_, kChannelPing, stream_id);
+  }
+  scoped_ref<Event> CreateClearBufferPing(int stream_id, int arg) {
+    return new rtmp::EventPing(
+        rtmp::EventPing::STREAM_CLEAR_BUFFER, arg,
+        &protocol_data_, kChannelPing, stream_id);
+  }
+  scoped_ref<Event> CreateResetPing(int stream_id, int arg) {
+    return new rtmp::EventPing(
+        rtmp::EventPing::STREAM_RESET, arg,
+        &protocol_data_, kChannelPing, stream_id);
+  }
+  scoped_ref<Event> Create31Ping(int stream_id, int arg) {
+    return new rtmp::EventPing(
+        (rtmp::EventPing::Type)31, arg,
+        &protocol_data_, kChannelPing, stream_id);
+  }
+  scoped_ref<Event> Create32Ping(int stream_id, int arg) {
+    return new rtmp::EventPing(
+        (rtmp::EventPing::Type)32, arg,
+        &protocol_data_, kChannelPing, stream_id);
+  }
+  scoped_ref<Event> CreatePongPing(int stream_id, int arg) {
+      return new rtmp::EventPing(
+          rtmp::EventPing::PONG_SERVER, arg,
+          &protocol_data_, kChannelPing, stream_id);
+  }
+  scoped_ref<Event> CreateInvokeResultEvent(const string& method,
+                                            int stream_id,
+                                            int channel_id,
+                                            int invoke_id);
+  scoped_ref<Event> CreateStatusEvent(int stream_id,
+                                      int channel_id,
+                                      int invoke_id,
+                                      const string& code,
+                                      const string& description,
+                                      const string& detail,
+                                      const char* method = NULL,
+                                      const char* level = NULL);
+  scoped_ref<Event> CreateChunkSize(int stream_id) {
+    return new rtmp::EventChunkSize(
+        flags().chunk_size_, &protocol_data_, kChannelPing, stream_id);
+  }
+
+  // Encode & send the given event to the network.
+  // If 'data != NULL', then 'data' is used instead of event->data().
+  // If force_write==true, sends to network immediately; otherwise buffers.
+  void SendEvent(rtmp::Event* event, const io::MemoryStream* data,
+                 bool force_write = false);
+
+  // The protocol puts some data in the output buffer then calls this.
+  void SendOutbufData();
+
+  void IncRef() {
+    CHECK(net_selector_->IsInSelectThread());
+    ref_count_++;
+    LOG_WARNING << "IncRef: " << ref_count_;
+  }
+  void DecRef() {
+    CHECK(net_selector_->IsInSelectThread());
+    CHECK_GT(ref_count_, 0);
+    ref_count_--;
+    LOG_WARNING << "DecRef: " << ref_count_;
+    if ( ref_count_ == 0 ) {
+      delete this;
+    }
+  }
 
  private:
   bool ConnectionReadHandler();
   bool ConnectionWriteHandler();
   void ConnectionCloseHandler(int err, net::NetConnection::CloseWhat what);
 
-  // This class is both: client & acceptor.
-  bool ConnectionAcceptHandler(int fd, const net::HostPort& peer_address);
+  enum Result {
+    RESULT_SUCCESS,
+    RESULT_NO_DATA,
+    RESULT_ERROR,
+  };
+  Result DoHandshakeInit(io::MemoryStream* in);
+  Result DoHandshakeReply(io::MemoryStream* in);
+  Result ProcessData(io::MemoryStream* in);
 
- private:
+  // returns success.
+  // On false return: the connection will be automatically closed.
+  bool ProcessEvent(rtmp::Event* event);
+
+  bool InvokeConnect(rtmp::EventInvoke* invoke);
+  bool InvokeCreateStream(rtmp::EventInvoke* invoke);
+  bool InvokeDeleteStream(rtmp::EventInvoke* invoke);
+  bool InvokePublish(rtmp::EventInvoke* invoke);
+  bool InvokePlay(rtmp::EventInvoke* invoke);
+  bool InvokeUnhandled(rtmp::EventInvoke* invoke);
+
   void TimeoutHandler(int64 timeout_id);
 
- public:
-  // The protocol puts some data in the output buffer then calls this.
-  void SendOutbufData();
-
- private:
-  // used to generate consecutive, unique, connection IDs
-  static string GenConnectionStatsID();
+  // TODO(cosmin): move Pause timeout to PlayStream
+  void MayBeReregisterPauseTimeout(bool force);
 
  private:
   net::Selector* net_selector_;
   net::Selector* media_selector_;
-  // creates streams on connections based on requests
-  rtmp::StreamManager* rtmp_stream_manager_;
+  // link to whispercast internal elements
+  streaming::ElementMapper* element_mapper_;
   // the underneath TCP client connection
-  net::NetConnection* net_connection_;
+  net::NetConnection* connection_;
   // maps from IP-s to class numbers
   const vector<const net::IpClassifier*>* const classifiers_;
   // We call this upon deletion (to inform acceptor about our departure)
-  Closure* const delete_callback_;
+  Closure* delete_callback_;
 
-    // Stats id for the connection
-  const string connection_id_;
-  // used for stats logging
+  // just for logging
+  const string info_;
+
+  State state_;
+
+  // Protocol parameters:
+  const ProtocolFlags* const flags_;
+
+  // ???
+  rtmp::ProtocolData protocol_data_;
+
+  // Codes and decodes events for us..
+  rtmp::Coder coder_;
+
+  // The params for the next stream to create. Filled by event CONNECT,
+  // used by CreateStream, Play, Publish.
+  StreamParams next_stream_params_;
+  // The id of the next stream we create - increment..
+  int pending_stream_id_;
+
+  // ???
+  Stream* system_stream_;
+
+  typedef map<int, Stream*> StreamMap;
+  StreamMap streams_;
+
+  // help send EventBytesRead from time to time
+  int64 bytes_read_;
+  int64 bytes_read_reported_;
+
+  // TODO(cosmin): move PAUSE timeout to PlayStream
+  // we interrupt pause on this timeout
+  util::Alarm pause_timeout_alarm_;
+  // when we last registered the pause timeout alarm (so we don't overdo it .. )
+  int64 last_pause_registration_time_;
+
+  // Statistics
   streaming::StatsCollector* stats_collector_;
+  const string connection_id_;
   ConnectionBegin connection_begin_stats_;
   ConnectionEnd connection_end_stats_;
 
-  // Processes the conversation for us - NON_NULL only in serving connection
-  rtmp::Protocol* protocol_;
-
-  // Protocol parameters:
-  const ProtocolFlags* const flags_;
-
   // various timeouts
   net::Timeouter timeouter_;
+
+  int ref_count_;
  private:
   DISALLOW_EVIL_CONSTRUCTORS(ServerConnection);
 };
-
-//////////////////////////////////////////////////////////////////////////////
-
-class ServerAcceptor {
- public:
-  typedef Callback1<const ServerConnection*> ConnCallback;
-
-  ServerAcceptor(net::Selector* media_selector,
-                 const vector<net::SelectorThread*>* client_threads,
-                 rtmp::StreamManager* rtmp_stream_manager,
-                 const string& name,
-                 streaming::StatsCollector* stats_collector,
-                 const vector<const net::IpClassifier*>* classifiers,
-                 const rtmp::ProtocolFlags* flags);
-
-  virtual ~ServerAcceptor();
-
-  // Opens the server acceptor on the given port.
-  void StartServing(int port,
-                    const char* local_address);
-
-  void StopServing();
-
- private:
-  // Callback in the accepting connection when a serving connection dies
-  void NotifyConnectionClose();
-
-  // Called every time a client wants to connect.
-  // We return false to shutdown this guy, or true to accept it.
-  bool AcceptorFilterHandler(const net::HostPort& peer_address);
-  // After AcceptorFilterHandler returned true,
-  // the client connection is delivered here.
-  void AcceptorAcceptHandler(net::NetConnection* peer_connection);
-
-  // Increments num_accepted_connections_
-  void IncAcceptedConnections();
-
- private:
-  net::Selector* media_selector_;
-  rtmp::StreamManager* rtmp_stream_manager_;
-  const string name_;
-
-  SSL_CTX* ssl_context_;
-  net::NetAcceptor* net_acceptor_;
-
-  const vector<const net::IpClassifier*>* const classifiers_;
-
-  // used for stats logging
-  streaming::StatsCollector* stats_collector_;
-
-  // Id for the next created connection.
-  int64 next_connection_id_;
-
-  // Number of serving connections (meaningful only in an accepting connection)
-  int32 num_accepted_connections_;
-
-  // Protocol parameters:
-  const ProtocolFlags* const flags_;
-
-  // synchronize secondary network threads which call AcceptorAcceptHandler()
-  synch::Mutex sync_;
-
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(ServerAcceptor);
-};
-
 }
 
 #endif  // __NET_RTMP_RTMP_CONNECTION_H__

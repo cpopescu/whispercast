@@ -197,12 +197,11 @@ set(WHISPER_STREAM_LIB_SOURCES
   rtmp/rtmp_consts.cc
   rtmp/rtmp_flags.cc
   rtmp/rtmp_handshake.cc
+  rtmp/rtmp_acceptor.cc
+  rtmp/rtmp_connection.cc
   rtmp/rtmp_stream.cc
   rtmp/rtmp_play_stream.cc
   rtmp/rtmp_publish_stream.cc
-  rtmp/rtmp_manager.cc
-  rtmp/rtmp_protocol.cc
-  rtmp/rtmp_connection.cc
   rtmp/rtmp_util.cc
   rtmp/rtmp_client.cc
 
@@ -428,13 +427,18 @@ install(FILES
   DESTINATION include/whisperstreamlib/rtmp/objects)
 
 install(FILES
+  rtmp/rtmp_util.h
   rtmp/rtmp_coder.h
+  rtmp/rtmp_acceptor.h
   rtmp/rtmp_connection.h
   rtmp/rtmp_consts.h
   rtmp/rtmp_protocol_data.h
   rtmp/rtmp_handshake.h
-  rtmp/rtmp_protocol.h
   rtmp/rtmp_flags.h
+  rtmp/rtmp_client.h
+  rtmp/rtmp_stream.h
+  rtmp/rtmp_play_stream.h
+  rtmp/rtmp_publish_stream.h
   DESTINATION include/whisperstreamlib/rtmp)
 
 FILE(MAKE_DIRECTORY ${CMAKE_INSTALL_PREFIX_SCRIPTS}/php/rpc/auto/whisperstreamlib/base)

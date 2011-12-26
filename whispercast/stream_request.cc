@@ -58,12 +58,25 @@ DEFINE_int32(http_max_write_ahead_ms,
 
 //////////////////////////////////////////////////////////////////////
 
+synch::Mutex g_sync_stream_request_count;
+int64 g_stream_request_count = 0;
+void IncStreamRequestCount() {
+  synch::MutexLocker lock(&g_sync_stream_request_count);
+  g_stream_request_count++;
+  LOG_WARNING << "++StreamRequest " << g_stream_request_count;
+}
+void DecStreamRequestCount() {
+  synch::MutexLocker lock(&g_sync_stream_request_count);
+  g_stream_request_count--;
+  LOG_WARNING << "--StreamRequest " << g_stream_request_count;
+}
+
 StreamRequest::StreamRequest(int64 connection_id,
     net::Selector* media_selector,
     streaming::ElementMapper* element_mapper,
     streaming::StatsCollector* stats_collector,
     http::ServerRequest* http_request)
-    : streaming::ExporterT(
+    : streaming::Exporter(
           "http",
           element_mapper,
           media_selector,
@@ -73,8 +86,10 @@ StreamRequest::StreamRequest(int64 connection_id,
       ref_count_(0),
       http_request_(http_request),
       serializer_(NULL) {
+  IncStreamRequestCount();
+  CHECK(net_selector_->IsInSelectThread());
   connection_begin_stats_.connection_id_ =
-      strutil::StringPrintf("%"PRId64"", (connection_id));
+      strutil::StringPrintf("%"PRId64"", connection_id);
   connection_begin_stats_.timestamp_utc_ms_ = timer::Date::Now();
   connection_begin_stats_.remote_host_ =
       http_request_->remote_address().ip_object().ToString();
@@ -96,7 +111,11 @@ StreamRequest::StreamRequest(int64 connection_id,
 }
 
 StreamRequest::~StreamRequest() {
+  DecStreamRequestCount();
+  CHECK(net_selector_->IsInSelectThread());
+
   delete serializer_;
+  serializer_ = NULL;
 
   connection_end_stats_.timestamp_utc_ms_ = timer::Date::Now();
   connection_end_stats_.result_.ref().result_ = "CLOSE";
@@ -106,7 +125,15 @@ StreamRequest::~StreamRequest() {
 
 //////////////////////////////////////////////////////////////////////
 
-void StreamRequest::Play(const char* content_type) {
+void StreamRequest::Play(string content_type, bool dec_ref) {
+  if ( !media_selector_->IsInSelectThread() ) {
+    IncRef();
+    media_selector_->RunInSelectLoop(NewCallback(this,
+        &StreamRequest::Play, content_type, true));
+    return;
+  }
+  AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
+
   URL* const url = http_request_->request()->url();
   CHECK(url != NULL);
 
@@ -131,29 +158,43 @@ void StreamRequest::Play(const char* content_type) {
         &request_->mutable_info()->auth_req_.passwd_);
   }
 
-  if ( content_type != NULL ) {
-    request_->mutable_caps()->tag_type_ =
-        streaming::GetStreamTypeFromContentType(content_type);
+  request_->mutable_caps()->tag_type_ =
+      streaming::GetStreamTypeFromContentType(content_type);
 
-    http_request_->request()->server_header()->AddField(
-        http::kHeaderContentType, content_type, true);
-  } else {
-    http_request_->request()->server_header()->AddField(
-        http::kHeaderContentType, FLAGS_http_default_content_type, true);
-  }
+  http_request_->request()->server_header()->AddField(
+      http::kHeaderContentType, content_type, true);
+
+  // HTTP network protocol created
+  IncRef(); // will DecRef() on HTTP disconnect notification
 
   StartRequest(url->UrlUnescape(url->path().c_str(), url->path().size()).
-      substr(FLAGS_http_base_media_path.size()).c_str(), 0);
+      substr(FLAGS_http_base_media_path.size()).c_str());
 }
 
 //////////////////////////////////////////////////////////////////////
 
-void StreamRequest::AuthorizeCompleted(int64 seek_time_ms,
-    streaming::Authorizer* authorizer) {
-  streaming::ExporterT::AuthorizeCompleted(seek_time_ms,
-      authorizer);
+void StreamRequest::OnStreamNotFound() {
+  VLOG(LDEBUG) << "Notifying STREAM NOT FOUND";
+  CloseHttpRequest(http::NOT_FOUND);
+}
+void StreamRequest::OnTooManyClients() {
+  VLOG(LDEBUG) << "Notifying TOO MANY CLIENTS";
+  CloseHttpRequest(http::NOT_ACCEPTABLE);
+}
+void StreamRequest::OnAuthorizationFailed(bool is_reauthorization) {
+  VLOG(LDEBUG) << "Notifying AUTHORIZATION FAILED";
+  CloseHttpRequest(http::UNAUTHORIZED);
+}
+void StreamRequest::OnAddRequestFailed() {
+  VLOG(LDEBUG) << "Notifying ADD REQUEST FAILED";
+  CloseHttpRequest(http::NOT_FOUND);
+}
 
-  // if not abandoned, create the serializer
+void StreamRequest::OnPlay() {
+  VLOG(LDEBUG) << "Notifying PLAY";
+
+  // if not abandoned, create the serializer. Now we know the tag_type_
+  CHECK_NULL(serializer_);
   if (request_ != NULL ) {
     switch ( request_->caps().tag_type_ ) {
       case streaming::Tag::TYPE_MP3:
@@ -177,62 +218,9 @@ void StreamRequest::AuthorizeCompleted(int64 seek_time_ms,
   }
 }
 
-void StreamRequest::OnStreamNotFound() {
-  VLOG(LDEBUG) << "Notifying STREAM NOT FOUND";
-
-  IncRef();
-  net_selector_->RunInSelectLoop(
-      NewCallback(this, &StreamRequest::MediaRequestClosedCallback,
-          http::NOT_FOUND));
-}
-void StreamRequest::OnTooManyClients() {
-  VLOG(LDEBUG) << "Notifying TOO MANY CLIENTS";
-
-  IncRef();
-  net_selector_->RunInSelectLoop(
-      NewCallback(this, &StreamRequest::MediaRequestClosedCallback,
-          http::NOT_ACCEPTABLE));
-}
-void StreamRequest::OnAuthorizationFailed() {
-  VLOG(LDEBUG) << "Notifying AUTHORIZATION FAILED";
-
-  IncRef();
-  net_selector_->RunInSelectLoop(
-      NewCallback(this, &StreamRequest::MediaRequestClosedCallback,
-          http::UNAUTHORIZED));
-}
-void StreamRequest::OnReauthorizationFailed() {
-  VLOG(LDEBUG) << "Notifying REAUTHORIZATION FAILED";
-
-  IncRef();
-  net_selector_->RunInSelectLoop(
-      NewCallback(this, &StreamRequest::MediaRequestClosedCallback,
-          http::UNAUTHORIZED));
-}
-void StreamRequest::OnAddRequestFailed() {
-  VLOG(LDEBUG) << "Notifying ADD REQUEST FAILED";
-
-  IncRef();
-  net_selector_->RunInSelectLoop(
-      NewCallback(this, &StreamRequest::MediaRequestClosedCallback,
-          http::NOT_FOUND));
-}
-
-void StreamRequest::OnPlay() {
-  VLOG(LDEBUG) << "Notifying PLAY";
-}
-void StreamRequest::OnTerminate(const char* reason) {
-  VLOG(LDEBUG) << "Notifying " << reason;
-
-  // we're assuming reauthorization time-out
-  net_selector_->RunInSelectLoop(
-      NewCallback(this, &StreamRequest::MediaRequestClosedCallback,
-          http::UNAUTHORIZED));
-}
-
 void StreamRequest::ResumeLocalizedTags() {
   DCHECK(net_selector_->IsInSelectThread());
-  ProcessLocalizedTags(false);
+  ProcessLocalizedTags();
 }
 bool StreamRequest::CanSendTag() const {
   // check if we have enough outbuf space
@@ -293,12 +281,8 @@ void StreamRequest::SendSimpleTag(const streaming::Tag* tag,
   }
 
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
-    if ( http_request_->is_server_streaming() ) {
-      http_request_->EndStreamingData();
-    } else {
-      http_request_->ReplyWithStatus(http::NO_CONTENT);
-    }
-    HttpRequestClosedCallback();
+    CloseHttpRequest(http::NO_CONTENT);
+    HandleEosInternal("EOS");
     return;
   }
 
@@ -317,18 +301,27 @@ void StreamRequest::SendSimpleTag(const streaming::Tag* tag,
 
 //////////////////////////////////////////////////////////////////////
 
-void StreamRequest::MediaRequestClosedCallback(http::HttpReturnCode reason) {
+void StreamRequest::CloseHttpRequest(http::HttpReturnCode rcode,
+    bool dec_ref) {
   // called on stream not found / stream error (streaming event)
-  DCHECK(net_selector_->IsInSelectThread());
+  if ( !net_selector_->IsInSelectThread() ) {
+    IncRef();
+    net_selector_->RunInSelectLoop(NewCallback(this,
+        &StreamRequest::CloseHttpRequest, rcode, true));
+    return;
+  }
+  AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
 
   if ( http_request_ != NULL ) {
-    if ( !http_request_->is_server_streaming() ) {
-      http_request_->ReplyWithStatus(reason);
-    } else {
+    if ( http_request_->is_server_streaming() ) {
       http_request_->EndStreamingData();
+    } else {
+      http_request_->ReplyWithStatus(rcode);
     }
-    HttpRequestClosedCallback();
+    http_request_ = NULL;
   }
+
+  // HTTP network protocol completely closed
   DecRef();
 }
 void StreamRequest::HttpRequestClosedCallback() {
@@ -337,13 +330,20 @@ void StreamRequest::HttpRequestClosedCallback() {
 
   http_request_ = NULL;
 
-  IncRef();
-  media_selector_->RunInSelectLoop(
-      NewCallback(this, &StreamRequest::HandleEosInternal,
-          eos_seen_ ? "EOS" : "END"));
+  HandleEosInternal("END");
+
+  // HTTP network protocol completely closed
+  DecRef();
 }
 
-void StreamRequest::HandleEosInternal(const char* reason) {
-  HandleEos(reason);
-  DecRef();
+void StreamRequest::HandleEosInternal(const char* reason, bool dec_ref) {
+  if ( !media_selector_->IsInSelectThread() ) {
+    IncRef();
+    media_selector_->RunInSelectLoop(NewCallback(this,
+        &StreamRequest::HandleEosInternal, reason, true));
+    return;
+  }
+  AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
+
+  CloseRequest(reason);
 }

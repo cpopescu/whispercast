@@ -33,7 +33,6 @@
 #include <whisperlib/common/base/log.h>
 #include <whisperlib/common/base/errno.h>
 #include <whisperlib/common/base/strutil.h>
-#include <whisperlib/common/base/scoped_ptr.h>
 #include <whisperlib/common/base/timer.h>
 
 #include <whisperlib/net/base/selector.h>
@@ -41,8 +40,6 @@
 #include <whisperlib/net/url/url.h>
 #include <whisperstreamlib/base/consts.h>
 #include <whisperstreamlib/rtmp/rtmp_client.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol_data.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol.h>
 #include <whisperstreamlib/rtmp/rtmp_coder.h>
 #include <whisperstreamlib/rtmp/rtmp_util.h>
 #include <whisperstreamlib/rtmp/events/rtmp_event.h>
@@ -71,8 +68,7 @@ SimpleClient::SimpleClient(net::Selector* selector)
   : selector_(selector),
     net_connection_(new net::TcpConnection(selector,
                                            net::TcpConnectionParams())),
-    protocol_(new rtmp::ProtocolData()),
-    coder_(new rtmp::Coder(protocol_, 1 << 20)),
+    coder_(&protocol_data_, 1 << 20),
     state_(StateHandshakeNotStarted),
     stream_id_(0),
     timeouter_(selector, NewPermanentCallback(
@@ -96,14 +92,6 @@ SimpleClient::SimpleClient(net::Selector* selector)
 SimpleClient::~SimpleClient() {
   delete net_connection_;
   net_connection_ = NULL;
-
-  // NOTE: the coder_ uses the protocol_ !!
-  //       so delete the coder_ before protocol_.
-  delete coder_;
-  coder_ = NULL;
-
-  delete protocol_;
-  protocol_ = NULL;
 
   delete read_handler_;
   read_handler_ = NULL;
@@ -186,25 +174,24 @@ void SimpleClient::Close() {
 
 void SimpleClient::Seek(int64 position_ms) {
   CHECK_EQ(state_, StatePlaySent);
-  rtmp::EventInvoke seek(protocol_, 8, stream_id_);
-  seek.set_call(new rtmp::PendingCall());
-  seek.set_invoke_id(0);
-  seek.mutable_call()->set_method_name("seek");
-  CNumber* position = new CNumber(position_ms);
-  seek.mutable_call()->AddArgument(position);
-  Send(seek);
+  scoped_ref<EventInvoke> e = new EventInvoke(&protocol_data_, 8, stream_id_);
+  e->set_call(new rtmp::PendingCall());
+  e->set_invoke_id(0);
+  e->mutable_call()->set_method_name("seek");
+  e->mutable_call()->AddArgument(new CNumber(position_ms));
+  Send(e.get());
 }
 
 void SimpleClient::Pause(bool pause) {
   CHECK_EQ(state_, StatePlaySent);
-  rtmp::EventInvoke e(protocol_, 8, stream_id_);
-  e.mutable_header()->set_timestamp_ms(channel_time_ms_[8] + 100);
-  e.set_call(new rtmp::PendingCall());
-  e.set_invoke_id(0);
-  e.mutable_call()->set_method_name("pause");
-  e.mutable_call()->AddArgument(new CBoolean(pause));
-  e.mutable_call()->AddArgument(new CNumber(channel_time_ms_[8] + 100));
-  Send(e);
+  scoped_ref<EventInvoke> e = new EventInvoke(&protocol_data_, 8, stream_id_);
+  e->mutable_header()->set_timestamp_ms(channel_time_ms_[8] + 100);
+  e->set_call(new rtmp::PendingCall());
+  e->set_invoke_id(0);
+  e->mutable_call()->set_method_name("pause");
+  e->mutable_call()->AddArgument(new CBoolean(pause));
+  e->mutable_call()->AddArgument(new CNumber(channel_time_ms_[8] + 100));
+  Send(e.get());
 }
 
 void SimpleClient::TimeoutHandler(int64 timeout_id) {
@@ -260,10 +247,6 @@ bool SimpleClient::ConnectionReadHandler() {
   if ( state_ == StateHandshakeDone ) {
     string tcUrl;
 
-    rtmp::EventInvoke connect(protocol_, 3, 0);
-    connect.set_call(new rtmp::PendingCall());
-    connect.set_invoke_id(1);
-    connect.mutable_call()->set_method_name("connect");
     CStringMap* params = new CStringMap;
     params->Set("fpad", new CBoolean(false));
     params->Set("app", new CString(app_name_.c_str()));
@@ -273,15 +256,19 @@ bool SimpleClient::ConnectionReadHandler() {
     params->Set("audioCodecs", new CNumber(3191));
     params->Set("videoCodecs", new CNumber(252));
     params->Set("videoFunction", new CNumber(1));
-    connect.set_connection_params(params);
-    Send(connect);
+
+    scoped_ref<EventInvoke> connect = new EventInvoke(&protocol_data_, 3, 0);
+    connect->set_call(new rtmp::PendingCall("", "connect", 1,
+        Call::CALL_STATUS_PENDING, params, NULL));
+
+    Send(connect.get());
     state_ = StateConnectSent;
   }
 
   while ( true ) {
-    rtmp::Event* event = NULL;
-    AmfUtil::ReadStatus err = coder_->Decode(net_connection_->inbuf(),
-                                             AmfUtil::AMF0_VERSION, &event);
+    scoped_ref<rtmp::Event> event;
+    AmfUtil::ReadStatus err = coder_.Decode(net_connection_->inbuf(),
+                                            AmfUtil::AMF0_VERSION, &event);
     if ( err == AmfUtil::READ_NO_DATA ) {
       break;
     }
@@ -290,8 +277,7 @@ bool SimpleClient::ConnectionReadHandler() {
                 << " err: " << AmfUtil::ReadStatusName(err);
       break;
     }
-    CHECK_NOT_NULL(event);
-    scoped_ptr<rtmp::Event> auto_del_event(event);
+    CHECK_NOT_NULL(event.get());
 
     uint32 channel = event->header()->channel_id();
     CHECK_LT(channel, 10);
@@ -309,7 +295,7 @@ bool SimpleClient::ConnectionReadHandler() {
           << event->ToString();
     }
     vector< scoped_ref<streaming::FlvTag> > tags;
-    ExtractFlvTags(*event, channel_time_ms_[channel], &tags);
+    ExtractFlvTags(*event.get(), channel_time_ms_[channel], &tags);
     for ( uint32 i = 0; i < tags.size(); i++ ) {
       if (tag_log_level_) {
         VLOG(tag_log_level_) << tags[i]->ToString();
@@ -319,26 +305,26 @@ bool SimpleClient::ConnectionReadHandler() {
 
     if ( event->event_type() == rtmp::EVENT_INVOKE ) {
       if ( state_ == StateConnectSent )  {
-        rtmp::EventServerBW serverBW(2500000,
-            protocol_, Protocol::kPingChannel, 0);
-        Send(serverBW);
-        rtmp::EventPing clientBuffer(
+        scoped_ref<EventServerBW> serverBW = new EventServerBW(2500000,
+            &protocol_data_, kChannelPing, 0);
+        Send(serverBW.get());
+        scoped_ref<EventPing> clientBuffer = new EventPing(
             rtmp::EventPing::CLIENT_BUFFER, 0, 300,
-            protocol_, Protocol::kPingChannel, 0);
-        Send(clientBuffer);
+            &protocol_data_, kChannelPing, 0);
+        Send(clientBuffer.get());
 
-        rtmp::EventInvoke createStream(protocol_, 3, 0);
-        createStream.set_call(new rtmp::PendingCall());
-        createStream.set_invoke_id(2);
-        createStream.mutable_call()->set_method_name("createStream");
-
-        Send(createStream);
+        scoped_ref<EventInvoke> createStream = new EventInvoke(
+            &protocol_data_, 3, 0);
+        createStream->set_call(new rtmp::PendingCall());
+        createStream->set_invoke_id(2);
+        createStream->mutable_call()->set_method_name("createStream");
+        Send(createStream.get());
 
         state_ = StateCreateStreamSent;
         continue;
       }
       if ( state_ == StateCreateStreamSent ) {
-        rtmp::EventInvoke* invoke = static_cast<rtmp::EventInvoke *>(event);
+        EventInvoke* invoke = static_cast<EventInvoke *>(event.get());
         if ( invoke->invoke_id() != 2 ) {
           LOG_DEBUG << "Skipping - waiting for createStream answer";
           continue;
@@ -351,15 +337,15 @@ bool SimpleClient::ConnectionReadHandler() {
           stream_id_ = int(id->value());
           LOG_DEBUG << "Setting stream id to: " << stream_id_;
         }
-        rtmp::EventInvoke play(protocol_, 8, stream_id_);
-        play.set_call(new rtmp::PendingCall());
-        play.set_invoke_id(0);
-        play.mutable_call()->set_method_name("play");
-        play.mutable_call()->AddArgument(new CString(stream_name_));
-        play.mutable_call()->AddArgument(new CNumber(-2.0));
+        scoped_ref<EventInvoke> play = new EventInvoke(
+            &protocol_data_, 8, stream_id_);
+        play->set_call(new rtmp::PendingCall("", "play", 0,
+            Call::CALL_STATUS_PENDING, NULL, NULL));
+        play->mutable_call()->AddArgument(new CString(stream_name_));
+        play->mutable_call()->AddArgument(new CNumber(-2.0));
 
-        LOG_DEBUG << "Sending play: " << play.ToString();
-        Send(play);
+        LOG_DEBUG << "Sending play: " << play->ToString();
+        Send(play.get());
 
         state_ = StatePlaySent;
         continue;
@@ -367,10 +353,8 @@ bool SimpleClient::ConnectionReadHandler() {
     }
 
     if ( event->event_type() == rtmp::EVENT_CHUNK_SIZE ) {
-      rtmp::EventChunkSize* const ecs =
-          static_cast<rtmp::EventChunkSize*>(event);
-      // protocol_->set_write_chunk_size(ecs->chunk_size());
-      protocol_->set_read_chunk_size(ecs->chunk_size());
+      EventChunkSize* const ecs = static_cast<EventChunkSize*>(event.get());
+      protocol_data_.set_read_chunk_size(ecs->chunk_size());
     }
   }
 
@@ -395,9 +379,9 @@ void SimpleClient::ConnectionCloseHandler(int err,
   close_handler_->Run();
 }
 
-void SimpleClient::Send(Event& event) {
-  LOG_DEBUG << "Sending: " << event.ToString();
-  coder_->Encode(net_connection_->outbuf(), AmfUtil::AMF0_VERSION, &event);
+void SimpleClient::Send(Event* event) {
+  LOG_DEBUG << "Sending: " << event->ToString();
+  coder_.Encode(net_connection_->outbuf(), AmfUtil::AMF0_VERSION, event);
   // And we should get some data from the server back
   timeouter_.SetTimeout(kReadEvent, kReadTimeout);
   // because we wrote the event directly in the tcp output buffer

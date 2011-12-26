@@ -518,6 +518,42 @@ void FactoryBasedElementMapper::RemoveExportClient(
   it->second--;
 }
 
+namespace {
+string ImporterKey(Importer::Type importer_type, const string& path) {
+  return strutil::StringPrintf("%s:%s",
+      Importer::TypeName(importer_type), path.c_str());
+}
+string ImporterKey(Importer* importer) {
+  return ImporterKey(importer->type(), importer->ImportPath());
+}
+}
+bool FactoryBasedElementMapper::AddImporter(Importer* importer) {
+  CHECK(selector_->IsInSelectThread()); // media selector
+  const string key = ImporterKey(importer);
+  ImporterMap::iterator it = importer_map_.find(key);
+  if ( it != importer_map_.end() ) {
+    LOG_ERROR << "AddImporter failed, duplicate key: [" << key << "]";
+    return false;
+  }
+  importer_map_[key] = importer;
+  return true;
+}
+void FactoryBasedElementMapper::RemoveImporter(Importer* importer) {
+  CHECK(selector_->IsInSelectThread()); // media selector
+  importer_map_.erase(ImporterKey(importer));
+}
+Importer* FactoryBasedElementMapper::GetImporter(
+    Importer::Type importer_type, const string& path) {
+  CHECK(selector_->IsInSelectThread()); // media selector
+  const string key = ImporterKey(importer_type, path);
+  ImporterMap::iterator it = importer_map_.find(key);
+  if ( it == importer_map_.end() ) {
+    LOG_ERROR << "GetImporter failed, cannot find key: [" << key << "]";
+    return NULL;
+  }
+  return it->second;
+}
+
 string FactoryBasedElementMapper::TranslateMedia(const char* media) const {
   if ( *media == '\0' ) {
     return "";
@@ -650,19 +686,22 @@ void FactoryBasedElementMapper::ListMedia(const char* media,
   if ( GetMediaAlias(media_pair.first, &alias) ) {
     if ( media_pair.second.empty() ) {
       if ( master_mapper_ ) {
-        return master_mapper_->ListMedia(alias.c_str(), medias);
+        master_mapper_->ListMedia(alias.c_str(), medias);
+        return;
       }
       ListMedia(alias.c_str(), medias);
     } else {
       if ( master_mapper_ ) {
-        return master_mapper_->ListMedia(
+        master_mapper_->ListMedia(
             (alias + "/" + media_pair.second).c_str(), medias);
+        return;
       }
       ListMedia((alias + "/" + media_pair.second).c_str(), medias);
     }
   }
   if ( fallback_mapper_ != NULL ) {
-    return fallback_mapper_->ListMedia(media, medias);
+    fallback_mapper_->ListMedia(media, medias);
+    return;
   }
 }
 

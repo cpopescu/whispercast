@@ -52,6 +52,7 @@ TagNormalizer::~TagNormalizer() {
 void TagNormalizer::Reset(streaming::Request* request) {
   request_ = request;
   if ( request_ != NULL ) {
+    is_flow_control_first_tag_ = true;
     flow_control_write_ahead_ms_ = request_->info().write_ahead_ms_;
   }
 
@@ -83,12 +84,9 @@ void TagNormalizer::ProcessTag(const streaming::Tag* tag, int64 timestamp_ms) {
          tag->type() == streaming::Tag::TYPE_SEEK_PERFORMED ) {
 
       // restart flow control from scratch
+      LOG_INFO << "Restart Flow Control, stream_time_ms: " << stream_time_ms
+                << " on tag: " << tag->ToString();
       flow_control_first_tag_time_ = now - stream_time_ms;
-      if (tag->type() == streaming::Tag::TYPE_SEEK_PERFORMED) {
-        LOG_ERROR << "============= SEEK PERFORMED @" << stream_time_ms;
-      } else {
-        LOG_ERROR << "============= SOURCE STARTED @" << stream_time_ms;
-      }
 
       if ( unpause_flow_control_alarm_.IsStarted() ) {
         Closure* closure = unpause_flow_control_alarm_.Release();
@@ -114,6 +112,12 @@ void TagNormalizer::ProcessTag(const streaming::Tag* tag, int64 timestamp_ms) {
            controller != NULL &&
            controller->SupportsPause() &&
            !unpause_flow_control_alarm_.IsStarted() ) {
+        if ( delta > 5000 ) {
+          LOG_ERROR << "HUGE delta: " << delta
+	                << ", stream_time_ms: " << stream_time_ms
+                    << ", real_ts: " << real_ts
+                    << ", on tag: " << tag->ToString();
+        }
         controller->Pause(true);
         unpause_flow_control_alarm_.Set(NewPermanentCallback(
             this, &TagNormalizer::Unpause,

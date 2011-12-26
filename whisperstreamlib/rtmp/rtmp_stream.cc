@@ -33,34 +33,60 @@
 #include <whisperlib/common/base/gflags.h>
 
 #include <whisperstreamlib/rtmp/rtmp_stream.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol.h>
+#include <whisperstreamlib/rtmp/rtmp_connection.h>
 #include <whisperstreamlib/raw/raw_tag_splitter.h>
-#include <whisperstreamlib/rtmp/rtmp_manager.h>
 
 namespace rtmp {
 
-Stream::Stream(const StreamParams& params,
-               Protocol* const protocol)
-    : params_(params),
-      protocol_(protocol),
-      ref_count_(0) {
-  protocol_->IncRef();
-  ResetChannelTiming();
+synch::Mutex g_sync_stream_count;
+int64 g_stream_count = 0;
+void IncStreamCount() {
+  synch::MutexLocker lock(&g_sync_stream_count);
+  g_stream_count++;
+  LOG_WARNING << "++Stream " << g_stream_count;
 }
-Stream::~Stream() {
-  CHECK_EQ(ref_count_, 0);
-  protocol_->DecRef();
+void DecStreamCount() {
+  synch::MutexLocker lock(&g_sync_stream_count);
+  g_stream_count--;
+  LOG_WARNING << "--Stream " << g_stream_count;
 }
 
-void Stream::SendEvent(rtmp::Event* event,
+Stream::Stream(const StreamParams& params,
+               ServerConnection* const connection)
+    : params_(params),
+      connection_(connection),
+      ref_count_(0) {
+  IncStreamCount();
+  connection_->IncRef();
+  for (int i = 0; i < kMaxNumChannels; ++i) {
+    first_timestamp_ms_[i] = -1;
+    last_timestamp_ms_[i] = -1;
+  }
+}
+Stream::~Stream() {
+  DecStreamCount();
+  CHECK_EQ(ref_count_, 0);
+  connection_->DecRef();
+}
+
+void Stream::SendEvent(scoped_ref<Event> event,
                        int64 timestamp_ms,
                        const io::MemoryStream* buffer,
-                       bool force_write) {
-  if ( event ) {
+                       bool force_write,
+                       bool dec_ref) {
+  if ( !connection_->net_selector()->IsInSelectThread() ) {
+    CHECK_NULL(buffer);
+    IncRef();
+    connection_->net_selector()->RunInSelectLoop(NewCallback(this,
+        &Stream::SendEvent, event, timestamp_ms, buffer, force_write, true));
+    return;
+  }
+  CHECK(connection_->net_selector()->IsInSelectThread());
+  if ( event.get() != NULL ) {
     uint32 channel_id = event->header()->channel_id();
     DCHECK(channel_id < kMaxNumChannels);
 
-    if (timestamp_ms < 0) {
+    if ( timestamp_ms < 0 ) {
       if ( last_timestamp_ms_[channel_id] == -1 ) {
         timestamp_ms = 0;
 
@@ -79,8 +105,8 @@ void Stream::SendEvent(rtmp::Event* event,
       } else {
         if ( last_timestamp_ms_[channel_id] <= timestamp_ms ) {
           event->mutable_header()->set_is_timestamp_relative(true);
-          event->mutable_header()->set_timestamp_ms(
-              timestamp_ms - last_timestamp_ms_[channel_id]);
+          event->mutable_header()->set_timestamp_ms(timestamp_ms -
+              last_timestamp_ms_[channel_id]);
         } else {
           event->mutable_header()->set_is_timestamp_relative(false);
           event->mutable_header()->set_timestamp_ms(timestamp_ms);
@@ -90,10 +116,14 @@ void Stream::SendEvent(rtmp::Event* event,
     last_timestamp_ms_[channel_id] = timestamp_ms;
   }
 
-  protocol_->SendEvent(event, buffer, force_write);
+  connection_->SendEvent(event.get(), buffer, force_write);
+
+  if ( dec_ref ) {
+    DecRef();
+  }
 }
 bool Stream::ReceiveEvent(rtmp::Event* event) {
-
+  CHECK(connection_->net_selector()->IsInSelectThread());
   const uint32 channel_id = event->header()->channel_id();
   DCHECK(channel_id < kMaxNumChannels);
 
@@ -103,7 +133,7 @@ bool Stream::ReceiveEvent(rtmp::Event* event) {
       timestamp_ms = event->header()->timestamp_ms();
     } else {
       timestamp_ms = last_timestamp_ms_[channel_id] +
-        event->header()->timestamp_ms();
+                     event->header()->timestamp_ms();
     }
   } else {
     timestamp_ms = event->header()->timestamp_ms();
@@ -128,10 +158,10 @@ void Stream::DecRef() {
   bool do_delete = (ref_count_ == 0);
   mutex_.Unlock();
   // NOTE: make sure the mutex is released before deleting
-  // RACE: when using media_thread->DeleteInSelectLoop(this), release
-  //       the mutex first! Because this DecRef() may run on net_thread! .
+  // RACE: when using net_selector->DeleteInSelectLoop(this), release
+  //       the mutex first! Because this DecRef() may run on media_selector.
   if ( do_delete ) {
-    protocol_->media_selector()->DeleteInSelectLoop(this);
+    connection_->net_selector()->DeleteInSelectLoop(this);
   }
 }
 

@@ -64,7 +64,6 @@
 #include <whisperstreamlib/base/element.h>
 #include <whisperstreamlib/base/stream_auth.h>
 #include <whisperstreamlib/base/tag_splitter.h>
-#include <whisperstreamlib/rtmp/rtmp_manager.h>
 
 namespace streaming {
 
@@ -116,7 +115,6 @@ class ElementLibrary {
     NEED_SPLITTER_CREATOR = 0x0020,
     NEED_HOST2IP_MAP      = 0x0040,
     NEED_MEDIA_DIR        = 0x0080,
-    NEED_RTMP_MANAGER     = 0x0100,
   };
   // Returns a combination of Needs (OR-ed), for what is needed in order
   // to create an element of given type
@@ -156,8 +154,6 @@ class ElementLibrary {
                                          // or for global playlists
     streaming::SplitterCreator* splitter_creator_;
                                          // NULL if NEED_SPLITTER_CREATOR is off
-    rtmp::StreamManager* rtmp_manager_;
-                                         // NULL if NEED_RTMP_MANAGER is off
     CreationObjectParams()
         : selector_(NULL),
           http_server_(NULL),
@@ -168,8 +164,7 @@ class ElementLibrary {
           media_dir_(),
           state_keeper_(NULL),
           local_state_keeper_(NULL),
-          splitter_creator_(NULL),
-          rtmp_manager_(NULL) {
+          splitter_creator_(NULL) {
     }
   };
 

@@ -98,6 +98,10 @@ class HttpServerImportData : private RefCounted {
 
   ~HttpServerImportData();
 
+  bool Initialize() {
+    return true;
+  }
+
   string name() const { return name_; }
   string url() const  { return url_escaped_listen_path_; }
   string Info() const {
@@ -284,18 +288,18 @@ HttpServerElement::http_server_default_params_ = MakeDefaultHttpServerParams();
 const char HttpServerElement::kElementClassName[] = "http_server";
 
 HttpServerElement::HttpServerElement(
-    const char* name,
-    const char* id,
+    const string& name,
+    const string& id,
     streaming::ElementMapper* mapper,
-    const char* url_escaped_listen_path,
+    const string& url_escaped_listen_path,
     net::Selector* selector,
-    const char* media_dir,
+    const string& media_dir,
     http::Server* http_server,
-    const char* rpc_path,
+    const string& rpc_path,
     rpc::HttpServer* rpc_server,
     io::StateKeepUser* state_keeper,
     streaming::SplitterCreator* splitter_creator,
-    const char* authorizer_name)
+    const string& authorizer_name)
     : BaseClase(kElementClassName, name, id, mapper,
                 selector, media_dir,
                 rpc_path, rpc_server, state_keeper, splitter_creator,

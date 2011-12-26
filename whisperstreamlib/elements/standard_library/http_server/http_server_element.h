@@ -63,18 +63,18 @@ class HttpServerElement
   // Creates a new http media server element using an existing http server.
   // If splitter_creation_callback is NULL we use a default creator based on
   // the content type and standard splitters.
-  HttpServerElement(const char* name,
-                    const char* id,
+  HttpServerElement(const string& name,
+                    const string& id,
                     streaming::ElementMapper* mapper,
-                    const char* url_escaped_listen_path,
+                    const string& url_escaped_listen_path,
                     net::Selector* selector,
-                    const char* media_dir,
+                    const string& media_dir,
                     http::Server* http_server,
-                    const char* rpc_path,
+                    const string& rpc_path,
                     rpc::HttpServer* rpc_server,
                     io::StateKeepUser* state_keeper,
                     streaming::SplitterCreator* splitter_creator,
-                    const char* authorizer_name);
+                    const string& authorizer_name);
   virtual ~HttpServerElement();
 
   static const char kElementClassName[];

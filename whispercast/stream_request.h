@@ -42,7 +42,7 @@
 
 #include "media_mapper.h"
 
-class StreamRequest : protected streaming::ExporterT {
+class StreamRequest : protected streaming::Exporter {
 public:
   StreamRequest(int64 connection_id,
       net::Selector* media_selector,
@@ -52,7 +52,7 @@ public:
   virtual ~StreamRequest();
 
  public:
-  void Play(const char* content_type);
+  void Play(string content_type, bool dec_ref = false);
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -64,11 +64,13 @@ public:
     ++ref_count_;
   }
   virtual void DecRef() {
-    synch::MutexLocker lock(&mutex_);
+    mutex_.Lock();
     CHECK_GT(ref_count_, 0);
     --ref_count_;
-    if ( ref_count_ == 0 ) {
-      media_selector_->DeleteInSelectLoop(this);
+    bool do_delete = (ref_count_ == 0);
+    mutex_.Unlock();
+    if ( do_delete) {
+      net_selector_->DeleteInSelectLoop(this);
     }
   }
   virtual synch::Mutex* mutex() const {
@@ -89,18 +91,13 @@ public:
 
   virtual void OnStreamNotFound();
   virtual void OnTooManyClients();
-  virtual void OnAuthorizationFailed();
-  virtual void OnReauthorizationFailed();
+  virtual void OnAuthorizationFailed(bool is_reauthorization);
   virtual void OnAddRequestFailed();
   virtual void OnPlay();
-  virtual void OnTerminate(const char* reason);
 
   virtual bool CanSendTag() const;
   virtual void SetNotifyReady();
   virtual void SendTag(const streaming::Tag* tag, int64 timestamp_ms);
-
-  virtual void AuthorizeCompleted(int64 seek_time_ms,
-      streaming::Authorizer* authorizer);
 
   ///////////////////////////////////////////////////////////////////////////
   // StreamRequest own methods
@@ -110,10 +107,13 @@ public:
  private:
   void SendSimpleTag(const streaming::Tag* tag, int64 timestamp_ms);
 
-  void MediaRequestClosedCallback(http::HttpReturnCode reason);
+  // terminate HTTP request
+  void CloseHttpRequest(http::HttpReturnCode reply_code, bool dec_ref = false);
+
+  // called by the HTTP network protocol when the client disconnected
   void HttpRequestClosedCallback();
 
-  void HandleEosInternal(const char* reason);
+  void HandleEosInternal(const char* reason, bool dec_ref = false);
 
  private:
   mutable synch::Mutex mutex_;

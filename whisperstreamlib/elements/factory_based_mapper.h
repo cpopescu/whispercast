@@ -145,6 +145,11 @@ class FactoryBasedElementMapper : public ElementMapper {
   virtual int32 AddExportClient(const string& protocol, const string& path);
   virtual void RemoveExportClient(const string& protocol, const string& path);
 
+  virtual bool AddImporter(Importer* importer);
+  virtual void RemoveImporter(Importer* importer);
+  virtual Importer* GetImporter(Importer::Type importer_type,
+                                const string& path);
+
  private:
   string GetElementName(const char* media);
   void RemoveTempElement(const string& name);
@@ -177,6 +182,11 @@ class FactoryBasedElementMapper : public ElementMapper {
   // where export key is: "<protocol>:<export_path>"
   typedef map<string, uint32> ExportClientCountMap;
   ExportClientCountMap export_client_count_;
+
+  // map: import key -> Importer
+  // where import key is: "<importer type>:<importer path>")
+  typedef map<string, Importer*> ImporterMap;
+  ImporterMap importer_map_;
 
   // the number of elements that where asked to Close(), but their
   // close did not complete, yet.

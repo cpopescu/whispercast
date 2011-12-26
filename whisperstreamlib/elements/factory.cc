@@ -112,7 +112,6 @@ ElementFactory::ElementFactory(
     http::Server* http_server,
     rpc::HttpServer* rpc_server,
     map<string, io::AioManager*>* aio_managers,
-    rtmp::StreamManager* rtmp_manager,
     io::BufferManager* buffer_manager,
     const Host2IpMap* host_aliases,
     const char* base_media_dir,
@@ -125,7 +124,6 @@ ElementFactory::ElementFactory(
       http_server_(http_server),
       rpc_server_(rpc_server),
       aio_managers_(aio_managers),
-      rtmp_manager_(rtmp_manager),
       buffer_manager_(buffer_manager),
       host_aliases_(host_aliases),
       base_media_dir_(base_media_dir),
@@ -317,14 +315,6 @@ bool ElementFactory::SetCreationParams(
     params->aio_managers_ = aio_managers_;
     CHECK(buffer_manager_ != NULL);
     params->buffer_manager_ = buffer_manager_;
-  }
-  if ( (needs & streaming::ElementLibrary::NEED_RTMP_MANAGER) != 0 ) {
-    if ( rtmp_manager_ == NULL ) {
-      LOG_ERROR << "Need for type: " << type
-                << " unsatisfied, per rtmp_manager";
-      return false;
-    }
-    params->rtmp_manager_ = rtmp_manager_;
   }
   if ( (needs & streaming::ElementLibrary::NEED_HOST2IP_MAP) != 0 ) {
     params->host_aliases_ = host_aliases_;

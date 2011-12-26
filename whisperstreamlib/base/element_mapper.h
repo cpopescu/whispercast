@@ -43,6 +43,7 @@
 #include <whisperstreamlib/base/request.h>
 #include <whisperstreamlib/base/stream_auth.h>
 #include <whisperstreamlib/base/media_info.h>
+#include <whisperstreamlib/base/importer.h>
 #include <whisperlib/net/base/selector.h>
 
 namespace streaming {
@@ -109,6 +110,15 @@ class ElementMapper {
   // Decrement client count for a given export.
   virtual void RemoveExportClient(const string& protocol,
                                   const string& export_path) = 0;
+
+  // Importer ( Publishing ). An Importer is actually an Element.
+  // Called by the element, to make himself available to network.
+  virtual bool AddImporter(Importer* importer) = 0;
+  virtual void RemoveImporter(Importer* importer) = 0;
+  // Called by the network protocol, to obtain an importer
+  // and then send him tags. Must be called in media selector.
+  virtual Importer* GetImporter(Importer::Type importer_type,
+                                const string& path) = 0;
 
  protected:
   net::Selector* const selector_;

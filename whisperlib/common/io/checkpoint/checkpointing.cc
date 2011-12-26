@@ -45,8 +45,8 @@ static const char kCheckpointEnd[] = "__checkpoint_end__";
 const string ComposeFileName(const string& log_dir,
                              const string& file_base,
                              int32 file_num) {
-  return strutil::StringPrintf("%s/%s_%010d", log_dir.c_str(),
-      file_base.c_str(), file_num);
+  return strutil::JoinPaths(log_dir,
+          strutil::StringPrintf("%s_%010d", file_base.c_str(), file_num));
 }
 }
 
@@ -161,7 +161,7 @@ CheckpointWriter::CheckpointWriter(const string& checkpoint_dir,
     re_("^" + file_base +
         "_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$"),
     recorder_(NULL) {
-  CHECK(io::IsDir(checkpoint_dir))
+  CHECK(checkpoint_dir == "" || io::IsDir(checkpoint_dir))
       << " Not a directory: [" << checkpoint_dir << "]";
 }
 
@@ -299,6 +299,31 @@ bool ReadCheckpoint(const string& checkpoint_dir,
   LOG_ERROR << "All checkpoints corrupted: " << checkpoint_dir
             << " | " << file_base;
   return false;
+}
+
+bool WriteCheckpointFile(const map<string, string>& checkpoint,
+                         const string& output_filename) {
+  CheckpointWriter writer(strutil::Dirname(output_filename),
+                          strutil::Basename(output_filename));
+  if ( writer.BeginCheckpoint() == -1 ) {
+    LOG_ERROR << "Cannot BeginCheckpoint, for output_filename: ["
+              << output_filename << "]";
+    return false;
+  }
+  for ( map<string, string>::const_iterator it = checkpoint.begin();
+        it != checkpoint.end(); ++it ) {
+    if ( !writer.AddRecord(it->first, it->second) ) {
+      LOG_ERROR << "Failed to add pair: [" << it->first << "] -> ["
+                << it->second << "]";
+      return false;
+    }
+  }
+  if ( !writer.EndCheckpoint() ) {
+    LOG_ERROR << "Failed to EndCheckpoint, for output_filename: ["
+              << output_filename << "]";
+    return false;
+  }
+  return true;
 }
 
 void CleanCheckpointFiles(const string& checkpoint_dir,

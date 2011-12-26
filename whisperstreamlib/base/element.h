@@ -48,17 +48,10 @@ namespace streaming {
 
 class Element {
  public:
-  explicit Element(const char* type,
-                   const char* name,
-                   const char* id,
-                   ElementMapper* mapper)
-      : type_(type), name_(name), id_(id), mapper_(mapper) {
-    LOG_DEBUG << "Creating element: " << name_ << " of type: " << type_;
-  }
-  explicit Element(const char* type,
-                   const string& name,
-                   const string& id,
-                   ElementMapper* mapper)
+  Element(const string& type,
+          const string& name,
+          const string& id,
+          ElementMapper* mapper)
       : type_(type), name_(name), id_(id), mapper_(mapper) {
     LOG_DEBUG << "Creating element: " << name_ << " of type: " << type_;
   }

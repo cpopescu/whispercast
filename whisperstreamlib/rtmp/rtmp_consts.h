@@ -112,6 +112,32 @@ enum EventSubType {
 };
 const char* EventSubTypeName(EventSubType st);
 
+// standard method names
+extern const char* kMethodConnect;
+extern const char* kMethodCreateStream;
+extern const char* kMethodDeleteStream;
+extern const char* kMethodError;
+extern const char* kMethodResult;
+extern const char* kMethodOnBWDone;
+extern const char* kMethodSetBandwidthLimit;
+extern const char* kMethodPublish;
+extern const char* kMethodUnpublish;
+extern const char* kMethodPlay;
+extern const char* kMethodPause;
+extern const char* kMethodPauseRaw;
+extern const char* kMethodSeek;
+extern const char* kMethodGetStreamLength;
+
+// channels
+static const int kChannelUnused0   = 0;
+static const int kChannelUnused1   = 1;
+static const int kChannelPing      = 2;
+static const int kChannelConnect   = 3;
+static const int kChannelReply     = 4;
+static const int kChannelMetadata  = 5;
+static const int kChannelAudio     = 6;
+static const int kChannelVideo     = 7;
+
 }
 
 #endif  // __NET_RTMP_EVENTS_RTMP_CONSTS_H__

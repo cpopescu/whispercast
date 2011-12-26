@@ -126,8 +126,11 @@ class HttpClientElementData : public ElementController {
 
  private:
   string Info() const {
-    return (name_ + "[http://" + server_name_ +
-            url_escaped_query_path_ + "]: ");
+    return strutil::StringPrintf("%s[http://%s:%d%s]: ",
+             name_.c_str(),
+             server_name_.c_str(),
+             server_port_,
+             url_escaped_query_path_.c_str());
   }
 
   // Callback when some event happened on the client request
@@ -654,7 +657,8 @@ void HttpClientElementData::ProcessStreamData() {
          status == streaming::READ_EOF ||
          status == streaming::READ_CORRUPTED_FAIL ||
          status == streaming::READ_OVERSIZED_TAG ) {
-      ILOG_ERROR << "Error reading tag, status: " << TagReadStatusName(status);
+      ILOG_ERROR << "Error reading tag, status: " << TagReadStatusName(status)
+                 << ", http error code: " << http_req_->error_name();
       CloseRequest(kRetryOnErrorCorruptedData);
       return;
     }
@@ -682,9 +686,9 @@ void HttpClientElementData::ProcessStreamData() {
     if ( status == streaming::READ_OK ) {
       if ( is_first_tag_ ) {
         is_first_tag_ = false;
-        first_tag_time_ = distributor_.last_tag_ts();
+        first_tag_time_ = timestamp_ms;
       } else {
-        const int64 delta = (distributor_.last_tag_ts() - first_tag_time_) -
+        const int64 delta = (timestamp_ms - first_tag_time_) -
                             (selector_->now() - start_decode_time_);
         if ( delta > advance_media_ms_ ) {
           break;

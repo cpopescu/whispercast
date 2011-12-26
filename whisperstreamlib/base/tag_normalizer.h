@@ -52,9 +52,11 @@ class TagNormalizer {
     return stream_time_calculator_.last_tag_ts();
   }
 
+  // Useful for: CuePoints, statistics.
   int64 media_time_ms() const {
     return stream_time_calculator_.media_time_ms();
   }
+  // ms from request begin
   int64 stream_time_ms() const {
     return stream_time_calculator_.stream_time_ms();
   }

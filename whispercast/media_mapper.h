@@ -47,7 +47,6 @@ public:
               http::Server* http_server,
               http::Server* rpc_http_server,
               rpc::HttpServer* rpc_server,
-              rtmp::StreamManager* rtmp_manager,
               net::UserAuthenticator* admin_authenticator,
               const string& config_dir,
               const string& base_media_dir,

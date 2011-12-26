@@ -325,8 +325,9 @@ void RemoteResolverElement::ProcessTag(RequestStruct* req,
     req->callback_->Run(scoped_ref<Tag>(
         new SourceStartedTag(0,
             req->req_->caps().flavour_mask_,
-            name(),
-            name())).get(), timestamp_ms);
+            name(), name(),
+            false,
+            timestamp_ms)).get(), timestamp_ms);
     req->is_processing_ = false;
 
   }

@@ -33,7 +33,7 @@
 #define __NET_RTMP_RTMP_PLAY_STREAM_H__
 
 #include <whisperstreamlib/rtmp/rtmp_stream.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol.h>
+#include <whisperstreamlib/rtmp/rtmp_connection.h>
 
 #include <whisperstreamlib/stats2/stats_keeper.h>
 
@@ -50,44 +50,52 @@ namespace rtmp {
 
 //////////////////////////////////////////////////////////////////////
 
-class PlayStream : public Stream, protected streaming::ExporterT {
+class PlayStream : public Stream, protected streaming::Exporter {
  public:
-  PlayStream(streaming::ElementMapper* element_mapper,
-            streaming::StatsCollector* stats_collector,
-            const StreamParams& params,
-            Protocol* protocol);
+  PlayStream(const StreamParams& params,
+             ServerConnection* connection,
+             streaming::ElementMapper* element_mapper,
+             streaming::StatsCollector* stats_collector);
   virtual ~PlayStream();
 
+  ////////////////////////////////////////////////////////////////////
+  // Stream methods
+
+  // net selector
   virtual void NotifyOutbufEmpty(int32 outbuf_size);
 
-  virtual bool ProcessEvent(rtmp::Event* event, int64 timestamp_ms);
+  // net selector
+  virtual bool ProcessEvent(Event* event, int64 timestamp_ms);
 
-  virtual void Close();
+  // called from ServerConnection::InvokeDeleteStream
+  virtual void Close() {
+    CloseInternal();
+  }
 
-  virtual bool IsPublishing(const string& stream_name) {
-    return false;
+  // net selector
+  virtual void NotifyConnectionClosed() {
+    CloseInternal();
   }
 
  private:
+  bool InvokePlay(const EventInvoke* invoke);
+  bool FlexPlay(const EventFlexMessage* flex);
+
+  bool InvokePause(const EventInvoke* invoke);
+  bool FlexPause(const EventFlexMessage* flex);
+
+  bool InvokeSeek(const EventInvoke* invoke);
+  bool FlexSeek(const EventFlexMessage* flex);
+
   bool ProcessPlay(const string& stream_name, int64 seek_time_ms);
   bool ProcessPause(bool pause, int64 stream_time_ms);
   bool ProcessSeek(int64 seek_time_ms);
 
-  bool InvokePlay(rtmp::EventInvoke* invoke);
-  bool FlexPlay(rtmp::EventFlexMessage* flex);
-
-  bool InvokePause(rtmp::EventInvoke* invoke);
-  bool FlexPause(rtmp::EventFlexMessage* flex);
-
-  bool InvokeSeek(rtmp::EventInvoke* invoke);
-  bool FlexSeek(rtmp::EventFlexMessage* flex);
-
   //////////////////////////////////////////////////////////////////////
 
-  void HandlePlay(const string& stream_name, int64 seek_time_ms);
-
-  void HandleSeek(int64 seek_time_ms, bool requested);
-  void HandleSeekCallback(int64 seek_time_ms);
+  void HandlePlay(string stream_name, int64 seek_time_ms, bool dec_ref = false);
+  void HandlePause(bool pause, bool dec_ref = false);
+  void HandleSeek(int64 seek_time_ms, bool dec_ref = false);
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -107,30 +115,25 @@ class PlayStream : public Stream, protected streaming::ExporterT {
   }
 
   virtual bool is_closed() const {
-    return protocol_->is_closed();
+    return connection_->is_closed();
   }
 
   virtual const ConnectionBegin& connection_begin_stats() const {
-    return protocol_->connection_begin_stats();
+    return connection_->connection_begin_stats();
   }
   virtual const ConnectionEnd& connection_end_stats() const {
-    return protocol_->connection_end_stats();
+    return connection_->connection_end_stats();
   }
 
   virtual void OnStreamNotFound();
   virtual void OnTooManyClients();
-  virtual void OnAuthorizationFailed();
-  virtual void OnReauthorizationFailed();
+  virtual void OnAuthorizationFailed(bool is_reauthorization);
   virtual void OnAddRequestFailed();
   virtual void OnPlay();
-  virtual void OnTerminate(const char* reason);
 
   virtual bool CanSendTag() const;
   virtual void SetNotifyReady();
   virtual void SendTag(const streaming::Tag* tag, int64 tag_timestamp_ms);
-
-  virtual void AuthorizeCompleted(int64 seek_time_ms,
-      streaming::Authorizer* authorizer);
 
  private:
   void SendSimpleTag(const streaming::Tag* tag, int64 tag_timestamp_ms);
@@ -141,6 +144,8 @@ class PlayStream : public Stream, protected streaming::ExporterT {
                         int64 tag_timestamp_ms);
   // send that large media event
   void SendMediaTag();
+
+  void CloseInternal(bool dec_ref = false);
 
  protected:
   //////////////////////////////////////////////////////////////////////
@@ -156,13 +161,9 @@ class PlayStream : public Stream, protected streaming::ExporterT {
   // MEDIA THREAD members
   //
 
-  // We register this callback as an alarm in order to process seeks
-  // a little after we receive it. New seek requests received during this
-  // waiting period, invalidates the old seek..
-  Closure* seek_callback_;               // maps *only* to PerformSeekCallback
-
-  // we are playing (OnPlay was called)
-  bool playing_;
+  // Enables us to process seek a little after we receive it.
+  // Helps with multiple seeks in a short period of time.
+  util::Alarm seek_alarm_;
 
   // F4V related members
   streaming::F4vToFlvConverter f4v2flv_;
@@ -189,7 +190,7 @@ class PlayStream : public Stream, protected streaming::ExporterT {
   // The timestamp of the first video tag in WAITING_VIDEO state
   int32 composed_media_data_tag_delta_;
 
-  rtmp::MediaDataEvent* media_event_;
+  scoped_ref<MediaDataEvent> media_event_;
   int32 media_event_size_;
   int64 media_event_timestamp_ms_;
   int64 media_event_duration_ms_;

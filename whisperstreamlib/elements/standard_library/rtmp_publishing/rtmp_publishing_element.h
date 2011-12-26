@@ -38,7 +38,6 @@
 #include WHISPER_HASH_SET_HEADER
 #include <whisperstreamlib/base/element.h>
 #include <whisperstreamlib/base/callbacks_manager.h>
-#include <whisperstreamlib/rtmp/rtmp_manager.h>
 #include <whisperstreamlib/flv/flv_tag_splitter.h>
 #include <whisperlib/net/rpc/lib/server/rpc_http_server.h>
 #include <whisperlib/common/io/checkpoint/state_keeper.h>
@@ -59,24 +58,22 @@ class RtmpPublishingData;
 class RtmpPublishingElement
     : public ImportElement<ServiceInvokerRtmpPublishingElementService,
                            RtmpPublishingData,
-                           RtmpPublishingElementDataSpec>,
-      public rtmp::StreamPublisher {
+                           RtmpPublishingElementDataSpec> {
   typedef ImportElement<ServiceInvokerRtmpPublishingElementService,
                         RtmpPublishingData,
                         RtmpPublishingElementDataSpec> BaseClass;
  public:
   // Constructs a SwitchingElement - we don NOT own empty callback !
-  RtmpPublishingElement(const char* name,
-                        const char* id,
+  RtmpPublishingElement(const string& name,
+                        const string& id,
                         ElementMapper* mapper,
                         net::Selector* selector,
-                        const char* media_dir,
-                        rtmp::StreamManager* stream_manager,
-                        const char* rpc_path,
+                        const string& media_dir,
+                        const string& rpc_path,
                         rpc::HttpServer* rpc_server,
                         io::StateKeepUser* state_keeper,
                         streaming::SplitterCreator* splitter_creator,
-                        const char* authorizer_name);
+                        const string& authorizer_name);
   virtual ~RtmpPublishingElement();
 
   static const char kElementClassName[];
@@ -84,14 +81,6 @@ class RtmpPublishingElement
   // some overridden streaming::Element interface methods
   virtual bool Initialize();
   virtual void Close(Closure* call_on_close);
-
-  // StreamPublisher interface
-  virtual streaming::ProcessingCallback* StartPublisher(
-      string stream_name, const rtmp::StreamParams* params);
-  virtual void CanStopPublishing(string stream_name,
-      const rtmp::StreamParams* params, Callback1<bool>* completion_callback);
-  virtual void CanStartPublishing(string stream_name,
-      const rtmp::StreamParams* params, Callback1<bool>* completion_callback);
 
  protected:
   virtual RtmpPublishingData* CreateNewImport(const char* import_name,
@@ -105,12 +94,8 @@ class RtmpPublishingElement
                                               int32 buildup_interval_sec,
                                               int32 buildup_delay_sec);
  private:
-  void Authorize(string stream_name, const rtmp::StreamParams* params,
-                 Callback1<bool>* completion_callback);
-  string Info() const;
-
-  rtmp::StreamManager* const stream_manager_;
-  bool rtmp_registered_;
+  // just for logging
+  const string info_;
 
   DISALLOW_EVIL_CONSTRUCTORS(RtmpPublishingElement);
 };

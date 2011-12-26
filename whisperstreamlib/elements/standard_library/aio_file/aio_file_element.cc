@@ -455,9 +455,8 @@ class AioFileReadingStruct : public ElementController {
         } else {
             // Send SeekPerformedTag now
             SendTag(scoped_ref<Tag>(
-                new SeekPerformedTag(0,
-                                     kDefaultFlavourMask)).get(),
-                                     timestamp_ms);
+                new SeekPerformedTag(0,kDefaultFlavourMask)).get(),
+                  timestamp_ms - req_->info().media_origin_pos_ms_);
         }
 
         seek_pos_ms_ = -1;
@@ -529,8 +528,9 @@ class AioFileReadingStruct : public ElementController {
         new SourceStartedTag(0,
             kDefaultFlavourMask,
             strutil::JoinPaths(element_name_, filename_relative_to_element_),
-            strutil::JoinPaths(element_name_, filename_relative_to_element_))
-            ).get(),
+            strutil::JoinPaths(element_name_, filename_relative_to_element_),
+            false,
+            0)).get(),
             0);
 
     in_tag_processing_ = true;
@@ -542,8 +542,8 @@ class AioFileReadingStruct : public ElementController {
     // Send SeekPerformedTag if requested
     if ( send_seek ) {
       SendTag(scoped_ref<Tag>(
-          new SeekPerformedTag(0,
-                               kDefaultFlavourMask)).get(), timestamp_ms);
+          new SeekPerformedTag(0, kDefaultFlavourMask)).get(),
+            timestamp_ms - req_->info().media_origin_pos_ms_);
     }
   }
 
@@ -560,6 +560,7 @@ class AioFileReadingStruct : public ElementController {
       bootstrapping_ = false;
     }
 
+    req_->set_controller(NULL);
     SendTag(scoped_ref<Tag>(new EosTag(
         0, kDefaultFlavourMask, forced)).get(), 0);
   }

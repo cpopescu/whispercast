@@ -32,67 +32,68 @@
 #ifndef __NET_RTMP_RTMP_PUBLISH_STREAM_H__
 #define __NET_RTMP_RTMP_PUBLISH_STREAM_H__
 
+
+#include <whisperstreamlib/base/request.h>
+#include <whisperstreamlib/base/importer.h>
 #include <whisperstreamlib/rtmp/rtmp_stream.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol.h>
-
-#include <whisperstreamlib/flv/flv_consts.h>
-#include <whisperstreamlib/flv/flv_tag.h>
-
+#include <whisperstreamlib/rtmp/rtmp_connection.h>
 #include <whisperstreamlib/rtmp/events/rtmp_event_invoke.h>
 #include <whisperstreamlib/rtmp/events/rtmp_event_notify.h>
-
-#include <whisperstreamlib/rtmp/rtmp_manager.h>
 
 namespace rtmp {
 
 //////////////////////////////////////////////////////////////////////
 //
-// Publishing stream - basically we operate in media stream alltogether..
+// Publishing stream
 //
-class StreamManager;
-
 class PublishStream : public Stream {
  public:
-  PublishStream(StreamManager* manager,
-           const StreamParams& params,
-           Protocol* const protocol);
+  PublishStream(const StreamParams& params,
+                ServerConnection* connection,
+                streaming::ElementMapper* element_mapper);
   virtual ~PublishStream();
 
+  ////////////////////////////////////////////////////////////////////////
+  // Stream methods
+ protected:
   virtual void NotifyOutbufEmpty(int32 outbuf_size) {
   }
-
-  virtual bool ProcessEvent(rtmp::Event* event, int64 timestamp_ms);
-
-  virtual void Close();
-
-  virtual bool IsPublishing(const string& stream_name) {
-    return callback_ != NULL && stream_name == stream_name_;
+  virtual bool ProcessEvent(Event* event, int64 timestamp_ms);
+  virtual void NotifyConnectionClosed() {
+    Stop(true, true);
+  }
+ public:
+  // called from ServerConnection::InvokeDeleteStream
+  virtual void Close() {
+    Stop(true, true);
   }
 
  private:
-  bool InvokePublish(rtmp::EventInvoke* invoke);
-  bool InvokeUnpublish(rtmp::EventInvoke* invoke);
+  bool InvokePublish(EventInvoke* invoke);
+  bool InvokeUnpublish(EventInvoke* invoke);
 
-  void CanPublishCompleted(int channel_id,
-                           uint32 invoke_id,
-                           bool success);
+  void StartPublishing(int channel_id, uint32 invoke_id,
+                       streaming::AuthorizerRequest auth_req,
+                       string command, bool dec_ref = false);
+  // called by the importer
+  void StartPublishingCompleted(int channel_id, uint32 invoke_id,
+                                streaming::ProcessingCallback* callback);
+  // called by the importer
+  void StopPublisher();
 
-  void Stop(bool forced);
+  // internally stop everything, close network connection
+  void Stop(bool send_eos, bool forced, bool dec_ref = false);
 
-  bool SetMetadata(rtmp::EventNotify* n, int64 timestamp_ms);
-  bool ProcessData(rtmp::BulkDataEvent* bd,
-                   streaming::FlvFrameType data_type,
-                   int64 timestamp_ms);
+  void SendTag(scoped_ref<streaming::Tag> tag, int64 timestamp_ms, bool dec_ref = false);
 
-  bool SendTag(io::MemoryStream* tag_content,
-               streaming::FlvFrameType data_type,
-               const rtmp::Event* event, int64 timestamp_ms);
+ private:
+  streaming::ElementMapper* element_mapper_;
 
-  StreamManager* const manager_;
+  streaming::RtmpImporter* importer_;
   streaming::ProcessingCallback* callback_;
-  int64 stream_offset_;
-  bool closed_;
-  streaming::FlvTagSerializer serializer_;
+
+  // permanent callback to StopPublisher()
+  Closure* stop_publisher_callback_;
 
   DISALLOW_EVIL_CONSTRUCTORS(PublishStream);
 };

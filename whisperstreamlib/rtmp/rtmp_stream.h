@@ -51,8 +51,6 @@
 
 namespace rtmp {
 
-class Protocol;
-
 struct StreamParams {
   int stream_id_;               // identifies us inside the protocol
   string application_name_;     // from tcUrl in connect
@@ -81,10 +79,20 @@ struct StreamParams {
   }
 };
 
+class ServerConnection;
 class Stream {
+ protected:
+  class AutoDecRef {
+   public:
+    AutoDecRef(Stream* c) : c_(c) {}
+    ~AutoDecRef() { if ( c_ != NULL ) c_->DecRef(); }
+   private:
+    Stream* c_;
+ };
+
  public:
   Stream(const StreamParams& params,
-         Protocol* const protocol);
+         ServerConnection* const connection);
   virtual ~Stream();
 
   int ref_count() const { return ref_count_; }
@@ -92,39 +100,33 @@ class Stream {
   string stream_name() const { return stream_name_; }
   const StreamParams& params() const { return params_; }
 
-  void ResetChannelTiming(int channel_id = -1) {
-    if (channel_id < 0) {
-      for (int i = 0; i < kMaxNumChannels; ++i) {
-        first_timestamp_ms_[i] = last_timestamp_ms_[i] = -1;
-      }
-      return;
-    }
-    DCHECK(channel_id >= 0 && channel_id < kMaxNumChannels);
-    first_timestamp_ms_[channel_id] = last_timestamp_ms_[channel_id] = -1;
-  }
-
-  void SendEvent(rtmp::Event* event,
+  void SendEvent(scoped_ref<Event> event,
                  int64 timestamp_ms = -1,
                  const io::MemoryStream* buffer = NULL,
-                 bool force_write = false);
+                 bool force_write = false,
+                 bool dec_ref = false);
+
+  // returns: true -> success, continue connection
+  //          false -> error, terminate connection
   bool ReceiveEvent(rtmp::Event* event);
 
   virtual void NotifyOutbufEmpty(int32 outbuf_size) = 0;
 
+ protected:
   virtual bool ProcessEvent(rtmp::Event* event, int64 timestamp_ms) = 0;
 
+ public:
   virtual void Close() = 0;
 
-  virtual bool IsPublishing(const string& stream_name) {
-    return false;
-  }
+  // 'connection_' become closed.
+  virtual void NotifyConnectionClosed() = 0;
 
   void IncRef();
   void DecRef();
 
  protected:
   StreamParams params_;
-  Protocol* const protocol_;
+  ServerConnection* const connection_;
   mutable synch::Mutex mutex_;
 
   string stream_name_;

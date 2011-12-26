@@ -158,8 +158,7 @@ int64 StandardLibrary::GetElementNeeds(const string& element_type) {
             NEED_MEDIA_DIR |
             NEED_RPC_SERVER |
             NEED_SPLITTER_CREATOR |
-            NEED_STATE_KEEPER |
-            NEED_RTMP_MANAGER);
+            NEED_STATE_KEEPER);
   } else if ( element_type == KeyFrameExtractorElement::kElementClassName ) {
     return (NEED_SELECTOR);
   } else if ( element_type == StreamRenamerElement::kElementClassName ) {
@@ -762,18 +761,18 @@ streaming::Element* StandardLibrary::CreateHttpServerElement(
   const string id(req != NULL
                   ? element_name + "-" + req->GetUrlId(): element_name);
   HttpServerElement* const src =
-      new streaming::HttpServerElement(element_name.c_str(),
-                                       id.c_str(),
+      new streaming::HttpServerElement(element_name,
+                                       id,
                                        mapper_,
-                                       spec.path_escaped_.c_str(),
+                                       spec.path_escaped_,
                                        params.selector_,
-                                       params.media_dir_.c_str(),
+                                       params.media_dir_,
                                        params.http_server_,
                                        rpc_path.c_str(),
                                        params.rpc_server_,
                                        params.state_keeper_,
                                        params.splitter_creator_,
-                                       authorizer_name.c_str());
+                                       authorizer_name);
   for ( int i = 0; i < spec.http_data_.size(); ++i ) {
     const HttpServerElementDataSpec& crt_spec = spec.http_data_[i];
     MediaOperationErrorData ret;
@@ -806,17 +805,16 @@ streaming::Element* StandardLibrary::CreateRtmpPublishingElement(
   const string id(req != NULL
                   ? element_name + "-" + req->GetUrlId(): element_name);
   RtmpPublishingElement* const src =
-      new streaming::RtmpPublishingElement(element_name.c_str(),
-                                           id.c_str(),
+      new streaming::RtmpPublishingElement(element_name,
+                                           id,
                                            mapper_,
                                            params.selector_,
-                                           params.media_dir_.c_str(),
-                                           params.rtmp_manager_,
-                                           rpc_path.c_str(),
+                                           params.media_dir_,
+                                           rpc_path,
                                            params.rpc_server_,
                                            params.state_keeper_,
                                            params.splitter_creator_,
-                                           authorizer_name.c_str());
+                                           authorizer_name);
   for ( int i = 0; i < spec.rtmp_data_.size(); ++i ) {
     const RtmpPublishingElementDataSpec& crt_spec = spec.rtmp_data_[i];
     MediaOperationErrorData ret;

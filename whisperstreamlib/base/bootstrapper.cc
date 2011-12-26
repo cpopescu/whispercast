@@ -93,7 +93,7 @@ void Bootstrapper::PlayAtBegin(ProcessingCallback* callback,
   // regular bootstrap
   for (deque<BootstrapTag>::const_iterator it =
       source_started_tags_.begin(); it != source_started_tags_.end(); ++it) {
-    MaybeSendTag(callback, 0, *it);
+    MaybeSendTag(callback, timestamp_ms, *it);
   }
 
   MaybeSendTag(callback, timestamp_ms, metadata_);

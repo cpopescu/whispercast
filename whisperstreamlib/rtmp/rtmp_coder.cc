@@ -84,10 +84,10 @@ Coder::~Coder() {
 }
 AmfUtil::ReadStatus Coder::Decode(io::MemoryStream* in,
                                   AmfUtil::Version version,
-                                  rtmp::Event** event) {
+                                  scoped_ref<rtmp::Event>* out) {
   CHECK_EQ(version, AmfUtil::AMF0_VERSION);
   AmfUtil::ReadStatus err;
-  *event = NULL;
+  *out = NULL;
   do {
     // last_header_ was a header that was probably fully decoded in the last
     // call to Decode, but its *chunk* body was not completed..
@@ -207,7 +207,7 @@ AmfUtil::ReadStatus Coder::Decode(io::MemoryStream* in,
              event_body);
       protocol_data_->clear_partial_body(last_header_->channel_id());
       // Now we can compose an event !
-      *event = CreateEvent(last_header_);
+      *out = CreateEvent(last_header_);
       // Put a copy of last_header in the protocol state in case it is needed
       protocol_data_->set_last_read_header(last_header_->channel_id(),
                                            new rtmp::Header(protocol_data_,
@@ -217,13 +217,13 @@ AmfUtil::ReadStatus Coder::Decode(io::MemoryStream* in,
         <<  "======================== BODY ================= "
         << event_body->DumpContent(FLAGS_rtmp_debug_dump_buffers);
 
-      err = (*event)->ReadFromMemoryStream(event_body, version);
+      err = (*out)->ReadFromMemoryStream(event_body, version);
       DLOG_INFO_IF(FLAGS_rtmp_debug_dump_buffers > 0)
         << " ============== RETURNED: "
         << AmfUtil::ReadStatusName(err);
       if ( !event_body->IsEmpty() ) {
         LOG_WARNING << "Events bytes left by decoder: " << event_body->Size()
-                    << " for event: " << **event;
+                    << " for event: " << (*out)->ToString();
       }
       memory_used_ -= bufsize;
       delete event_body;
@@ -264,19 +264,14 @@ int Coder::EncodeWithAuxBuffer(io::MemoryStream* out,
 #ifdef _DEBUG
   if ( FLAGS_rtmp_debug_dump_sent_events ) {
     if ( FLAGS_rtmp_debug_dump_only_control ) {
-      if ( event->event_type() != EVENT_MEDIA_DATA &&
-           event->event_type() != EVENT_AUDIO_DATA &&
-           event->event_type() != EVENT_VIDEO_DATA ) {
-        DLOG_INFO
-          << " RTMP send event: " << *event->header() << " - " << *event;
-      }
+      LOG_INFO_IF(event->event_type() != EVENT_MEDIA_DATA &&
+                  event->event_type() != EVENT_AUDIO_DATA &&
+                  event->event_type() != EVENT_VIDEO_DATA)
+                 << " RTMP encode event: " << *event;
     } else {
-        DLOG_INFO
-          << " RTMP send event: " << *event->header() << " - " << *event;
+        LOG_INFO << " RTMP encode event: " << *event;
     }
-    VLOG(10) << " Encoding an event : \n" << *event
-             << "\nHeader \n" << *event->header()
-             << "\nSize: " << event_stream->Size();
+    VLOG(10) << "Encoding an event : " << *event;
   }
 #endif
   // Logic:

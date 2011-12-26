@@ -33,17 +33,17 @@ namespace streaming {
 
 template<class Service, class Import, class ImportDataSpec>
 inline ImportElement<Service, Import, ImportDataSpec>::ImportElement(
-    const char* class_name,
-    const char* name,
-    const char* id,
+    const string& class_name,
+    const string& name,
+    const string& id,
     streaming::ElementMapper* mapper,
     net::Selector* selector,
-    const char* media_dir,
-    const char* rpc_path,
+    const string& media_dir,
+    const string& rpc_path,
     rpc::HttpServer* rpc_server,
     io::StateKeepUser* state_keeper,
     streaming::SplitterCreator* splitter_creator,
-    const char* authorizer_name)
+    const string& authorizer_name)
     : Element(class_name, name, id, mapper),
       Service(Service::GetClassName()),
       selector_(selector),
@@ -200,15 +200,6 @@ inline void ImportElement<Service, Import, ImportDataSpec>::Close(
       NewCallback(this,
                   &ImportElement<Service, Import,
                   ImportDataSpec>::CloseAllImports));
-}
-
-template<class Service, class Import, class ImportDataSpec>
-inline void ImportElement<Service, Import, ImportDataSpec>::CloseAllImports() {
-  for ( typename ImportMap::const_iterator it = imports_.begin();
-        it != imports_.end(); ++it ) {
-    it->second->Close();   // causes the close of registered requests and
-                           // eventually deletion
-  }
 }
 
 // RPC interface
@@ -370,6 +361,11 @@ inline bool ImportElement<Service, Import, ImportDataSpec>::AddImport(
                                       advance_media_ms,
                                       buildup_interval_sec,
                                       buildup_delay_sec);
+  if ( !src->Initialize() ) {
+    delete src;
+    LOG_ERROR << "AddImport: [" << full_name << "] cannot initialize";
+    return false;
+  }
   imports_.insert(make_pair(full_name, src));
   return true;
 }
@@ -401,6 +397,15 @@ inline bool ImportElement<Service, Import, ImportDataSpec>::DeleteImport(
   it->second->Close();
   imports_.erase(it);
   return true;
+}
+
+template<class Service, class Import, class ImportDataSpec>
+inline void ImportElement<Service, Import, ImportDataSpec>::CloseAllImports() {
+  for ( typename ImportMap::const_iterator it = imports_.begin();
+        it != imports_.end(); ++it ) {
+    it->second->Close();   // causes the close of registered requests and
+                           // eventually deletion
+  }
 }
 
 }

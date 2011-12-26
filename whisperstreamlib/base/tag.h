@@ -193,7 +193,7 @@ class Tag : public RefCounted {
 
   const string ToString() const {
     return strutil::StringPrintf(
-        "@ %s [%s] fl:%x -> %s",
+        "%s [%s] fl:%x -> %s",
         type_name(),
         attributes_name().c_str(),
         flavour_mask_,
@@ -419,8 +419,51 @@ public:
   }
 };
 
-typedef TSourceChangedTag<Tag::TYPE_SOURCE_STARTED> SourceStartedTag;
 typedef TSourceChangedTag<Tag::TYPE_SOURCE_ENDED> SourceEndedTag;
+
+class SourceStartedTag : public SourceChangedTag {
+ public:
+  static const Type kType;
+  SourceStartedTag(uint32 attributes,
+                   uint32 flavour_mask,
+                   const string& source_element_name,
+                   const string& path,
+                   bool is_final,
+                   int64 source_start_timestamp_ms)
+    : SourceChangedTag(kType, attributes, flavour_mask,
+                       source_element_name, path, is_final),
+      source_start_timestamp_ms_(source_start_timestamp_ms) {
+  }
+  SourceStartedTag(const SourceStartedTag& other)
+    : SourceChangedTag(other),
+      source_start_timestamp_ms_(other.source_start_timestamp_ms_) {
+  }
+
+  int64 source_start_timestamp_ms() const { return source_start_timestamp_ms_; }
+
+ public:
+  virtual ~SourceStartedTag() {
+  }
+
+public:
+  virtual Tag* Clone() const {
+    return new SourceStartedTag(*this);
+  }
+  virtual string ToStringBody() const {
+    return strutil::StringPrintf(
+        "{ name_: %s, source_element_name_: %s, "
+        "path_: %s, is_final_: %s, source_start_timestamp_ms_: %"PRId64"}",
+        type_name(),
+        source_element_name().c_str(),
+        path().c_str(),
+        strutil::BoolToString(is_final()).c_str(),
+        source_start_timestamp_ms_);
+  }
+ private:
+  // the moment the original source started
+  // The other: timestamp_ms_ is changed by bootstrapper.
+  int64 source_start_timestamp_ms_;
+};
 
 //////////////////////////////////////////////////////////////////////
 //
@@ -744,24 +787,25 @@ class StreamTimeCalculator {
   // give me all stream tags...
   void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
-  // and I'll tell you the timestamp of the last tag
   int64 last_tag_ts() const { return last_tag_ts_; }
 
-  // and also the timestamp inside current media segment
-  int64 media_time_ms() const { return media_time_ms_; }
+  // ms from last SourceStarted
+  int64 media_time_ms() const {
+    return last_tag_ts_ - last_source_started_ts_;
+  }
 
-  // and also how long I've been running
+  // ms from the very beginning
   int64 stream_time_ms() const { return stream_time_ms_; }
 
  private:
-  // first tag flag
-  bool is_first_tag_;
-  // timestamp of the last processed tag
+  // timestamp of the last tag
   int64 last_tag_ts_;
-  // time inside current media segment
-  int64 media_time_ms_;
   // total stream time (0.. infinite), uniformly increasing.
   int64 stream_time_ms_;
+  // the timestamp_ms on last SourceStarted
+  int64 last_source_started_ts_;
+  // just for logging;
+  scoped_ref<const Tag> last_tag_;
 };
 }
 

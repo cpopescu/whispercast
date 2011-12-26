@@ -198,15 +198,16 @@ class TestConnection {
       if ( first_tag_realtime_ms_ == 0 ) {
         first_tag_realtime_ms_ = now;
       }
-      int64 tag_realtime = now - first_tag_realtime_ms_;
-      int64 delta_ms = abs(tag->timestamp_ms() - tag_realtime);
-      if ( delta_ms > FLAGS_timing_delta_treshold_ms ) {
-        ILOG_WARNING << "Tag in the "
-                     << (tag->timestamp_ms() < tag_realtime ? "past" : "future")
-                     << " by " << delta_ms << " ms"
-                        ", tag_realtime: " << tag_realtime
-                     << ", tag: " << tag->ToString();
-      }
+      //TODO(cosmin): fix future/past tag reporting.
+      //int64 tag_realtime = now - first_tag_realtime_ms_;
+      //int64 delta_ms = abs(tag->timestamp_ms() - tag_realtime);
+      //if ( delta_ms > FLAGS_timing_delta_treshold_ms ) {
+      //  ILOG_WARNING << "Tag in the "
+      //               << (tag->timestamp_ms() < tag_realtime ? "past" : "future")
+      //               << " by " << delta_ms << " ms"
+      //                  ", tag_realtime: " << tag_realtime
+      //               << ", tag: " << tag->ToString();
+      //}
 
       if ( !seek_performed_ ) {
         if ( FLAGS_seek_pos_ms >= 0 ) {

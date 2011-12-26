@@ -94,6 +94,9 @@ bool ReadCheckpoint(const string& checkpoint_dir,
                     const string& file_base,
                     map<string, string>* checkpoint);
 
+bool WriteCheckpointFile(const map<string, string>& checkpoint,
+                         const string& output_filename);
+
 void CleanCheckpointFiles(const string& checkpoint_dir,
                           const string& file_base,
                           uint32 num_checkpoints_to_keep);

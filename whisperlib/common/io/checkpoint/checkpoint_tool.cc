@@ -31,22 +31,32 @@
 
 #include <whisperlib/common/io/checkpoint/checkpointing.h>
 #include <whisperlib/common/base/gflags.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_decoder.h>
 
 //////////////////////////////////////////////////////////////////////
 
 DEFINE_string(in,
               "",
-              "Checkpoint file to read.");
-DEFINE_int32(block_size,
-             0,
-             "StateKeeper blocks size. If 0, use autodetect.");
-DEFINE_int32(blocks_per_file,
-             0,
-             "StateKeeper blocks per file. If 0, use autodetect.");
+              "Read checkpoint from this file.");
+
+DEFINE_string(out,
+              "",
+              "Write checkpoint (with imports) into this file.");
 
 DEFINE_bool(print,
-            true,
-            "We print the content of the checkpoint");
+            false,
+            "Print the content of the checkpoint");
+
+DEFINE_string(import_json_file,
+              "",
+              "Add to current checkpoint the given JSON (string->string) map."
+              "You probably want to use -out flag too.");
+
+DEFINE_string(export_json_file,
+              "",
+              "Export the whole checkpoint as a JSON (string->string) map"
+              " into this file.");
 
 //////////////////////////////////////////////////////////////////////
 
@@ -56,16 +66,69 @@ int main(int argc, char* argv[]) {
   //////////////////////////////////////////////////////////////////////////
 
   map<string, string> checkpoint;
-  if ( !io::ReadCheckpointFile(FLAGS_in, &checkpoint) ) {
-    LOG_ERROR << "Failed to read checkpoint file: [" << FLAGS_in << "]";
-    common::Exit(1);
+
+  // maybe read input checkpoint
+  if ( FLAGS_in != "" ) {
+    if ( !io::ReadCheckpointFile(FLAGS_in, &checkpoint) ) {
+      LOG_ERROR << "Failed to read checkpoint file: [" << FLAGS_in << "]";
+      common::Exit(1);
+    }
+    LOG_INFO << "Successfully read checkpoint file: [" << FLAGS_in << "]";
   }
 
-  for ( map<string, string>::const_iterator it = checkpoint.begin();
-        it != checkpoint.end(); ++it ) {
-    LOG_INFO << "Name: [" << it->first << "]";
-    LOG_INFO << "Value: [" << it->second << "]";
+  // maybe import a JSON file
+  if ( FLAGS_import_json_file != "" ) {
+    io::File json_file;
+    if ( !json_file.Open(FLAGS_import_json_file,
+                         io::File::GENERIC_READ,
+                         io::File::OPEN_EXISTING) ) {
+      LOG_ERROR << "Cannot open file: [" << FLAGS_import_json_file << "]";
+      common::Exit(1);
+    }
+    io::MemoryStream ms;
+    json_file.Read(&ms, kMaxInt32);
+    string s;
+    ms.ReadString(&s);
+    if ( !rpc::JsonDecoder::DecodeObject(s, &checkpoint) ) {
+      LOG_ERROR << "Failed to decode json import file: ["
+                << FLAGS_import_json_file << "]";
+      common::Exit(1);
+    }
+    LOG_INFO << "Successfully import json file: ["
+             << FLAGS_import_json_file << "]";
   }
+
+  // maybe print the checkpoint
+  if ( FLAGS_print ) {
+    for ( map<string, string>::const_iterator it = checkpoint.begin();
+          it != checkpoint.end(); ++it ) {
+      LOG_INFO << "Name: [" << it->first << "]";
+      LOG_INFO << "Value: [" << it->second << "]";
+    }
+  }
+
+  // maybe export to JSON file
+  if ( FLAGS_export_json_file != "" ) {
+    io::File json_file;
+    if ( !json_file.Open(FLAGS_export_json_file,
+                         io::File::GENERIC_READ_WRITE,
+                         io::File::CREATE_ALWAYS) ) {
+      LOG_ERROR << "Cannot open file: [" << FLAGS_export_json_file << "]";
+      common::Exit(1);
+    }
+    json_file.Write(rpc::JsonEncoder::EncodeObject(checkpoint));
+    LOG_INFO << "Export json: [" << json_file.filename() << "]";
+    json_file.Close();
+  }
+
+  // maybe write checkpoint to file
+  if ( FLAGS_out != "" ) {
+    if ( !io::WriteCheckpointFile(checkpoint, FLAGS_out) ) {
+      LOG_ERROR << "Failed to WriteCheckpointFile, to: [" << FLAGS_out << "]";
+      common::Exit(1);
+    }
+  }
+
   LOG_INFO << "Done #" << checkpoint.size() << " pairs";
 
   common::Exit(0);

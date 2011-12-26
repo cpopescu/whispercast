@@ -71,6 +71,22 @@ const char* EventSubTypeName(EventSubType st) {
   return "SUBTYPE_UNKNOWN";
 }
 
+const char* kMethodConnect           = "connect";
+const char* kMethodCreateStream      = "createStream";
+const char* kMethodDeleteStream      = "deleteStream";
+const char* kMethodError             = "_error";
+const char* kMethodResult            = "_result";
+const char* kMethodOnBWDone          = "onBWDone";
+const char* kMethodSetBandwidthLimit = "setBandwidthLimit";
+const char* kMethodPublish           = "publish";
+const char* kMethodUnpublish         = "unpublish";
+const char* kMethodPlay              = "play";
+const char* kMethodPause             = "pause";
+const char* kMethodPauseRaw          = "pauseRaw";
+const char* kMethodSeek              = "seek";
+const char* kMethodGetStreamLength   = "getStreamLength";
+
+
 //////////////////////////////////////////////////////////////////////
 
 const uint8 kServerV3HandshakeBlock[kHandshakeSize] = {

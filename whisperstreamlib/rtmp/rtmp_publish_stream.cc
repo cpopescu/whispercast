@@ -29,77 +29,66 @@
 //
 // Author: Catalin Popescu
 
-#include "rtmp/rtmp_publish_stream.h"
+#include <whisperstreamlib/flv/flv_consts.h>
+#include <whisperstreamlib/flv/flv_tag.h>
+#include <whisperstreamlib/rtmp/rtmp_publish_stream.h>
+#include <whisperstreamlib/rtmp/rtmp_util.h>
 
-#include <whisperstreamlib/raw/raw_tag_splitter.h>
+#define RTMP_LOG(level) if ( connection_->flags().log_level_ < level ); \
+                        else LOG(INFO) << connection_->info() << ": "
+
+#define RTMP_LOG_DEBUG   RTMP_LOG(LDEBUG)
+#define RTMP_LOG_INFO    RTMP_LOG(LINFO)
+#define RTMP_LOG_WARNING RTMP_LOG(LWARNING)
+#define RTMP_LOG_ERROR   RTMP_LOG(LERROR)
+#define RTMP_LOG_FATAL   RTMP_LOG(LFATAL)
 
 namespace rtmp {
 
-PublishStream::PublishStream(StreamManager* manager,
-                   const StreamParams& params,
-                   Protocol* const protocol)
-    : Stream(params, protocol),
-      manager_(manager),
+PublishStream::PublishStream(const StreamParams& params,
+                             ServerConnection* connection,
+                             streaming::ElementMapper* element_mapper)
+    : Stream(params, connection),
+      element_mapper_(element_mapper),
+      importer_(NULL),
       callback_(NULL),
-      stream_offset_(0),
-      closed_(false),
-      serializer_(true) {
+      stop_publisher_callback_(NewPermanentCallback(this,
+          &PublishStream::StopPublisher)) {
 }
 
 PublishStream::~PublishStream() {
-  if ( !closed_ ) {
-    Close();
-  }
+  CHECK_NULL(importer_);
+  CHECK_NULL(callback_);
+  delete stop_publisher_callback_;
+  stop_publisher_callback_ = NULL;
 }
 
-bool PublishStream::ProcessEvent(rtmp::Event* event, int64 timestamp_ms) {
-  switch ( event->event_type() ) {
-    case EVENT_INVOKE: {
-      rtmp::EventInvoke* invoke =
-          reinterpret_cast<rtmp::EventInvoke *>(event);
-      const string method(invoke->call()->method_name());
-      if ( method == kMethodPublish ) {
-        return InvokePublish(invoke);
-      } else  if ( method == kMethodUnpublish ) {
-        return InvokeUnpublish(invoke);
-      }
-    }
-    break;
-    case EVENT_NOTIFY: {
-      rtmp::EventNotify* notification =
-          reinterpret_cast<rtmp::EventNotify*>(event);
-      if ( notification->name().value() == "@setDataFrame" ) {
-        return SetMetadata(notification, timestamp_ms);
-      }
-    }
-    break;
-    case EVENT_AUDIO_DATA:
-      return ProcessData(static_cast<rtmp::BulkDataEvent*>(event),
-                         streaming::FLV_FRAMETYPE_AUDIO, timestamp_ms);
-    case EVENT_VIDEO_DATA:
-      return ProcessData(static_cast<rtmp::BulkDataEvent*>(event),
-                         streaming::FLV_FRAMETYPE_VIDEO, timestamp_ms);
-    default:
-      return true;
+bool PublishStream::ProcessEvent(Event* event, int64 timestamp_ms) {
+  if ( event->event_type() == EVENT_INVOKE ) {
+    EventInvoke* invoke = static_cast<EventInvoke *>(event);
+    const string& method(invoke->call()->method_name());
+    if ( method == kMethodPublish )   { return InvokePublish(invoke); }
+    if ( method == kMethodUnpublish ) { return InvokeUnpublish(invoke); }
   }
-  RTMP_LOG_WARNING << "Unhandled publishing stream event: "
-      << event->ToString();
+
+  if ( callback_ == NULL ) {
+    RTMP_LOG_ERROR << "Not publishing, ignoring event: " << event->ToString();
+    return true;
+  }
+
+  vector<scoped_ref<streaming::FlvTag> > tags;
+  ExtractFlvTags(*event, timestamp_ms, &tags);
+  for ( uint32 i = 0; i < tags.size(); i++ ) {
+    SendTag(tags[i].get(), tags[i]->timestamp_ms());
+  }
+
   return true;
-}
-
-void PublishStream::Close() {
-  DCHECK(protocol_->media_selector()->IsInSelectThread() ||
-         protocol_->media_selector()->IsExiting());
-  closed_ = true;
-  Stop(true);
-
-  protocol_->NotifyStreamClose(this);
 }
 
 //////////////////////////////////////////////////////////////////////
 
-bool PublishStream::InvokePublish(rtmp::EventInvoke* invoke) {
-  if ( callback_ != NULL ) {
+bool PublishStream::InvokePublish(EventInvoke* invoke) {
+  if ( importer_ != NULL ) {
     RTMP_LOG_ERROR << "Already publishing, event: " << invoke->ToString();
     return false;
   }
@@ -111,11 +100,11 @@ bool PublishStream::InvokePublish(rtmp::EventInvoke* invoke) {
     return false;
   }
 
-  params_.command_ = reinterpret_cast<const CString*>(
+  params_.command_ = static_cast<const CString*>(
       invoke->call()->arguments()[1])->value();
 
   URL stream_url(string("http://x/") + params_.application_name_ + "/" +
-      reinterpret_cast<const CString*>(
+      static_cast<const CString*>(
           invoke->call()->arguments()[0])->value());
   if ( stream_url.path().empty() ) {
     RTMP_LOG_ERROR << "Invalid stream URL, event: " << invoke->ToString();
@@ -129,213 +118,210 @@ bool PublishStream::InvokePublish(rtmp::EventInvoke* invoke) {
   }
   stream_name_ = stream_url.path().substr(n+2);
 
-  RTMP_LOG_WARNING << "Publish: [" << stream_name_ << "]";
+  RTMP_LOG_INFO << "Incoming publish: [" << stream_name_ << "]";
+
+  if ( strutil::StrStartsWith(stream_name_, "mp3:") ||
+       strutil::StrStartsWith(stream_name_, "mp4:") ) {
+    stream_name_ = stream_name_.substr(4); // skip "mp?:"
+  }
+
+  streaming::AuthorizerRequest auth("", "",
+                                    connection_->remote_address().ToString(),
+                                    stream_name_,
+                                    streaming::kActionPublish);
+  string command;
 
   vector< pair<string, string> > comp;
   if ( stream_url.GetQueryParameters(&comp, true) ) {
     for ( int i = 0; i < comp.size(); ++i ) {
       if ( comp[i].first == streaming::kMediaUrlParam_UserName ) {
-        params_.auth_req_.user_ = comp[i].second;
+        auth.user_ = comp[i].second;
       } else if ( comp[i].first == streaming::kMediaUrlParam_UserPass ) {
-        params_.auth_req_.passwd_ = comp[i].second;
+        auth.passwd_ = comp[i].second;
       } else if ( comp[i].first == streaming::kMediaUrlParam_UserToken ) {
-        params_.auth_req_.token_ = comp[i].second;
+        auth.token_ = comp[i].second;
       } else if ( comp[i].first == streaming::kMediaUrlParam_PublishCommand ) {
-        params_.command_ = comp[i].second;
+        command = comp[i].second;
       }
     }
   }
-  params_.auth_req_.net_address_ = protocol_->remote_address().ToString();
 
-  if ( strutil::StrStartsWith(stream_name_, "mp3:") ) {
-    stream_name_ = stream_name_.substr(4);
-  } else if ( strutil::StrStartsWith(stream_name_, "mp4:") ) {
-    stream_name_ = stream_name_.substr(4); // skip
-  }
-  params_.auth_req_.resource_ = stream_name_;
-  params_.auth_req_.action_ = streaming::kActionPublish;
+  StartPublishing(invoke->header()->channel_id(), invoke->invoke_id(),
+      auth, command);
 
-  IncRef();
-  manager_->CanPublish(stream_name_, &params_,
-      NewCallback(this, &PublishStream::CanPublishCompleted,
-                  static_cast<int>(invoke->header()->channel_id()),
-                  invoke->invoke_id()));
   return true;
 }
 //////////////////////////////////////////////////////////////////////
 
-bool PublishStream::InvokeUnpublish(rtmp::EventInvoke* invoke) {
-  if ( callback_ == NULL ) {
+bool PublishStream::InvokeUnpublish(EventInvoke* invoke) {
+  if ( importer_ == NULL ) {
     RTMP_LOG_ERROR << "Not publishing, event: " << invoke->ToString();
     return false;
   }
+  CHECK_NOT_NULL(callback_);
   if ( invoke->call()->arguments().empty() ||
        invoke->call()->arguments()[0]->object_type() != CObject::CORE_STRING ) {
     RTMP_LOG_ERROR << "Bad unpublish arguments, event: " << invoke->ToString();
     return false;
   }
 
-  const string& stream_name(
-      reinterpret_cast<const CString*>(
-          invoke->call()->arguments()[0])->value());
-
-  Stop(false);
+  const string& stream_name(static_cast<const CString*>(
+      invoke->call()->arguments()[0])->value());
 
   SendEvent(
-      protocol_->CreateInvokeResultEvent(kMethodResult,
-                                         stream_id(),
-                                         invoke->header()->channel_id(),
-                                         invoke->invoke_id()));
+      connection_->CreateInvokeResultEvent(
+          kMethodResult,
+          stream_id(),
+          invoke->header()->channel_id(),
+          invoke->invoke_id()).get());
   SendEvent(
-    protocol_->CreateStatusEvent(
-        stream_id(), Protocol::kReplyChannel, 0,
-        "NetStream.Unpublish.Success",
-        stream_name.c_str(),
-        stream_name.c_str()),
-        -1, NULL, true);
+      connection_->CreateStatusEvent(
+          stream_id(), kChannelReply, 0,
+          "NetStream.Unpublish.Success", stream_name, stream_name).get(),
+          -1, NULL, true);
+
+  Stop(true, false);
 
   return true;
 }
 
 //////////////////////////////////////////////////////////////////////
+void PublishStream::StartPublishing(int channel_id, uint32 invoke_id,
+    streaming::AuthorizerRequest auth_req, string command, bool dec_ref) {
+  if ( !connection_->media_selector()->IsInSelectThread() ) {
+    IncRef();
+    connection_->media_selector()->RunInSelectLoop(NewCallback(this,
+      &PublishStream::StartPublishing, channel_id, invoke_id, auth_req,
+      command, true));
+    return;
+  }
+  AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
 
-void PublishStream::CanPublishCompleted(int channel_id,
-                                        uint32 invoke_id,
-                                        bool success) {
-  if ( closed_ ) {
-    DecRef();
+  // because we're in media_selector, instead of using stream_name_
+  // (which can change in net_selector), we're using auth_req.resource_
+  const string& stream_name = auth_req.resource_;
+
+  streaming::Importer* importer = element_mapper_->GetImporter(
+      streaming::Importer::TYPE_RTMP, stream_name);
+  if ( importer == NULL ) {
+    RTMP_LOG_ERROR << "No importer for path: " << stream_name;
+    Stop(false, false);
+    return;
+  }
+  CHECK(importer->type() == streaming::Importer::TYPE_RTMP);
+  importer_ = static_cast<streaming::RtmpImporter*>(importer);
+
+  // verify authentication & start publishing
+  IncRef();
+  importer_->Start("", auth_req, command,
+      stop_publisher_callback_, NewCallback(this,
+          &PublishStream::StartPublishingCompleted, channel_id, invoke_id));
+
+  // Next step: The importer_ calls StartPublishingCompleted(..)
+}
+void PublishStream::StartPublishingCompleted(int channel_id, uint32 invoke_id,
+    streaming::ProcessingCallback* callback) {
+  if ( !connection_->net_selector()->IsInSelectThread() ) {
+    connection_->net_selector()->RunInSelectLoop(NewCallback(this,
+        &PublishStream::StartPublishingCompleted, channel_id, invoke_id,
+        callback));
+    return;
+  }
+  // this a callback run by importer_, always DecRef().
+  AutoDecRef auto_dec_ref(this);
+
+  if ( connection_->is_closed() ) {
+    Stop(true, false);
     return;
   }
 
-  if ( !success || (callback_ = manager_->StartedPublisher(this)) == NULL ) {
+  if ( callback == NULL ) {
     RTMP_LOG_ERROR << "Cannot publish on: [ " << stream_name_ << " ]";
-
-    if ( !protocol_->is_closed() ) {
-      SendEvent(
-          protocol_->CreateInvokeResultEvent(kMethodError,
-                                             stream_id(),
-                                             channel_id,
-                                             invoke_id));
-      SendEvent(NULL);
-    }
-
-    DecRef();
+    SendEvent(connection_->CreateInvokeResultEvent(kMethodError,
+                                                   stream_id(),
+                                                   channel_id,
+                                                   invoke_id).get());
+    Stop(false, false);
     return;
   }
 
-  if ( !protocol_->is_closed() ) {
-    SendEvent(
-        protocol_->CreateInvokeResultEvent(kMethodResult,
-                                           stream_id(),
-                                           channel_id,
-                                           invoke_id));
+  RTMP_LOG_INFO << "Publishing OK on [" << stream_name_ << "];";
+  callback_ = callback;
+  SendEvent(connection_->CreateInvokeResultEvent(kMethodResult,
+                                                 stream_id(),
+                                                 channel_id,
+                                                 invoke_id).get());
 
-    // the pings are going through stream 0 (system stream)...
-    protocol_->system_stream()->SendEvent(
-        protocol_->CreateClearPing(0, stream_id()));
+  // the pings are going through stream 0 (system stream)...
+  connection_->system_stream()->SendEvent(
+      connection_->CreateClearPing(0, stream_id()).get());
 
-    SendEvent(
-        protocol_->CreateStatusEvent(
-            stream_id(), Protocol::kReplyChannel, 0,
-            "NetStream.Publish.Start", "Start Publishing",
-            stream_name_.c_str()),
-            -1, NULL, true);
-  }
-  DecRef();
+  SendEvent(
+      connection_->CreateStatusEvent(stream_id(),
+          kChannelReply, 0,
+          "NetStream.Publish.Start", "Start Publishing", stream_name_).get(),
+      -1, NULL, true);
+}
+
+void PublishStream::StopPublisher() {
+  CHECK(connection_->media_selector()->IsInSelectThread());
+  // stop sending tags downstream
+  callback_ = NULL;
+  Stop(false, true);
 }
 
 //////////////////////////////////////////////////////////////////////
 
-void PublishStream::Stop(bool forced) {
-  if ( callback_ != NULL ) {
-    callback_->Run(scoped_ref<streaming::Tag>(new streaming::EosTag(0,
-        streaming::kDefaultFlavourMask, forced)).get(), 0);
+void PublishStream::Stop(bool send_eos, bool forced, bool dec_ref) {
+  if ( !connection_->net_selector()->IsInSelectThread() ) {
+    IncRef();
+    connection_->net_selector()->RunInSelectLoop(NewCallback(this,
+        &PublishStream::Stop, send_eos, forced, true));
+    return;
+  }
+  AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
 
-    manager_->StoppedPublisher(this);
+  RTMP_LOG_INFO << "Stop stream_name: " << stream_name_
+                << ", importer_: " << importer_
+                << ", send_eos: " << strutil::BoolToString(send_eos)
+                << ", forced: " << strutil::BoolToString(forced)
+                << ", dec_ref: " << strutil::BoolToString(dec_ref);
+  CHECK(connection_->net_selector()->IsInSelectThread());
+  if ( importer_ != NULL ) {
+    if ( send_eos ) {
+      SendTag(scoped_ref<streaming::Tag>(new streaming::EosTag(
+          0, streaming::kDefaultFlavourMask, forced)).get(), 0);
+    }
+    importer_ = NULL;
+  }
+  connection_->CloseConnection();
+  stream_name_ = "";
+  // NOTE: Don't set callback_ = NULL now, because SendTag(eos)
+  //       may be asynchronous
+}
+
+void PublishStream::SendTag(scoped_ref<streaming::Tag> tag, int64 timestamp_ms,
+    bool dec_ref) {
+  if ( !connection_->media_selector()->IsInSelectThread() ) {
+    IncRef();
+    connection_->media_selector()->RunInSelectLoop(
+        NewCallback(this, &PublishStream::SendTag, tag, timestamp_ms, true));
+    return;
+  }
+  AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
+
+  if ( callback_ == NULL ) {
+    // an old scheduled SendTag(), we have been Closed in the meanwhile
+    return;
+  }
+
+  //  send it downstream
+  callback_->Run(tag.get(), timestamp_ms);
+
+  // EOS is the last tag sent downstream
+  if ( tag->type() == streaming::Tag::TYPE_EOS ) {
     callback_ = NULL;
   }
-
-  stream_name_.clear();
-  stream_offset_ = 0;
-}
-
-bool PublishStream::SetMetadata(rtmp::EventNotify* n, int64 timestamp_ms) {
-  if ( callback_ ) {
-    if ( n->values().size() == 2 &&
-         n->values()[0]->object_type() == CObject::CORE_STRING &&
-         n->values()[1]->object_type() == CObject::CORE_STRING_MAP ) {
-      io::MemoryStream tag_content;
-      n->values()[0]->WriteToMemoryStream(&tag_content,
-                                          rtmp::AmfUtil::AMF0_VERSION);
-      // We need to write this as a Mixed Map - not as a string map..
-      rtmp::CStringMap* str_map =
-          reinterpret_cast<rtmp::CStringMap*>(n->values()[1]);
-      rtmp::CMixedMap mix_map;
-      mix_map.SetAll(*str_map);
-      mix_map.WriteToMemoryStream(&tag_content,
-                                  rtmp::AmfUtil::AMF0_VERSION);
-      return SendTag(&tag_content,
-                     streaming::FLV_FRAMETYPE_METADATA,
-                     n,
-                     timestamp_ms);
-    }
-    RTMP_LOG_WARNING << "Unknown metadata: " << n->ToString();
-    return true;
-  }
-  RTMP_LOG_ERROR << "Cannot process metadata when not publishing";
-  return false;
-}
-
-bool PublishStream::ProcessData(rtmp::BulkDataEvent* bd,
-                           streaming::FlvFrameType data_type,
-                           int64 timestamp_ms) {
-  if ( callback_ ) {
-    if ( bd->data().Size() > 0 ) {
-      return SendTag(bd->mutable_data(), data_type, bd, timestamp_ms);
-    }
-    RTMP_LOG_WARNING << "Skipping zero sized data event: " << bd->ToString();
-    return true;
-  }
-  RTMP_LOG_ERROR << "Cannot process tags when not publishing";
-  return true;
-}
-
-bool PublishStream::SendTag(io::MemoryStream* tag_content,
-                       streaming::FlvFrameType data_type,
-                       const rtmp::Event* event, int64 timestamp_ms) {
-  if (event->header()->channel_id() >= kMaxNumChannels) {
-    RTMP_LOG_ERROR << "Invalid event channel ID " << event->ToString();
-    return false;
-  }
-
-  scoped_ref<streaming::FlvTag> flv_tag(new streaming::FlvTag(
-      0, streaming::kDefaultFlavourMask, timestamp_ms, data_type));
-  streaming::TagReadStatus result =
-      flv_tag->mutable_body().Decode(*tag_content, tag_content->Size());
-  if ( result != streaming::READ_OK ) {
-    RTMP_LOG_ERROR << "Failed to decode Flv tag body, data_type: "
-                   << streaming::FlvFrameTypeName(data_type)
-                   << ", result: " << streaming::TagReadStatusName(result);
-    return false;
-  }
-
-  // update the attributes
-  flv_tag->update();
-  // adn send it downstream
-  callback_->Run(flv_tag.get(), timestamp_ms);
-  /*
-  scoped_ref<streaming::RawTag> raw_tag(new streaming::RawTag(
-      0, streaming::kDefaultFlavourMask));
-  if ( stream_offset_ == 0 ) {
-    serializer_.Initialize(raw_tag->mutable_data());
-  }
-  serializer_.SerializeFlvTag(flv_tag.get(),
-      timestamp_ms, raw_tag->mutable_data());
-
-  callback_->Run(raw_tag.get(), timestamp_ms);
-  stream_offset_ += raw_tag->data()->Size();
-  */
-  return true;
 }
 
 } // namespace rtmp

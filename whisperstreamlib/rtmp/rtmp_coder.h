@@ -83,7 +83,7 @@ class Coder {
   //                  per protocol !!
   AmfUtil::ReadStatus Decode(io::MemoryStream* in,
                              AmfUtil::Version version,
-                             rtmp::Event** event);
+                             scoped_ref<rtmp::Event>* out);
 
   // Writes an event to the given output stream, splitting it (possibly)
   // into multiple chunks

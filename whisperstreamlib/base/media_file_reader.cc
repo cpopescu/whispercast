@@ -95,7 +95,9 @@ TagReadStatus MediaFileReader::Read(scoped_ref<Tag>* out, int64* timestamp_ms) {
   while ( true ) {
     TagReadStatus result = splitter_->GetNextTag(
         &buf_, out, timestamp_ms, file_eof_reached_);
-    //LOG_WARNING << "GetNextTag => " << TagReadStatusName(result) << " *out=" << *out;
+    //LOG_WARNING << "GetNextTag => " << TagReadStatusName(result)
+    //            << ", *timestamp_ms: " << *timestamp_ms
+    //            << ", *out=" << out->ToString();
     if ( result == READ_NO_DATA ) {
       CHECK_NULL(out->get());
       // EOF already reached? => fast return, don't attempt another read

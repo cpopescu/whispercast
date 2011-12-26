@@ -63,8 +63,9 @@ DEFINE_bool(dump_data,
 
 //////////////////////////////////////////////////////////////////////
 
-void PrintTag(const streaming::Tag* tag, uint64 file_pos) {
-  printf("@%"PRIu64": %s\n", file_pos, tag->ToString().c_str());
+void PrintTag(const streaming::Tag* tag, int64 timestamp_ms, uint64 file_pos) {
+  printf("# pos: %"PRIu64": , timestamp_ms: %"PRId64", tag: %s\n", file_pos,
+      timestamp_ms, tag->ToString().c_str());
   if ( tag->type() != streaming::Tag::TYPE_FLV ) {
     return;
   }
@@ -123,7 +124,7 @@ int main(int argc, char* argv[]) {
           streaming::TagReadStatusName(result));
       break;
     }
-    PrintTag(tag.get(), pos);
+    PrintTag(tag.get(), timestamp_ms, pos);
   }
   printf("STATISTICS:\n%s\n", reader.splitter()->stats().ToString().c_str());
 }

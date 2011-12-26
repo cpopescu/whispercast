@@ -37,6 +37,7 @@
 
 #include <whisperlib/common/base/types.h>
 #include <whisperlib/common/base/log.h>
+#include <whisperlib/common/base/ref_counted.h>
 #include <whisperlib/common/io/buffer/memory_stream.h>
 #include <whisperlib/common/io/num_streaming.h>
 
@@ -50,18 +51,20 @@ namespace rtmp {
 // EventNotify, EventPing and EventInvoke in their different
 // files, all other events are here.
 
-class Event {
+class Event : public RefCounted {
  public:
   // Constructs an event based on a type and a header. (Which comes under
   // our control..)
   Event(EventType event_type, EventSubType event_subtype, Header* header)
-      : event_type_(event_type),
+      : RefCounted(NULL),
+        event_type_(event_type),
         event_subtype_(event_subtype),
         header_(header) {
   }
   Event(EventType event_type, EventSubType event_subtype,
         ProtocolData* protocol_data, uint32 channel_id, uint32 stream_id)
-      : event_type_(event_type),
+      : RefCounted(NULL),
+        event_type_(event_type),
         event_subtype_(event_subtype),
         header_(new Header(protocol_data)) {
     header_->set_channel_id(channel_id);

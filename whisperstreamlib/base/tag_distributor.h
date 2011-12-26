@@ -123,8 +123,7 @@ class TagDistributor {
     distributing_tag_ = true;
     for ( CallbackMap::iterator it = running_.begin();
           it != running_.end(); ++it ) {
-      bootstrapper_.PlayAtEnd(
-        it->second.callback_, last_tag_ts_, flavour_mask_);
+      bootstrapper_.PlayAtEnd(it->second.callback_, last_tag_ts_, flavour_mask_);
     }
     distributing_tag_ = false;
 
@@ -141,8 +140,7 @@ class TagDistributor {
 
     for ( CallbackMap::iterator it = running_.begin();
           it != running_.end(); ++it ) {
-      bootstrapper_.PlayAtEnd(
-        it->second.callback_, last_tag_ts_, flavour_mask_);
+      bootstrapper_.PlayAtEnd(it->second.callback_, last_tag_ts_, flavour_mask_);
     }
 
     if ( !name_.empty() ) {
@@ -172,28 +170,26 @@ class TagDistributor {
         name_, name_));
     const Tag* source_ended_tag = name_.empty() ? NULL : source_ended_tag_r.get();
 
-    scoped_ref<Tag> eos_tag(
-      new EosTag(0, flavour_mask_, forced));
+    scoped_ref<Tag> eos_tag(new EosTag(0, flavour_mask_, forced));
 
     distributing_tag_ = true;
 
     CallbackMap::iterator it = running_.find(req);
     if ( it != running_.end() ) {
-      bootstrapper_.PlayAtEnd(
-        it->second.callback_, last_tag_ts_, flavour_mask_);
+      bootstrapper_.PlayAtEnd(it->second.callback_, last_tag_ts_, flavour_mask_);
 
       DCHECK(!it->second.done_);
       if ( source_ended_tag != NULL) {
         it->second.callback_->Run(source_ended_tag, 0);
       }
-      it->second.callback_->Run(eos_tag.get(), last_tag_ts_);
+      it->second.callback_->Run(eos_tag.get(), 0);
       it->second.done_ = true;
     } else {
       it = to_bootstrap_.find(req);
       DCHECK(it != to_bootstrap_.end());
 
       DCHECK(!it->second.done_);
-      it->second.callback_->Run(eos_tag.get(), last_tag_ts_);
+      it->second.callback_->Run(eos_tag.get(), 0);
       it->second.done_ = true;
     }
     distributing_tag_ = false;
@@ -206,15 +202,13 @@ class TagDistributor {
         name_, name_));
     Tag* source_ended_tag = name_.empty() ? NULL : source_ended_tag_r.get();
 
-    scoped_ref<Tag> eos_tag(
-      new EosTag( 0, flavour_mask_, forced));
+    scoped_ref<Tag> eos_tag(new EosTag( 0, flavour_mask_, forced));
 
     distributing_tag_ = true;
 
     for ( CallbackMap::iterator it = running_.begin();
           it != running_.end(); ++it ) {
-      bootstrapper_.PlayAtEnd(
-        it->second.callback_, last_tag_ts_, flavour_mask_);
+      bootstrapper_.PlayAtEnd(it->second.callback_, last_tag_ts_, flavour_mask_);
 
       DCHECK(!it->second.done_);
       if ( source_ended_tag != NULL) {
@@ -243,9 +237,8 @@ class TagDistributor {
       return;
     }
 
-    distributing_tag_ = true;
-
     // bootstrap new callbacks. These callbacks are also in callbacks_manager_.
+    distributing_tag_ = true;
     while ( !to_bootstrap_.empty() ) {
       running_[to_bootstrap_.begin()->first] = to_bootstrap_.begin()->second;
 
@@ -256,7 +249,7 @@ class TagDistributor {
       if ( !name_.empty() ) {
         callback->Run(scoped_ref<Tag>(new SourceStartedTag(
             0, flavour_mask_,
-            name_, name_)).get(), timestamp_ms);
+            name_, name_, false, timestamp_ms)).get(), timestamp_ms);
       }
 
       bootstrapper_.PlayAtBegin(callback, timestamp_ms, flavour_mask_);
@@ -294,6 +287,7 @@ private:
 
   int64 last_tag_ts_;
 
+  // last tag timestamp
   // Bug trap: whenever we send tags downstream we set this flag.
   // No changes (add_callback, remove_callback..) must come in between.
   bool distributing_tag_;

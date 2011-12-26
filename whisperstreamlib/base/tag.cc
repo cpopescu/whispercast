@@ -43,9 +43,7 @@ const Tag::Type CuePointTag::kType     = Tag::TYPE_CUE_POINT;
 const Tag::Type FeatureFoundTag::kType = Tag::TYPE_FEATURE_FOUND;
 const Tag::Type ComposedTag::kType     = Tag::TYPE_COMPOSED;
 
-template<>
-const Tag::Type
-TSourceChangedTag<Tag::TYPE_SOURCE_STARTED>::kType = Tag::TYPE_SOURCE_STARTED;
+const Tag::Type SourceStartedTag::kType = Tag::TYPE_SOURCE_STARTED;
 
 template<>
 const Tag::Type
@@ -135,53 +133,68 @@ synch::MutexPool TagSet::mutex_pool_(TagSet::kNumMutexes);
 ///////////////////////////////////////////////////////////////////////////
 
 StreamTimeCalculator::StreamTimeCalculator()
-  : is_first_tag_(true),
-    last_tag_ts_(0),
-    media_time_ms_(0),
-    stream_time_ms_(0) {
+  : last_tag_ts_(0),
+    stream_time_ms_(0),
+    last_source_started_ts_(0) {
 }
 StreamTimeCalculator::~StreamTimeCalculator() {
 }
 
 void StreamTimeCalculator::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   // the timestamp of these tags is not relevant
+  // Usually these have timestamp == 0 !!
   if ( tag->type() == Tag::TYPE_FLV_HEADER ||
-      tag->type() == Tag::TYPE_BOOTSTRAP_BEGIN ||
-      tag->type() == Tag::TYPE_BOOTSTRAP_END ||
-      tag->type() == Tag::TYPE_EOS ||
-      tag->type() == Tag::TYPE_SOURCE_ENDED ) {
+       tag->type() == Tag::TYPE_BOOTSTRAP_BEGIN ||
+       tag->type() == Tag::TYPE_BOOTSTRAP_END ||
+       tag->type() == Tag::TYPE_BOS ||
+       tag->type() == Tag::TYPE_EOS ||
+       tag->type() == Tag::TYPE_SOURCE_ENDED ) {
     return;
   }
 
   /*
-  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
-  }
-  if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
+  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ||
+       tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
     LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
   }
   */
 
+  /*
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
     media_time_ms_ = timestamp_ms;
     last_tag_ts_ = timestamp_ms;
   }
+  */
+
+  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
+    const SourceStartedTag* ss = static_cast<const SourceStartedTag*>(tag);
+    last_tag_ts_ = timestamp_ms;
+    if ( stream_time_ms_ == 0 ) {
+      stream_time_ms_ = timestamp_ms;
+    }
+    last_source_started_ts_ = ss->source_start_timestamp_ms();
+  }
 
   int64 delta = timestamp_ms - last_tag_ts_;
-  media_time_ms_ += delta;
+  //media_time_ms_ += delta;
+  if ( delta < 0 || delta > 5000 ) {
+    LOG_ERROR << "HUGE delta: " << delta
+              << ", last_tag: " << last_tag_ts_ << " " << last_tag_->ToString()
+              << ", tag: " << timestamp_ms << " " << tag->ToString();
+  }
+
   stream_time_ms_ += delta;
   last_tag_ts_ = timestamp_ms;
 
   /*
-  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
-    LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
-  }
-  if ( tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
+  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ||
+       tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
     LOG_ERROR << tag->ToString();
     LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
   }
   */
+
+  last_tag_ = tag;
 }
 
 }

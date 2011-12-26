@@ -273,9 +273,9 @@ struct RequestInfo {
 
   // Anything goes constructor :)
   RequestInfo()
-      : seek_pos_ms_(-1),
+      : seek_pos_ms_(0),
         media_origin_pos_ms_(0),
-        limit_ms_(-1),
+        limit_ms_(-1), // undefined
         ip_class_(-1),
         write_ahead_ms_(0),
         is_internal_(false) {

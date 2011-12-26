@@ -56,7 +56,7 @@
 #include <whisperlib/net/base/user_authenticator.h>
 #include <whisperlib/net/http/http_server_protocol.h>
 
-#include <whisperstreamlib/rtmp/rtmp_connection.h>
+#include <whisperstreamlib/rtmp/rtmp_acceptor.h>
 #include <whisperstreamlib/elements/factory.h>
 #include <whisperstreamlib/rtp/rtsp/rtsp_server.h>
 #include <whisperstreamlib/rtp/rtsp/rtsp_element_mapper_media_interface.h>
@@ -305,7 +305,6 @@ protected:
   void Shutdown();
 
   void ProcessMediaRequest(http::ServerRequest* req);
-  void ProcessMediaRequestCallback(http::ServerRequest* req);
 
   void LoadMediaConfig();
  private:
@@ -320,7 +319,6 @@ protected:
 
   vector<net::SelectorThread*> client_threads_;
 
-  rtmp::StandardStreamManager* rtmp_stream_manager_;
   rtmp::ServerAcceptor* rtmp_server_;
   rtmp::ProtocolFlags rtmp_flags_;
 
@@ -352,7 +350,6 @@ Whispercast::Whispercast(int &argc, char **&argv)
     rpc_http_net_factory_(NULL),
     http_server_(NULL),
     rpc_http_server_(NULL),
-    rtmp_stream_manager_(NULL),
     rtmp_server_(NULL),
     admin_authenticator_(NULL),
     rpc_stat_processor_(NULL),
@@ -374,7 +371,6 @@ Whispercast::~Whispercast() {
   CHECK_NULL(http_server_);
   CHECK_NULL(rpc_http_server_);
   CHECK(client_threads_.empty());
-  CHECK_NULL(rtmp_stream_manager_);
   CHECK_NULL(rtmp_server_);
   CHECK_NULL(rpc_stat_processor_);
   CHECK_NULL(rpc_processor_);
@@ -516,12 +512,6 @@ int Whispercast::Initialize() {
                                        true, 10,
                                        FLAGS_rpc_config_allow_classifier);
 
-  rtmp_stream_manager_ = new rtmp::StandardStreamManager(
-      selector_,
-      NULL,  // will set later..
-      stats_collector_,
-      FLAGS_rtmp_publishing_application);
-
   //////////////////////////////////////////////////////////////////////
 
   CHECK(!FLAGS_media_config_dir.empty() &&
@@ -534,15 +524,12 @@ int Whispercast::Initialize() {
                                   http_server_,
                                   rpc_http_server_,
                                   rpc_processor_,
-                                  rtmp_stream_manager_,
                                   admin_authenticator_,
                                   FLAGS_media_config_dir,
                                   FLAGS_base_media_dir,
                                   FLAGS_media_state_dir,
                                   FLAGS_media_state_name,
                                   FLAGS_local_media_state_name);
-
-  rtmp_stream_manager_->set_element_mapper(media_mapper_->mapper());
 
   //////////////////////////////////////////////////////////////////////
 
@@ -563,8 +550,7 @@ int Whispercast::Initialize() {
   rtmp_server_ = new rtmp::ServerAcceptor(
       selector_,
       client_threads,
-      rtmp_stream_manager_,
-      "rtmp",
+      media_mapper_->mapper(),
       stats_collector_,
       &classifiers_,
       &rtmp_flags_);
@@ -705,8 +691,6 @@ void Whispercast::Cleanup() {
 
   // Close the RTMP server
 
-  delete rtmp_stream_manager_;
-  rtmp_stream_manager_ = NULL;
   rtmp_server_ = NULL;  // auto-deleted...
 
   //////////////////////////////////////////////////////////////////////
@@ -735,11 +719,6 @@ void Whispercast::Shutdown() {
 }
 
 void Whispercast::ProcessMediaRequest(http::ServerRequest* request) {
-  selector_->RunInSelectLoop(
-      NewCallback(this, &Whispercast::ProcessMediaRequestCallback, request));
-}
-
-void Whispercast::ProcessMediaRequestCallback(http::ServerRequest* request) {
   StreamRequest* srequest = new StreamRequest(connection_id_++,
       selector_, media_mapper_->mapper(), stats_collector_, request);
 
@@ -748,7 +727,7 @@ void Whispercast::ProcessMediaRequestCallback(http::ServerRequest* request) {
 
   map<string, string>::const_iterator it_ext = ext2ct_.find(extension);
   if ( it_ext != ext2ct_.end() ) {
-    srequest->Play(it_ext->second.c_str());
+    srequest->Play(it_ext->second);
   } else {
     srequest->Play("video/x-flv");
   }

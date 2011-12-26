@@ -74,7 +74,7 @@ void Request::SetFromUrl(const URL& url) {
         if ( !errno ) info_.media_origin_pos_ms_ = max((int64)(0), n);
       } else if ( comp[i].first == FLAGS_req_limit_key ) {
         const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) info_.limit_ms_ = max((int64)(0), n);
+        if ( !errno ) info_.limit_ms_ = max((int64)(-1), n);
       } else if ( comp[i].first == FLAGS_req_session_key ) {
         info_.session_id_ = comp[i].second;
       } else if ( comp[i].first == FLAGS_req_affiliate_key ) {
@@ -87,10 +87,6 @@ void Request::SetFromUrl(const URL& url) {
       }
     }
     info_.auth_req_.ReadQueryComponents(comp);
-  }
-
-  if ( info_.limit_ms_ >= 0 ) {
-    info_.seek_pos_ms_ = min(info_.seek_pos_ms_, info_.limit_ms_);
   }
 
   info_.path_ = url.path();
@@ -263,41 +259,46 @@ void Capabilities::IntersectCaps(const Capabilities& c) {
 }
 
 string RequestInfo::ToString() const {
-  string s;
-  if ( is_internal_ ) {
-    s += "INTERN: [" + internal_id_ + "]";
-  } else {
-    s += strutil::StringPrintf("(%s -> %s)",
-                               remote_address_.ToString().c_str(),
-                               local_address_.ToString().c_str());
-    if ( ip_class_ >= 0 ) {
-      s += strutil::StringPrintf("(ipclass: %d)", ip_class_);
-    }
-  }
-  if ( seek_pos_ms_ > 0 ) {
-    s += strutil::StringPrintf(
-        "(seek @%"PRId64"ms)",
-        (seek_pos_ms_));
-  }
-  if ( media_origin_pos_ms_ > 0 ) {
-    s += strutil::StringPrintf(
-        "(origin @%"PRId64"ms)",
-        (media_origin_pos_ms_));
-  }
-  if ( limit_ms_ > 0 && limit_ms_ != kMaxInt64 ) {
-    s += strutil::StringPrintf(
-        "(limit @%"PRId64"ms)",
-        (limit_ms_));
-  }
-  s += "[ " + GetUrlPath(path_.c_str(), false) + " ]";
-  return s;
+  return strutil::StringPrintf("RequestInfo{"
+      "seek_pos_ms_: %"PRId64""
+      ", media_origin_pos_ms_: %"PRId64""
+      ", limit_ms_: %"PRId64""
+      ", session_is_: %s"
+      ", affiliate_id_: %s"
+      ", client_id_: %s"
+      ", user_agent: %s"
+      ", remote_address_: %s"
+      ", local_address: %s"
+      ", ip_class_: %d"
+      ", path_: [%s]"
+      ", internal_id_: [%s]"
+      //", auth_req_: %s"
+      ", write_ahead_ms_: %"PRId64""
+      ", is_internal_: %s}",
+      seek_pos_ms_,
+      media_origin_pos_ms_,
+      limit_ms_,
+      session_id_.c_str(),
+      affiliate_id_.c_str(),
+      client_id_.c_str(),
+      user_agent_.c_str(),
+      remote_address_.ToString().c_str(),
+      local_address_.ToString().c_str(),
+      ip_class_,
+      path_.c_str(),
+      internal_id_.c_str(),
+      //auth_req_.ToString().c_str(),
+      write_ahead_ms_,
+      strutil::BoolToString(is_internal_).c_str());
 }
 
 string RequestServingInfo::ToString() const {
   return strutil::StringPrintf("(export_: %s, media_: %s, tag_type_: %s"
                                ", content_type_: %s"
                                ", authorizer_name_: %s"
-                               ", offset_: %"PRId64", size_: %"PRId64", flavour: %x"
+                               ", offset_: %"PRId64""
+                               ", size_: %"PRId64""
+                               ", flavour: %x"
                                ", max_clients_: %d)",
                                export_path_.c_str(),
                                media_name_.c_str(),

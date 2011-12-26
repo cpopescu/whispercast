@@ -129,13 +129,13 @@ class SimpleClient {
   void ConnectionCloseHandler(int err, net::NetConnection::CloseWhat what);
 
   // send rtmp Event
-  void Send(Event& event);
+  void Send(Event* event);
 
  private:
   net::Selector * selector_;
   net::NetConnection* net_connection_;
-  rtmp::ProtocolData* protocol_;
-  rtmp::Coder* coder_;
+  rtmp::ProtocolData protocol_data_;
+  rtmp::Coder coder_;
 
   string app_name_;
   string stream_name_;
