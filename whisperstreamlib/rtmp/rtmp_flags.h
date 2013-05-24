@@ -80,6 +80,12 @@ struct ProtocolFlags {
 
   // log level for this protocol
   int32 log_level_;
+
+  // wait these milliseconds before sending 'StreamNotFound'
+  int32 reject_delay_ms_;
+
+  // expiration ms for the rtmp::ServerAcceptor::missing_stream_cache_
+  int64 missing_stream_cache_expiration_ms_;
 };
 
 void GetProtocolFlags(ProtocolFlags* flags);

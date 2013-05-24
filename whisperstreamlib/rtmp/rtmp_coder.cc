@@ -46,13 +46,8 @@
 #include "rtmp/objects/amf/amf0_util.h"
 #include "rtmp/objects/amf/amf_util.h"
 #include "rtmp/rtmp_coder.h"
-#include "rtmp/rtmp_protocol_data.h"
 
-// Check http://osflash.org/_media/rtmp_spec.jpg
-// for protocol format details
-
-// The logic is quite complicated here .. follow it closely and *read* the
-// document above ..
+// Check http://osflash.org/_media/rtmp_spec.jpg for protocol format details
 
 //////////////////////////////////////////////////////////////////////
 
@@ -71,110 +66,43 @@ DEFINE_bool(rtmp_debug_dump_only_control,
 
 namespace rtmp {
 
-Coder::Coder(rtmp::ProtocolData* protocol_data,
-             int64 memory_limit)
+Coder::Coder(int64 memory_limit)
   : memory_limit_(memory_limit),
-    protocol_data_(protocol_data),
-    last_header_(NULL),
+    read_chunk_size_(kDefaultReadChunkSize),
+    write_chunk_size_(kDefaultWriteChunkSize),
     memory_used_(0) {
 }
 Coder::~Coder() {
-  delete last_header_;
-  last_header_ = NULL;
 }
 AmfUtil::ReadStatus Coder::Decode(io::MemoryStream* in,
                                   AmfUtil::Version version,
                                   scoped_ref<rtmp::Event>* out) {
   CHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  AmfUtil::ReadStatus err;
   *out = NULL;
-  do {
-    // last_header_ was a header that was probably fully decoded in the last
-    // call to Decode, but its *chunk* body was not completed..
-    bool reuse_header = false;
-    if ( last_header_ == NULL ) {
-      last_header_ = new rtmp::Header(protocol_data_);
-    } else {
-      if ( in->Size() < sizeof(uint8) ) {
-        return AmfUtil::READ_NO_DATA;
-      }
-      // Try to save some time when we have a header continuation
-      in->MarkerSet();
-      const uint8 header_byte = io::NumStreamer::ReadByte(in);
-      const uint8 expected = uint8(((HEADER_CONTINUE << 6) +
-                                    last_header_->channel_id()) & 0xff);
-      if ( header_byte == expected &&
-           last_header_->channel_id() <= 0x3f ) {
-        reuse_header = true;
-        if ( last_header_->timestamp_ms() >= 0xffffff ) {
-          in->Skip(sizeof(uint32));
-        }
-        const rtmp::Header* const old_header =
-            protocol_data_->get_last_read_header(last_header_->channel_id());
-        if ( old_header != NULL && old_header != last_header_ ) {
-          last_header_->CopyParams(*old_header);
-        }
-      } else {
-        const rtmp::Header* const old_header =
-            protocol_data_->get_last_read_header(last_header_->channel_id());
-        if ( old_header != last_header_ ) {
-          delete last_header_;
-        }
-        last_header_ = new rtmp::Header(protocol_data_);
-        in->MarkerRestore();
-      }
+  while ( true ) { // multiple chunks
+    Header header;
+    uint32 event_size = 0;
+
+    in->MarkerSet();
+    AmfUtil::ReadStatus err = header.Decode(in, version, this, &event_size);
+    if ( err != AmfUtil::READ_OK ) {
+      in->MarkerRestore();
+      return err;
     }
-    if ( !reuse_header ) {
-      in->MarkerSet();
-      DLOG_INFO_IF(FLAGS_rtmp_debug_dump_buffers > 0)
-        << in->Size()
-        << " > ======================== HEADER ================= \n"
-        << in->DumpContent(FLAGS_rtmp_debug_dump_buffers);
-      AmfUtil::ReadStatus err = last_header_->ReadFromMemoryStream(
-        in, version);
-      DLOG_INFO_IF(FLAGS_rtmp_debug_dump_buffers > 0)
-        << in->Size()
-        << " > ============== RETURNED: "
-        << AmfUtil::ReadStatusName(err)
-        << " ==> " << *last_header_;
-      if ( err != AmfUtil::READ_OK ) {
-        in->MarkerRestore();
-        return err;
-      }
-      if ( !IsValidEventType(last_header_->event_type()) ) {
-        LOG_ERROR << " Invalid header type found: "
-                  << *last_header_
-                  << " --> " << last_header_->event_type();
-        in->MarkerRestore();
-        return AmfUtil::READ_CORRUPTED_DATA;
-      }
-    }
-    // Did we receive before some event body for this channel ?
-    io::MemoryStream* event_body = protocol_data_->get_partial_body(
-      last_header_->channel_id());
-    if ( event_body == NULL ) {
-      if ( last_header_->channel_id() >=
-           rtmp::ProtocolData::kMaxNumChannels ) {
-        LOG_ERROR << "Invalid channel received: "
-                  << last_header_->channel_id();
-        return AmfUtil::READ_TOO_MANY_CHANNELS;
-      }
-      // TODO(cpopescu): -- too many channels error !!
-      event_body = new io::MemoryStream(max(min(last_header_->event_size(),
-          static_cast<uint32>(io::DataBlock::kDefaultBufferSize)), 32U));
-      protocol_data_->set_partial_body(last_header_->channel_id(), event_body);
-    }
-    const int32 initial_event_body_size = event_body->Size();
+    CHECK(IsValidEventType(header.event_type())); // header.Decode() should have checked this
+
+    // persistent event body for this channel, filled with each chunk.
+    // When the event body is completely received, the event gets decoded.
+    io::MemoryStream& event_body = partial_bodies_[header.channel_id()];
+    const int32 initial_event_body_size = event_body.Size();
     const int32 to_read = min(
-        static_cast<int32>(protocol_data_->read_chunk_size()),
-        static_cast<int32>(last_header_->event_size() -
-                           initial_event_body_size));
+        static_cast<int32>(read_chunk_size_),
+        static_cast<int32>(event_size - initial_event_body_size));
     if ( to_read < 0 ) {
       LOG_ERROR << " Invalid  header to read data: "
-                << " chunk size: " << protocol_data_->read_chunk_size()
-                << " last_header: " << last_header_->ToString()
-                << " initial_event_body_size: " << initial_event_body_size
-                << " reuse_header: " << reuse_header;
+                << " chunk size: " << read_chunk_size_
+                << " header: " << header.ToString()
+                << " initial_event_body_size: " << initial_event_body_size;
       in->MarkerRestore();
       return AmfUtil::READ_CORRUPTED_DATA;
     }
@@ -182,176 +110,138 @@ AmfUtil::ReadStatus Coder::Decode(io::MemoryStream* in,
       in->MarkerRestore();
       return AmfUtil::READ_NO_DATA;
     }
-    event_body->AppendStreamNonDestructive(in, to_read);
-    const int64 bufsize = event_body->Size();
-    memory_used_ += (bufsize - initial_event_body_size);
+    event_body.AppendStream(in, to_read);
+    memory_used_ += (event_body.Size() - initial_event_body_size);
     if ( memory_used_ > memory_limit_ ) {
       in->MarkerRestore();
-      LOG_WARNING << "rtmp::Coder encountered an OOM on header: "
-               << *last_header_ << " Reached: " << memory_used_;
+      LOG_WARNING << "rtmp::Coder encountered an OOM on header: " << header
+                  << " Reached: " << memory_used_;
       return AmfUtil::READ_OOM;
     }
 
-    in->Skip(to_read);
-    // Right now we definitely passed over this chunk - update last_header_
-    // and stuff, and advance the marker
+    // Right now we definitely passed over this chunk - advance the marker
     in->MarkerClear();
-    rtmp::Header* const old_header =
-      protocol_data_->get_last_read_header(last_header_->channel_id());
-    if ( old_header != NULL && old_header != last_header_ ) {
-      delete old_header;
-      protocol_data_->clear_last_read_header(last_header_->channel_id());
+    if ( initial_event_body_size == 0 ) {
+      // first header in a chunk series: update last read event header/size
+      last_read_event_header_[header.channel_id()] = header;
+      last_read_event_size_[header.channel_id()] = event_size;
     }
-    if ( bufsize == last_header_->event_size() ) {
-      DCHECK(protocol_data_->get_partial_body(last_header_->channel_id()) ==
-             event_body);
-      protocol_data_->clear_partial_body(last_header_->channel_id());
-      // Now we can compose an event !
-      *out = CreateEvent(last_header_);
-      // Put a copy of last_header in the protocol state in case it is needed
-      protocol_data_->set_last_read_header(last_header_->channel_id(),
-                                           new rtmp::Header(protocol_data_,
-                                                            *last_header_));
-      last_header_ = NULL;   // no need to delete - captured in CreateEvent
-      DLOG_INFO_IF(FLAGS_rtmp_debug_dump_buffers > 0)
-        <<  "======================== BODY ================= "
-        << event_body->DumpContent(FLAGS_rtmp_debug_dump_buffers);
+    if ( event_body.Size() < event_size ) {
+      // we still need to read some more chunks
+      continue;
+    }
 
-      err = (*out)->ReadFromMemoryStream(event_body, version);
-      DLOG_INFO_IF(FLAGS_rtmp_debug_dump_buffers > 0)
-        << " ============== RETURNED: "
-        << AmfUtil::ReadStatusName(err);
-      if ( !event_body->IsEmpty() ) {
-        LOG_WARNING << "Events bytes left by decoder: " << event_body->Size()
-                    << " for event: " << (*out)->ToString();
-      }
-      memory_used_ -= bufsize;
-      delete event_body;
+    // Now we can compose an event !
+    *out = CreateEvent(header);
+    // All the event_body is going to be consumed right away
+    memory_used_ -= event_body.Size();
+    err = (*out)->DecodeBody(&event_body, version);
+    if ( err != AmfUtil::READ_OK ) {
+      LOG_ERROR << "Failed to decode event: " << (*out)->ToString()
+                << ", err: " << AmfUtil::ReadStatusName(err);
       return err;
-    } else if ( old_header != last_header_ ) {
-      DCHECK_LT(bufsize, last_header_->event_size());
-
-      // we still need to read some more chunks - but save the last_header_
-      protocol_data_->set_last_read_header(last_header_->channel_id(),
-                                           last_header_);
     }
-  } while (true);   // next chunk !
+    if ( !event_body.IsEmpty() ) {
+      LOG_ERROR << "Event bytes left by decoder: " << event_body.Size()
+                << " bytes for event: " << (*out)->ToString();
+    }
+    // Done with this event.
+    event_body.Clear();
+
+    // maybe update read_chunk_size_
+    if ( (*out)->event_type() == EVENT_CHUNK_SIZE ) {
+      int chunk_size = static_cast<EventChunkSize*>(out->get())->chunk_size();
+      if ( chunk_size > kMaxChunkSize ) {
+        LOG_ERROR << "Refusing to set chunk size: " << chunk_size;
+      } else {
+        LOG_INFO << "Setting chunk size to: " << chunk_size;
+        read_chunk_size_ = chunk_size;
+      }
+    }
+
+    return err;
+  }
 }
 
-void MoveData(io::MemoryStream* out,
-              io::DataBlockPointer* reader,
-              int size) {
-  // TODO(cosmin): Why do we allocate a new DataBlock?
-  //               Instead of using the simple Write() which copies data?
-  //               size is usually small: 1 byte.
-  char* buffer = new char[size];
-  const int32 len = reader->ReadData(buffer, size);
-  out->AppendRaw(buffer, len);
+void Coder::Encode(const rtmp::Event& event,
+                   AmfUtil::Version version,
+                   io::MemoryStream* out) {
+  CHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  io::MemoryStream event_stream;
+  event.EncodeBody(&event_stream, version);
+  EncodeWithAuxBuffer(event, &event_stream, version, out);
 }
 
-int Coder::EncodeWithAuxBuffer(io::MemoryStream* out,
-                               AmfUtil::Version version,
-                               rtmp::Event* event,
-                               const io::MemoryStream* event_stream) const {
+void MoveData(io::MemoryStream* out, io::DataBlockPointer* reader, int size) {
+}
+void Coder::EncodeWithAuxBuffer(const rtmp::Event& event,
+                                const io::MemoryStream* event_stream,
+                                AmfUtil::Version version,
+                                io::MemoryStream* out) {
   CHECK_EQ(version, AmfUtil::AMF0_VERSION);
 
-  // Then prepare chunks to be written to out ..
-  io::MemoryStream chunk_stream(protocol_data_->write_chunk_size() + 12);
+  // maybe update write_chunk_size_
+  if ( event.event_type() == EVENT_CHUNK_SIZE ) {
+    write_chunk_size_ = static_cast<const EventChunkSize&>(event).chunk_size();
+    CHECK_GT(write_chunk_size_, 0);
+  }
 
-  // Update the size of the stream header ..
-  event->mutable_header()->set_event_size(event_stream->Size());
-  CHECK_EQ(event->event_type(), event->header()->event_type());
 #ifdef _DEBUG
   if ( FLAGS_rtmp_debug_dump_sent_events ) {
     if ( FLAGS_rtmp_debug_dump_only_control ) {
-      LOG_INFO_IF(event->event_type() != EVENT_MEDIA_DATA &&
-                  event->event_type() != EVENT_AUDIO_DATA &&
-                  event->event_type() != EVENT_VIDEO_DATA)
-                 << " RTMP encode event: " << *event;
+      LOG_INFO_IF(event.event_type() != EVENT_MEDIA_DATA &&
+                  event.event_type() != EVENT_AUDIO_DATA &&
+                  event.event_type() != EVENT_VIDEO_DATA)
+                 << " RTMP encode event: " << event;
     } else {
-        LOG_INFO << " RTMP encode event: " << *event;
+        LOG_INFO << " RTMP encode event: " << event;
     }
-    VLOG(10) << "Encoding an event : " << *event;
+    VLOG(10) << "Encoding an event : " << event;
   }
 #endif
-  // Logic:
-  //  - write the header at the beginning of the chunk
-  //  - fill the chunk w/ event_stream bytes.
-  //  - append the chunk to out
-  //  - while there are some bytes to be sent in event_stream..
-  int num_chunks = 0;
-  const rtmp::Header* previous =
-    protocol_data_->get_last_write_header(event->header()->channel_id());
 
+  // NOTE: event_stream is actually tag data, which is shared between multiple
+  //       network threads! Simple Read/Write ops are not thread safe and they
+  //       corrupt the stream! That's why DataBlockPointer/AppendRaw are used.
   io::DataBlockPointer es_reader = event_stream->GetReadPointer();
   int32 es_size = event_stream->Size();
-
-  int32 leftover = 0;
-  CHECK_GT(protocol_data_->write_chunk_size(), 0);
+  uint32 num_chunks = 0;
+  // NOTE: If the event_stream is empty, a 0 sized event still needs to be sent
+  //       This is why we use do {} while;
   do {
-    event->header()->WriteToMemoryStream(out, version,
-                                         num_chunks > 0);
-    if ( previous ) {
-      delete previous;
-      previous = NULL;
-    }
+    int chunk_size = min(es_size, write_chunk_size_);
+    event.header().Encode(version, this, es_size, num_chunks > 0, out);
     if ( num_chunks == 0 ) {
-      protocol_data_->set_last_write_header(
-          event->header()->channel_id(),
-          new rtmp::Header(protocol_data_, *event->header()));
+      last_write_event_header_[event.header().channel_id()] = event.header();
+      last_write_event_size_[event.header().channel_id()] = es_size;
     }
-    leftover = min(es_size,
-                   protocol_data_->write_chunk_size());
 
-    if (leftover > 0) {
-      MoveData(out, &es_reader, leftover);
+    if ( chunk_size > 0 ) {
+      // copy data from event_stream to out
+      char* buffer = new char[chunk_size];
+      const int32 len = es_reader.ReadData(buffer, chunk_size);
+      CHECK_EQ(len, chunk_size);
+      out->AppendRaw(buffer, len);
 
-      es_size -= leftover;
+      // update remaining event_stream size, and num_chunks
+      es_size -= len;
       num_chunks++;
     }
-
-    /*
-    char* buffer = new char[leftover];
-    const int32 len = es_reader.ReadData(buffer, leftover);
-    out->AppendRaw(buffer, len);
-    */
-    /*
-      Alternate:
-
-      io::DataBlockPointer es_end(es_reader);
-      es_end.Advance(leftover);
-      out->AppendStreamNonDestructive(&es_reader, &es_end);
-      es_reader = es_end;
-    */
-  } while ( es_size > 0 && leftover > 0 );
-
-  // protocol_data_->clear_last_write_header(event->header()->channel_id());
-  return num_chunks;
+  } while ( es_size > 0 );
 }
 
-int Coder::Encode(io::MemoryStream* out,
-                  AmfUtil::Version version,
-                  rtmp::Event* event) const {
-  CHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  // First encode the event in one buffer ..
-  io::MemoryStream event_stream;
-  event->WriteToMemoryStream(&event_stream, version);
-  return EncodeWithAuxBuffer(out, version, event, &event_stream);
-}
-
-
-rtmp::Event* Coder::CreateEvent(rtmp::Header* header) {
-  switch ( header->event_type() ) {
+rtmp::Event* Coder::CreateEvent(const rtmp::Header& header) {
+  switch ( header.event_type() ) {
   case EVENT_CHUNK_SIZE:
-    return new rtmp::EventChunkSize(header);
+    return new rtmp::EventChunkSize(header, 0);
   case EVENT_INVOKE:
-    return new rtmp::EventInvoke(header);
+    return new rtmp::EventInvoke(header, NULL);
   case EVENT_NOTIFY:
     return new rtmp::EventNotify(header);
   case EVENT_PING:
-    return new rtmp::EventPing(header);
+    return new rtmp::EventPing(header, EventPing::STREAM_CLEAR, -1, -1, -1);
   case EVENT_BYTES_READ:
-    return new rtmp::EventBytesRead(header);
+    return new rtmp::EventBytesRead(header, 0);
   case EVENT_AUDIO_DATA:
     return new rtmp::EventAudioData(header);
   case EVENT_VIDEO_DATA:
@@ -361,18 +251,15 @@ rtmp::Event* Coder::CreateEvent(rtmp::Header* header) {
   case EVENT_SHARED_OBJECT:
     return new rtmp::EventSharedObject(header);
   case EVENT_SERVER_BANDWIDTH:
-    return new rtmp::EventServerBW(header);
+    return new rtmp::EventServerBW(header, 0);
   case EVENT_CLIENT_BANDWIDTH:
-    return new rtmp::EventClientBW(header);
+    return new rtmp::EventClientBW(header, 0, 0);
   case EVENT_FLEX_MESSAGE:
     return new rtmp::EventFlexMessage(header);
   case EVENT_MEDIA_DATA:
     return new rtmp::MediaDataEvent(header);
-  case EVENT_INVALID:
-    LOG_ERROR << " Invalid event found: " <<  header->event_type();
-    return new rtmp::EventUnknown(header);
   }
-  LOG_ERROR << " Unknown event found: " <<  header->event_type();
-  return new rtmp::EventUnknown(header);
+  LOG_FATAL << "Illegal event type: " << header.event_type();
+  return NULL;
 }
 }

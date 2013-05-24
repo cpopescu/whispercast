@@ -36,12 +36,10 @@
 namespace streaming {
 
 const Tag::Type AacFrameTag::kType = Tag::TYPE_AAC;
-const TagSplitter::Type AacTagSplitter::kType = TagSplitter::TS_AAC;
 const int AacTagSplitter::kAacHeaderLen = 2048;
 
-
 AacTagSplitter::AacTagSplitter(const string& name)
-    : streaming::TagSplitter(kType, name),
+    : TagSplitter(MFORMAT_AAC, name),
       aac_handle_(faacDecOpen()),
       samplerate_(0),
       channels_(0),
@@ -100,7 +98,7 @@ streaming::TagReadStatus AacTagSplitter::ReadHeader(
   if ( size < 0 ) {
     LOG_ERROR << name() << "Error decoding AAC header: "
              << faacDecGetErrorMessage(frame_info_.error);
-    return streaming::READ_CORRUPTED_FAIL;
+    return streaming::READ_CORRUPTED;
   }
   in->MarkerRestore();
   in->Skip(size);
@@ -120,14 +118,14 @@ streaming::TagReadStatus AacTagSplitter::ReadHeader(
   return streaming::READ_OK;
 }
 
-streaming::TagReadStatus AacTagSplitter::MaybeFinalizeFrame(
-    scoped_ref<Tag>* tag, const char* buffer) {
+TagReadStatus AacTagSplitter::FinalizeFrame(const char* data,
+    scoped_ref<AacFrameTag>* out) {
   // Check seek / time limits
   int64 timestamp_to_send = static_cast<int64>(stream_offset_ms_);
   // use 'CORE' AAC samplerate - which is half of the actual samplerate
   const double crt_time_len = (frame_info_.samples * 500.0 /
                                frame_info_.samplerate);
-  *tag = new AacFrameTag(Tag::ATTR_AUDIO
+  *out = new AacFrameTag(Tag::ATTR_AUDIO
                          | Tag::ATTR_CAN_RESYNC
                          | Tag::ATTR_DROPPABLE,
                          kDefaultFlavourMask,
@@ -136,7 +134,7 @@ streaming::TagReadStatus AacTagSplitter::MaybeFinalizeFrame(
                          frame_info_.samplerate,
                          frame_info_.channels,
                          frame_info_.samples,
-                         buffer,
+                         data,
                          frame_info_.bytesconsumed);
 
   stream_offset_ms_ += crt_time_len;
@@ -173,7 +171,7 @@ streaming::TagReadStatus AacTagSplitter::GetNextTagInternal(
         // This is a bad error
         LOG_ERROR << name() << ": aac decode error '"
                   << faacDecGetErrorMessage(frame_info_.error) << "'";
-        return streaming::READ_CORRUPTED_FAIL;
+        return streaming::READ_CORRUPTED;
       }
       // Not enough data
       if ( in->IsEmpty() ) {
@@ -187,17 +185,22 @@ streaming::TagReadStatus AacTagSplitter::GetNextTagInternal(
     }
 
     // Success - one frame decoded
-    const streaming::TagReadStatus ret =
-      MaybeFinalizeFrame(tag, last_stream_.data());
+    scoped_ref<AacFrameTag> aac_tag;
+    const TagReadStatus ret = FinalizeFrame(last_stream_.data(), &aac_tag);
     last_stream_.erase(0, frame_info_.bytesconsumed);
-    VLOG(10) << (*tag)->ToString();
-    if ( ret == streaming::READ_SKIP ) {
+    if ( ret == READ_SKIP ) {
       continue;
     }
-    return ret;
+    if ( ret != READ_OK ) {
+      LOG_ERROR << "FinalizeFrame failed: " << TagReadStatusName(ret);
+      return ret;
+    }
+    *tag = aac_tag.get();
+    *timestamp_ms = aac_tag->timestamp_ms();
+    return READ_OK;
   }
   LOG_FATAL << "Unreachable line";
-  return streaming::READ_UNKNOWN;
+  return streaming::READ_SKIP;
 }
 
 string AacFrameTag::ToStringBody() const {

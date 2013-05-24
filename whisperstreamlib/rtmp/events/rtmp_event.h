@@ -45,6 +45,7 @@
 #include <whisperstreamlib/rtmp/rtmp_consts.h>
 #include <whisperstreamlib/rtmp/events/rtmp_header.h>
 #include <whisperstreamlib/rtmp/objects/amf/amf0_util.h>
+#include <whisperstreamlib/flv/flv_tag.h>
 
 namespace rtmp {
 
@@ -53,33 +54,21 @@ namespace rtmp {
 
 class Event : public RefCounted {
  public:
-  // Constructs an event based on a type and a header. (Which comes under
-  // our control..)
-  Event(EventType event_type, EventSubType event_subtype, Header* header)
-      : RefCounted(NULL),
+  // Constructs an event based on a type and a header.
+  Event(const Header& header, EventType event_type, EventSubType event_subtype)
+      : header_(header),
         event_type_(event_type),
-        event_subtype_(event_subtype),
-        header_(header) {
-  }
-  Event(EventType event_type, EventSubType event_subtype,
-        ProtocolData* protocol_data, uint32 channel_id, uint32 stream_id)
-      : RefCounted(NULL),
-        event_type_(event_type),
-        event_subtype_(event_subtype),
-        header_(new Header(protocol_data)) {
-    header_->set_channel_id(channel_id);
-    header_->set_stream_id(stream_id);
-    header_->set_event_type(event_type);
+        event_subtype_(event_subtype) {
+    CHECK_EQ(header.event_type(), event_type);
   }
   virtual ~Event() {
-    delete header_;
   }
 
   EventType event_type() const {
     return event_type_;
   }
   const char* event_type_name() const {
-    return EventTypeName(event_type_);
+    return EventTypeName(event_type());
   }
   EventSubType event_subtype() const {
     return event_subtype_;
@@ -87,41 +76,35 @@ class Event : public RefCounted {
   const char* event_subtype_name() const {
     return EventSubTypeName(event_subtype_);
   }
-  const Header* header() const {
+  const Header& header() const {
     return header_;
   }
   Header* mutable_header() {
-    return header_;
+    return &header_;
   }
 
   virtual bool Equals(const Event* event) const {
-    return ( event->event_type() == event_type() &&
-             event->event_subtype() == event_subtype());
+    return (event->event_type() == event_type() &&
+            event->event_subtype() == event_subtype());
   }
-  // Returns a human readable string
+  virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,
+      AmfUtil::Version version) = 0;
+  virtual void EncodeBody(io::MemoryStream* out,
+      AmfUtil::Version version) const = 0;
+
   string ToString() const {
     return strutil::StringPrintf("Event{type: %s:%s, header: %s, %s}",
-        event_type_name(), event_subtype_name(), header_->ToString().c_str(),
+        event_type_name(), event_subtype_name(), header_.ToString().c_str(),
         ToStringAttr().c_str());
-  }
-  // Reading / writting
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version) {
-    LOG_ERROR << " ReadFromMemoryStream not implemented for " << ToString();
-    return AmfUtil::READ_NOT_IMPLEMENTED;
-  }
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const {
-    LOG_ERROR << " ReadFromMemoryStream not implemented for " << ToString();
   }
  private:
   // Subclasses must serialize their attributes in human readable form.
   virtual string ToStringAttr() const = 0;
 
  private:
+  Header header_;
   const EventType event_type_;
   const EventSubType event_subtype_;
-  Header* const header_;
  private:
   DISALLOW_EVIL_CONSTRUCTORS(Event);
 };
@@ -133,21 +116,14 @@ inline ostream& operator<<(ostream& os, const Event& obj) {
 //////////////////////////////////////////////////////////////////////
 
 //  An event that has a bulk data member
-//  Extremely important - All ints in memory streams are big endian !!
+//  Extremely important: all ints in memory streams are big endian !!
 class BulkDataEvent : public Event {
  public:
-  BulkDataEvent(EventType event_type, EventSubType event_subtype,
-                Header* header,
+  BulkDataEvent(const Header& header,
+                EventType event_type,
+                EventSubType event_subtype,
                 int block_size = io::DataBlock::kDefaultBufferSize)
-      : Event(event_type, event_subtype, header),
-        data_(block_size) {
-  }
-  BulkDataEvent(EventType event_type, EventSubType event_subtype,
-                ProtocolData* protocol_data,
-                uint32 channel_id, uint32 stream_id,
-                int block_size = io::DataBlock::kDefaultBufferSize)
-      : Event(event_type, event_subtype,
-              protocol_data, channel_id, stream_id),
+      : Event(header, event_type, event_subtype),
         data_(block_size) {
   }
 
@@ -166,89 +142,102 @@ class BulkDataEvent : public Event {
   void set_data(io::MemoryStream* in) {
     data_.Clear();
     data_.AppendStream(in);
-    mutable_header()->set_event_size(data_.Size());
   }
   // append data from in to our data buffer
   void append_data(io::MemoryStream* in) {
     data_.AppendStream(in);
-    mutable_header()->set_event_size(data_.Size());
   }
   void append_data(const char* data, int32 size, Closure* disposer = NULL) {
     data_.AppendRaw(data, size, disposer);
-    mutable_header()->set_event_size(data_.Size());
   }
   // copies data without destroying in
   void copy_data(const io::MemoryStream* in) {
     data_.Clear();
     data_.AppendStreamNonDestructive(in);
-    mutable_header()->set_event_size(data_.Size());
   }
   virtual bool Equals(const Event* obj) const {
     if ( !Event::Equals(obj) ) return false;
-    const BulkDataEvent* event =
-        reinterpret_cast<const BulkDataEvent*>(obj);
-    return event->data().Size() == data_.Size();
+    const BulkDataEvent* event = static_cast<const BulkDataEvent*>(obj);
+    return data_.Equals(event->data());
   }
   virtual string ToStringAttr() const {
     return strutil::StringPrintf("data.size: %d", data_.Size());
   }
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version) {
-    data_.AppendStream(in, header()->event_size());
-    mutable_header()->set_event_size(data_.Size());
+  virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,
+      AmfUtil::Version version) {
+    data_.AppendStream(in, in->Size());
     return AmfUtil::READ_OK;
   }
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const {
+  virtual void EncodeBody(io::MemoryStream* out,
+      AmfUtil::Version version) const {
     out->AppendStreamNonDestructive(&data_);
   }
- private:
+ protected:
   io::MemoryStream data_;
   DISALLOW_EVIL_CONSTRUCTORS(BulkDataEvent);
 };
 
 //////////////////////////////////////////////////////////////////////
 
-class EventUnknown : public BulkDataEvent {
- public:
-  explicit EventUnknown(Header* header)
-      : BulkDataEvent(EVENT_INVALID, SUBTYPE_SYSTEM, header) {
-  }
-  EventUnknown(ProtocolData* protocol_data,
-               uint32 channel_id, uint32 stream_id)
-      : BulkDataEvent(EVENT_INVALID, SUBTYPE_SYSTEM,
-                      protocol_data, channel_id, stream_id) {
-  }
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(EventUnknown);
-};
-
+// contains a single Video Tag
 class EventVideoData : public BulkDataEvent {
  public:
-  explicit EventVideoData(Header* header)
-      : BulkDataEvent(EVENT_VIDEO_DATA, SUBTYPE_STREAM_DATA, header) {
+  explicit EventVideoData(const Header& header)
+      : BulkDataEvent(header, EVENT_VIDEO_DATA, SUBTYPE_STREAM_DATA) {
   }
-  EventVideoData(ProtocolData* protocol_data,
-                 uint32 channel_id, uint32 stream_id)
-      : BulkDataEvent(EVENT_VIDEO_DATA, SUBTYPE_STREAM_DATA,
-                      protocol_data, channel_id, stream_id) {
-  }
+  // NO EncodeTag(), because Coder::EncodeWithAuxBuffer() offers a nice
+  // performance gain by encoding tag->data directly to Network stream
+
+  // Extracts 1 Video FlvTag from inside our body.
+  void DecodeTag(int64 timestamp_ms,
+                 scoped_ref<streaming::FlvTag>* out) const;
  private:
   DISALLOW_EVIL_CONSTRUCTORS(EventVideoData);
 };
 
+// contains a single Audio Tag
 class EventAudioData : public BulkDataEvent {
  public:
-  explicit EventAudioData(Header* header)
-      : BulkDataEvent(EVENT_AUDIO_DATA, SUBTYPE_STREAM_DATA, header) {
+  explicit EventAudioData(const Header& header)
+      : BulkDataEvent(header, EVENT_AUDIO_DATA, SUBTYPE_STREAM_DATA) {
   }
-  EventAudioData(ProtocolData* protocol_data,
-                 uint32 channel_id, uint32 stream_id)
-      : BulkDataEvent(EVENT_AUDIO_DATA, SUBTYPE_STREAM_DATA,
-                      protocol_data, channel_id, stream_id) {
-  }
+  // NO EncodeTag(), because Coder::EncodeWithAuxBuffer() offers a nice
+  // performance gain by encoding tag->data directly to Network stream
+
+  // Extracts 1 Audio FlvTag from inside our body.
+  void DecodeTag(int64 timestamp_ms,
+                 scoped_ref<streaming::FlvTag>* out) const;
  private:
   DISALLOW_EVIL_CONSTRUCTORS(EventAudioData);
+};
+
+// contains multiple Audio & Video Tags
+class MediaDataEvent : public BulkDataEvent {
+ public:
+  explicit MediaDataEvent(const Header& header)
+      : BulkDataEvent(header, EVENT_MEDIA_DATA, SUBTYPE_STREAM_DATA),
+        first_tag_ts_(-1),
+        previous_tag_size_(0),
+        duration_ms_(0) {
+  }
+  int64 first_tag_ts() const { return first_tag_ts_; }
+  int64 duration_ms() const { return duration_ms_; }
+  // tag: tag to encode inside our body
+  // timestamp_ms: tag's timestamp (does not have to start on 0)
+  void EncodeAddTag(const streaming::FlvTag& tag, int64 timestamp_ms);
+  // After several EncodeAddTag(), call this method to finalize encoding
+  void EncodeFinalize();
+  // Decode all the tags inside our body.
+  // Offset tags timestamp by 'timestamp_ms'
+  void DecodeTags(int64 timestamp_ms,
+      vector<scoped_ref<streaming::FlvTag> >* out) const;
+
+ private:
+  int64 first_tag_ts_;
+  uint32 previous_tag_size_;
+  // accumulated tags duration (based on their timestamp)
+  int64 duration_ms_;
+  DISALLOW_EVIL_CONSTRUCTORS(MediaDataEvent);
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -260,13 +249,8 @@ class EventAudioData : public BulkDataEvent {
 
 class EventStreamMetadata : public BulkDataEvent {
  public:
-  explicit EventStreamMetadata(Header* header)
-      : BulkDataEvent(EVENT_NOTIFY, SUBTYPE_SERVICE_CALL, header) {
-  }
-  EventStreamMetadata(ProtocolData* protocol_data,
-                      uint32 channel_id, uint32 stream_id)
-      : BulkDataEvent(EVENT_NOTIFY, SUBTYPE_SERVICE_CALL,
-                      protocol_data, channel_id, stream_id) {
+  explicit EventStreamMetadata(const Header& header)
+      : BulkDataEvent(header, EVENT_NOTIFY, SUBTYPE_SERVICE_CALL) {
   }
   virtual string ToStringAttr() const {
     return strutil::StringPrintf("data.size: %d", data().Size());
@@ -280,16 +264,9 @@ class EventStreamMetadata : public BulkDataEvent {
 // Events that have just one uint32 included
 #define DECLARE_UINT32_EVENT(classname, evtype, evsubtype, member)      \
   class classname : public Event {                                      \
-    public:                                                             \
-    explicit classname(Header* header)                                  \
-        : Event(evtype, evsubtype, header), member##_(0) {}             \
-    classname(uint32 member, Header* header)                            \
-        : Event(evtype, evsubtype, header), member##_(member) {}        \
-    classname(uint32 member,                                            \
-              ProtocolData* protocol_data,                              \
-              uint32 channel_id, uint32 stream_id)                      \
-        : Event(evtype, evsubtype, protocol_data, channel_id, stream_id), \
-          member##_(member) {}                                          \
+   public:                                                              \
+    classname(const Header& header, uint32 member)                      \
+        : Event(header, evtype, evsubtype), member##_(member) {}        \
     uint32 member() const { return member##_; }                         \
     void set_##member(uint32 member) { member##_ = member; }            \
     virtual bool Equals(const Event* obj) const {                       \
@@ -300,9 +277,8 @@ class EventStreamMetadata : public BulkDataEvent {
     virtual string ToStringAttr() const {                               \
       return strutil::StringPrintf(#member ": %d", member##_);          \
     }                                                                   \
-    virtual AmfUtil::ReadStatus                                         \
-    ReadFromMemoryStream(io::MemoryStream* in,                          \
-                         AmfUtil::Version version) {                    \
+    virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,        \
+                                           AmfUtil::Version version) {  \
       if ( in->Size() < sizeof(member##_) ) {                           \
         return AmfUtil::READ_NO_DATA;                                   \
       }                                                                 \
@@ -310,15 +286,14 @@ class EventStreamMetadata : public BulkDataEvent {
                                       common::BIGENDIAN));              \
       return AmfUtil::READ_OK;                                          \
     }                                                                   \
-    virtual void WriteToMemoryStream(io::MemoryStream* out,             \
+    virtual void EncodeBody(io::MemoryStream* out,                      \
                                      AmfUtil::Version version) const {  \
       io::NumStreamer::WriteInt32(out,                                  \
                                   static_cast<int32>(member##_),        \
                                   common::BIGENDIAN);                   \
     }                                                                   \
-    private:                                                            \
+   private:                                                             \
     uint32 member##_;                                                   \
-    private:                                                            \
     DISALLOW_EVIL_CONSTRUCTORS(classname);                              \
   }
 
@@ -349,19 +324,8 @@ DECLARE_UINT32_EVENT(EventServerBW,
 // see org.red5.server.net.rtmp.event.ClientBW
 class EventClientBW : public Event {
  public:
-  explicit EventClientBW(Header* header)
-      : Event(EVENT_CLIENT_BANDWIDTH, SUBTYPE_STREAM_CONTROL, header),
-        bandwidth_(0), value2_(0) {
-  }
-  EventClientBW(uint32 bandwidth, uint8 value2, Header* header)
-      : Event(EVENT_CLIENT_BANDWIDTH, SUBTYPE_STREAM_CONTROL, header),
-        bandwidth_(bandwidth), value2_(value2) {
-  }
-  EventClientBW(uint32 bandwidth, uint8 value2,
-                ProtocolData* protocol_data,
-                uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_CLIENT_BANDWIDTH, SUBTYPE_STREAM_CONTROL,
-              protocol_data, channel_id, stream_id),
+  explicit EventClientBW(const Header& header, uint32 bandwidth, uint8 value2)
+      : Event(header, EVENT_CLIENT_BANDWIDTH, SUBTYPE_STREAM_CONTROL),
         bandwidth_(bandwidth), value2_(value2) {
   }
   uint32 bandwidth() const { return bandwidth_; }
@@ -380,8 +344,8 @@ class EventClientBW : public Event {
     return strutil::StringPrintf("bandwidth_: %u, value2_: %hhu",
                                   bandwidth_, value2_);
   }
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version) {
+  virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,
+      AmfUtil::Version version) {
     if ( in->Size() < sizeof(bandwidth_) + sizeof(value2_) ) {
       return AmfUtil::READ_NO_DATA;
     }
@@ -390,8 +354,8 @@ class EventClientBW : public Event {
     value2_ = uint8(io::NumStreamer::ReadByte(in));
     return AmfUtil::READ_OK;
   }
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const {
+  virtual void EncodeBody(io::MemoryStream* out,
+      AmfUtil::Version version) const {
     io::NumStreamer::WriteInt32(out, bandwidth_, common::BIGENDIAN);
     io::NumStreamer::WriteByte(out, value2_);
   }
@@ -406,14 +370,8 @@ class EventClientBW : public Event {
 // Flex message - seems to be just a vector of events
 class EventFlexMessage : public Event {
  public:
-  explicit EventFlexMessage(Header* header)
-      : Event(EVENT_FLEX_MESSAGE, SUBTYPE_SERVICE_CALL, header),
-        unknown_(0) {
-  }
-  EventFlexMessage(ProtocolData* protocol_data,
-                   uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_FLEX_MESSAGE, SUBTYPE_SERVICE_CALL,
-              protocol_data, channel_id, stream_id),
+  explicit EventFlexMessage(const Header& header)
+      : Event(header, EVENT_FLEX_MESSAGE, SUBTYPE_SERVICE_CALL),
         unknown_(0) {
   }
   ~EventFlexMessage() {
@@ -423,41 +381,34 @@ class EventFlexMessage : public Event {
   // Returns a human readable string
   virtual string ToStringAttr() const {
     string s = "\n";
-    for ( int i = 0; i < data_.size(); ++i ) {
+    for ( uint32 i = 0; i < data_.size(); ++i ) {
       s += strutil::StringPrintf("%5d: %s\n", i, data_[i]->ToString().c_str());
     }
     return s;
   }
 
-  // Reading / writting
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version) {
-    if ( in->Size() < sizeof(uint8) ) {
+  virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,
+      AmfUtil::Version version) {
+    if ( in->Size() < 1 ) {
       return AmfUtil::READ_NO_DATA;
     }
     Clear();
-    in->MarkerSet();
     unknown_ = io::NumStreamer::ReadByte(in);
-    AmfUtil::ReadStatus err = AmfUtil::READ_NO_DATA;
     while ( !in->IsEmpty() ) {
       CObject* obj = NULL;
-      err = Amf0Util::ReadNextObject(in, &obj);
-      if ( err == AmfUtil::READ_OK ) {
-        data_.push_back(obj);
-      } else {
-        in->MarkerRestore();
-        Clear();
+      AmfUtil::ReadStatus err = Amf0Util::ReadNextObject(in, &obj);
+      if ( err != AmfUtil::READ_OK ) {
         return err;
       }
+      data_.push_back(obj);
     }
-    in->MarkerClear();
-    return err;
+    return AmfUtil::READ_OK;
   }
-  virtual void WriteToMemoryStream(
+  virtual void EncodeBody(
       io::MemoryStream* out, AmfUtil::Version version) const {
     io::NumStreamer::WriteByte(out, unknown_);
-    for ( int i = 0; i < data_.size(); ++i ) {
-      data_[i]->WriteToMemoryStream(out, version);
+    for ( uint32 i = 0; i < data_.size(); ++i ) {
+      data_[i]->Encode(out, version);
     }
   }
 
@@ -465,7 +416,7 @@ class EventFlexMessage : public Event {
   vector<CObject*>* mutable_data() { return &data_; }
 
   void Clear() {
-    for ( int i = 0; i < data_.size(); ++i ) {
+    for ( uint32 i = 0; i < data_.size(); ++i ) {
       delete data_[i];
     }
     data_.clear();
@@ -486,13 +437,8 @@ class EventFlexMessage : public Event {
 
 class EventFlexSharedObject : public BulkDataEvent {
  public:
-  explicit EventFlexSharedObject(Header* header)
-      : BulkDataEvent(EVENT_FLEX_SHARED_OBJECT, SUBTYPE_SYSTEM, header) {
-  }
-  EventFlexSharedObject(ProtocolData* protocol_data,
-                        uint32 channel_id, uint32 stream_id)
-      : BulkDataEvent(EVENT_FLEX_SHARED_OBJECT, SUBTYPE_SYSTEM,
-                      protocol_data, channel_id, stream_id) {
+  explicit EventFlexSharedObject(const Header& header)
+      : BulkDataEvent(header, EVENT_FLEX_SHARED_OBJECT, SUBTYPE_SYSTEM) {
   }
  private:
   DISALLOW_EVIL_CONSTRUCTORS(EventFlexSharedObject);
@@ -500,31 +446,13 @@ class EventFlexSharedObject : public BulkDataEvent {
 
 class EventSharedObject : public BulkDataEvent {
  public:
-  explicit EventSharedObject(Header* header)
-      : BulkDataEvent(EVENT_SHARED_OBJECT, SUBTYPE_SYSTEM, header) {
-  }
-  EventSharedObject(ProtocolData* protocol_data,
-                    uint32 channel_id, uint32 stream_id)
-      : BulkDataEvent(EVENT_SHARED_OBJECT, SUBTYPE_SYSTEM,
-                      protocol_data, channel_id, stream_id) {
+  explicit EventSharedObject(const Header& header)
+      : BulkDataEvent(header, EVENT_SHARED_OBJECT, SUBTYPE_SYSTEM) {
   }
  private:
   DISALLOW_EVIL_CONSTRUCTORS(EventSharedObject);
 };
 
-class MediaDataEvent : public BulkDataEvent {
- public:
-  explicit MediaDataEvent(Header* header)
-      : BulkDataEvent(EVENT_MEDIA_DATA, SUBTYPE_STREAM_DATA, header) {
-  }
-  MediaDataEvent(ProtocolData* protocol_data,
-                 uint32 channel_id, uint32 stream_id)
-      : BulkDataEvent(EVENT_MEDIA_DATA, SUBTYPE_STREAM_DATA,
-                      protocol_data, channel_id, stream_id) {
-  }
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(MediaDataEvent);
-};
 //////////////////////////////////////////////////////////////////////
 }
 

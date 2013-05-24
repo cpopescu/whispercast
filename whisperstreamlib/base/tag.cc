@@ -33,12 +33,10 @@
 
 namespace streaming {
 
-const int Tag::kNumMutexes = 1024;
-const int TagSet::kNumMutexes = 1024;
-
 const Tag::Type Tag::kInvalidType = Tag::Type(-1);
 const Tag::Type Tag::kAnyType = Tag::Type(-2);
 
+const Tag::Type MediaInfoTag::kType    = Tag::TYPE_MEDIA_INFO;
 const Tag::Type CuePointTag::kType     = Tag::TYPE_CUE_POINT;
 const Tag::Type FeatureFoundTag::kType = Tag::TYPE_FEATURE_FOUND;
 const Tag::Type ComposedTag::kType     = Tag::TYPE_COMPOSED;
@@ -49,10 +47,6 @@ template<>
 const Tag::Type
 TSourceChangedTag<Tag::TYPE_SOURCE_ENDED>::kType = Tag::TYPE_SOURCE_ENDED;
 
-template<>
-const Tag::Type
-TSignalTag<Tag::TYPE_BOS>::kType =
-    Tag::TYPE_BOS;
 template<>
 const Tag::Type
 TSignalTag<Tag::TYPE_EOS>::kType =
@@ -70,21 +64,18 @@ const Tag::Type
 TSignalTag<Tag::TYPE_SEEK_PERFORMED>::kType =
     Tag::TYPE_SEEK_PERFORMED;
 
-template<>
-const Tag::Type
-TSignalTag<Tag::TYPE_FLUSH>::kType =
-    Tag::TYPE_FLUSH;
-
 //////////////////////////////////////////////////////////////////////
 
 const char* Tag::TypeName(Tag::Type type) {
   switch(type) {
+    CONSIDER(TYPE_MEDIA_INFO);
     CONSIDER(TYPE_FLV);
     CONSIDER(TYPE_FLV_HEADER);
     CONSIDER(TYPE_MP3);
     CONSIDER(TYPE_AAC);
     CONSIDER(TYPE_INTERNAL);
     CONSIDER(TYPE_F4V);
+    CONSIDER(TYPE_MTS);
     CONSIDER(TYPE_RAW);
     CONSIDER(TYPE_FEATURE_FOUND);
     CONSIDER(TYPE_CUE_POINT);
@@ -92,12 +83,10 @@ const char* Tag::TypeName(Tag::Type type) {
     CONSIDER(TYPE_SOURCE_ENDED);
     CONSIDER(TYPE_COMPOSED);
     CONSIDER(TYPE_OSD);
-    CONSIDER(TYPE_BOS);
     CONSIDER(TYPE_EOS);
     CONSIDER(TYPE_BOOTSTRAP_BEGIN);
     CONSIDER(TYPE_BOOTSTRAP_END);
     CONSIDER(TYPE_SEEK_PERFORMED);
-    CONSIDER(TYPE_FLUSH);
   }
   if ( type == kInvalidType ) {
     return "INVALID";
@@ -127,11 +116,6 @@ string Tag::AttributesName(uint32 attr) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-synch::MutexPool Tag::mutex_pool_(Tag::kNumMutexes);
-synch::MutexPool TagSet::mutex_pool_(TagSet::kNumMutexes);
-
-///////////////////////////////////////////////////////////////////////////
-
 StreamTimeCalculator::StreamTimeCalculator()
   : last_tag_ts_(0),
     stream_time_ms_(0),
@@ -146,25 +130,10 @@ void StreamTimeCalculator::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   if ( tag->type() == Tag::TYPE_FLV_HEADER ||
        tag->type() == Tag::TYPE_BOOTSTRAP_BEGIN ||
        tag->type() == Tag::TYPE_BOOTSTRAP_END ||
-       tag->type() == Tag::TYPE_BOS ||
        tag->type() == Tag::TYPE_EOS ||
        tag->type() == Tag::TYPE_SOURCE_ENDED ) {
     return;
   }
-
-  /*
-  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ||
-       tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_;
-  }
-  */
-
-  /*
-  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
-    media_time_ms_ = timestamp_ms;
-    last_tag_ts_ = timestamp_ms;
-  }
-  */
 
   if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
     const SourceStartedTag* ss = static_cast<const SourceStartedTag*>(tag);
@@ -176,23 +145,17 @@ void StreamTimeCalculator::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   }
 
   int64 delta = timestamp_ms - last_tag_ts_;
-  //media_time_ms_ += delta;
-  if ( delta < 0 || delta > 5000 ) {
-    LOG_ERROR << "HUGE delta: " << delta
-              << ", last_tag: " << last_tag_ts_ << " " << last_tag_->ToString()
+  // some tags are slightly in the past (camera encoder fault)
+  // The upper limit is that great because of the DropperElement.
+  if ( (delta < -5000 || delta > 70000) &&
+       tag->type() != Tag::TYPE_SEEK_PERFORMED ) {
+    LOG_ERROR << (delta < 0 ? "NEGATIVE" : "HUGE") << " delta: " << delta
+              << ", last_tag: " << last_tag_ts_ << " " << last_tag_.ToString()
               << ", tag: " << timestamp_ms << " " << tag->ToString();
   }
 
   stream_time_ms_ += delta;
   last_tag_ts_ = timestamp_ms;
-
-  /*
-  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ||
-       tag->type() == Tag::TYPE_SEEK_PERFORMED ) {
-    LOG_ERROR << tag->ToString();
-    LOG_ERROR << last_tag_ts_ << " -> " << media_time_ms_ << "/" << stream_time_ms_ << ", delta: " << delta;
-  }
-  */
 
   last_tag_ = tag;
 }

@@ -38,10 +38,8 @@
 
 namespace streaming {
 
-const TagSplitter::Type F4vTagSplitter::kType = TagSplitter::TS_F4V;
-
 F4vTagSplitter::F4vTagSplitter(const string& name)
-    : streaming::TagSplitter(kType, name),
+    : TagSplitter(MFORMAT_F4V, name),
       f4v_decoder_(),
       generate_cue_point_table_now_(false) {
 }
@@ -88,37 +86,24 @@ streaming::TagReadStatus F4vTagSplitter::GetNextTagInternal(
       case f4v::TAG_DECODE_NO_DATA:
         return READ_NO_DATA;
       case f4v::TAG_DECODE_ERROR:
-        return READ_CORRUPTED_FAIL;
+        return READ_CORRUPTED;
     }
     LOG_FATAL << "unknown f4v::TagDecodeStatus: " << status;
-    return READ_CORRUPTED_FAIL;
+    return READ_CORRUPTED;
   }
   CHECK_NOT_NULL(f4v_tag.get());
 
-  // Update media_info
-  if ( f4v_tag->is_atom() && f4v_tag->atom()->type() == f4v::ATOM_MOOV ) {
-    util::ExtractMediaInfoFromMoov(static_cast<const f4v::MoovAtom&>(
-        *f4v_tag->atom()), &media_info_);
-  }
-
-  if ( f4v_tag->is_frame() &&
-       f4v_tag->frame()->header().timestamp() == 0 &&
-       f4v_tag->frame()->header().type() ==
-         streaming::f4v::FrameHeader::VIDEO_FRAME ) {
-    // The next call to ProcessTagInternal will generate the CuePointTag
-    generate_cue_point_table_now_ = true;
-  }
-
+  // update tag attributes
   if ( f4v_tag->is_atom() ) {
     f4v_tag->add_attributes(streaming::Tag::ATTR_METADATA);
   } else {
     const f4v::FrameHeader& f4v_frame_header = f4v_tag->frame()->header();
-    const f4v::FrameHeader::Type f4v_type = f4v_frame_header.type();
-    if ( f4v_type == f4v::FrameHeader::AUDIO_FRAME ) {
-      f4v_tag->add_attributes(streaming::Tag::ATTR_AUDIO);
-    }
-    if ( f4v_type == f4v::FrameHeader::VIDEO_FRAME ) {
-      f4v_tag->add_attributes(streaming::Tag::ATTR_VIDEO);
+    switch ( f4v_frame_header.type() ) {
+      case f4v::FrameHeader::AUDIO_FRAME:
+      case f4v::FrameHeader::RAW_FRAME:
+        f4v_tag->add_attributes(streaming::Tag::ATTR_AUDIO); break;
+      case f4v::FrameHeader::VIDEO_FRAME:
+        f4v_tag->add_attributes(streaming::Tag::ATTR_VIDEO); break;
     }
     if ( f4v_frame_header.is_keyframe() ||
          f4v_frame_header.type() == f4v::FrameHeader::AUDIO_FRAME ) {
@@ -126,6 +111,29 @@ streaming::TagReadStatus F4vTagSplitter::GetNextTagInternal(
     }
   }
 
+  if ( !generic_tags_ ) {
+    *tag = f4v_tag.get();
+    *timestamp_ms = f4v_tag->timestamp_ms();
+    return READ_OK;
+  }
+
+  // Extract media_info
+  if ( f4v_tag->is_atom() && f4v_tag->atom()->type() == f4v::ATOM_MOOV ) {
+    if ( !util::ExtractMediaInfoFromMoov(static_cast<const f4v::MoovAtom&>(
+        *f4v_tag->atom()), f4v_decoder_.frames(), &media_info_) ) {
+      LOG_ERROR << "Failed to ExtractMediaInfoFromMoov";
+      return streaming::READ_CORRUPTED;
+    }
+    // because of generic_tags_: send MediaInfoTag instead of the MOOV tag
+    *timestamp_ms = f4v_tag->timestamp_ms();
+    *tag = new MediaInfoTag(0, kDefaultFlavourMask, media_info_);
+    LOG_WARNING << "### Sending MediaInfo: " << tag->ToString();
+    // The next call to ProcessTagInternal will generate the CuePointTag
+    generate_cue_point_table_now_ = true;
+    return streaming::READ_OK;
+  }
+
+  // return the read tag
   *timestamp_ms = f4v_tag->timestamp_ms();
   *tag = f4v_tag.get();
   return streaming::READ_OK;

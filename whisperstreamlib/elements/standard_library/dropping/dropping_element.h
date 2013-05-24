@@ -55,11 +55,10 @@ namespace streaming {
 class DroppingElement : public FilteringElement {
  public:
   // Constructs a SwitchingElement - we don NOT own empty callback !
-  DroppingElement(const char* name,
-                  const char* id,
+  DroppingElement(const string& name,
                   ElementMapper* mapper,
                   net::Selector* selector,
-                  const char* media_filtered,
+                  const string& media_filtered,
                   int64 audio_accept_period_ms,
                   int64 audio_drop_period_ms,
                   int64 video_accept_period_ms,
@@ -87,15 +86,14 @@ class DroppingElement : public FilteringElement {
 
   // FilteringElement methods
 
-  virtual FilteringCallbackData* CreateCallbackData(const char* media_name,
+  virtual FilteringCallbackData* CreateCallbackData(const string& media_name,
                                                     Request* req);
 
   //////////////////////////////////////////////////////////////////
 
   // Element methods
-  virtual bool AddRequest(const char* media,
-                          streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
 
  private:
   const string media_filtered_;

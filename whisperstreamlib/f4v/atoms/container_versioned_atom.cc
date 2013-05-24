@@ -27,10 +27,8 @@ ContainerVersionedAtom::ContainerVersionedAtom(const ContainerVersionedAtom& oth
   }
 }
 ContainerVersionedAtom::~ContainerVersionedAtom() {
-  for ( vector<BaseAtom*>::iterator it = subatoms_.begin();
-        it != subatoms_.end(); ++it ) {
-    BaseAtom* atom = *it;
-    delete atom;
+  for ( uint32 i = 0; i < subatoms_.size(); i++ ) {
+    delete subatoms_[i];
   }
   subatoms_.clear();
   CHECK(debug_subatoms_delivered_) << " for atom type_name: " << type_name();
@@ -45,12 +43,16 @@ void ContainerVersionedAtom::AddSubatom(BaseAtom* subatom) {
 }
 
 void ContainerVersionedAtom::DeliverSubatomsToUpperClass() {
-  for ( vector<BaseAtom*>::iterator it = subatoms_.begin();
-        it != subatoms_.end(); ++it ) {
-    BaseAtom* atom = *it;
-    SubatomFound(atom);
+  for ( uint32 i = 0; i < subatoms_.size(); i++ ) {
+    SubatomFound(subatoms_[i]);
   }
   debug_subatoms_delivered_ = true;
+}
+bool ContainerVersionedAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const ContainerVersionedAtom& a =
+      static_cast<const ContainerVersionedAtom&>(other);
+  return EqualsData(a) &&
+         AllEqualsP(subatoms_, a.subatoms_);
 }
 void ContainerVersionedAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
   subatoms.insert(subatoms.end(), subatoms_.begin(), subatoms_.end());

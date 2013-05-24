@@ -37,11 +37,8 @@ namespace io {
 //////////////////////////////////////////////////////////////////////
 //
 
-synch::MutexPool DataBlock::mutex_pool_(DataBlock::kNumMutexes);
-
 DataBlock::DataBlock(BlockSize buffer_size)
-    : RefCounted(mutex_pool_.GetMutex(this)),
-      writable_buffer_(new char[buffer_size]),
+    : writable_buffer_(new char[buffer_size]),
       readable_buffer_(writable_buffer_),
       alloc_block_(NULL),
       buffer_size_(buffer_size),
@@ -55,8 +52,7 @@ DataBlock::DataBlock(const char* buffer,
                      BlockSize size,
                      Closure* disposer,
                      DataBlock* alloc_block)
-    : RefCounted(mutex_pool_.GetMutex(this)),
-      writable_buffer_(NULL),
+    : writable_buffer_(NULL),
       readable_buffer_(buffer),
       alloc_block_(alloc_block),
       buffer_size_(size),
@@ -373,32 +369,25 @@ TokenReadError DataBlockPointer::ReadNextAsciiToken(string* s,
   return TOKEN_NO_DATA;
 }
 
-bool DataBlockPointer::ReadToChars(char fin, char prev, string* s) {
+bool DataBlockPointer::ReadUntilChar(char fin, string* s) {
   BlockSize len = 0;
-  char last = '\0';
   DataBlockPointer saved(*this);
   BlockDqueue::const_iterator it = block_it();
   while ( true ) {
     if ( pos_ == (*it)->size() ) {
       if ( !AdvanceToNextBlock(&it) ) {
-        break;
-      }
-    } else {
-      const char* p = (*it)->buffer() + pos_;
-      while ( pos_ < (*it)->size() ) {
-        ++pos_;
-        ++len;
-        if ( *p == fin && (!prev || last == prev) ) {
-          *this = saved;
-          ReadStringData(s, len);
-          return true;
-        }
-        last = *p++;
+        *this = saved;
+        return false;
       }
     }
+    if ( (*it)->buffer()[pos_] == fin ) {
+      *this = saved;
+      ReadStringData(s, len+1); // +1 to read the 'fin' too
+      return true;
+    }
+    ++pos_;
+    ++len;
   }
-  *this = saved;
-  return false;
 }
 
 BlockSize DataBlockPointer::ReadStringData(string* s, BlockSize len) {

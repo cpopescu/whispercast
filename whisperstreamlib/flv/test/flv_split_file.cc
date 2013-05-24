@@ -121,10 +121,8 @@ int main(int argc, char* argv[]) {
       continue;
     }
     if ( flv_tag->body().type() == streaming::FLV_FRAMETYPE_VIDEO &&
-         flv_tag->video_body().video_codec() ==
-             streaming::FLV_FLAG_VIDEO_CODEC_AVC &&
-         flv_tag->video_body().video_avc_packet_type() ==
-             streaming::AVC_SEQUENCE_HEADER ) {
+         flv_tag->video_body().codec() == streaming::FLV_FLAG_VIDEO_CODEC_AVC &&
+         flv_tag->video_body().avc_packet_type() == streaming::AVC_SEQUENCE_HEADER ) {
       writer.Write(*flv_tag, -1);
       continue;
     }
@@ -140,8 +138,7 @@ int main(int argc, char* argv[]) {
   LOG_INFO << "Re-Joining..";
   vector<string> files;
   files.push_back(tmp_path);
-  CHECK(streaming::JoinFlvFiles(files, FLAGS_out_path, FLAGS_cue_ms_time,
-                                false) > 0);
+  CHECK(streaming::JoinFilesIntoFlv(files, FLAGS_out_path, FLAGS_cue_ms_time) > 0);
   io::Rm(tmp_path);
 
   LOG_INFO << "DONE";

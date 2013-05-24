@@ -40,69 +40,30 @@ namespace streaming {
 //
 // KeyFrameExtractorElement
 //
-// A element that forwards some video keyframes, and drops all video
+// A filter element that forwards some video keyframes, and drops all video
 // interframes.
 // You can configure the interval between what keyframes to forward.
 // The header, control and audio tags are only yes / no;
 //
-// You can register callback transparently through us. The problem
-// is that once registered, you cannot register on another name until
-// all become unregistered.
-//
-// You should register all callbacks to a single media name,
-// so that a single media stream passes through here.
-// If your register to multiple streams, the boostrap gets confused.
-//
 class KeyFrameExtractorElement : public FilteringElement {
  public:
-  KeyFrameExtractorElement(const char* name,
-                           const char* id,
+  static const char kElementClassName[];
+  KeyFrameExtractorElement(const string& name,
                            ElementMapper* mapper,
                            net::Selector* selector,
-                           const char* media_filtered,
                            int64 ms_between_video_frames,
                            bool drop_audio);
   virtual ~KeyFrameExtractorElement();
 
-  virtual bool Initialize();
-
-  static const char kElementClassName[];
- protected:
-  void SetBootstrap(const streaming::Tag* tag);
-  void PlayBootstrap(streaming::ProcessingCallback* callback,
-                     int64 timestamp_ms,
-                     uint32 flavour_mask);
-  void ClearBootstrap();
-
-  // A dead-end callback, looks like a client callback for the element_.
-  // We receive & process tags here, in order to update our bootstrap video tag.
-  void ProcessTag(const Tag* tag, int64 timestamp);
-
   //////////////////////////////////////////////////////////////////
-
   // FilteringElement methods
-  virtual FilteringCallbackData* CreateCallbackData(const char* media_name,
+  virtual bool Initialize();
+  virtual FilteringCallbackData* CreateCallbackData(const string& media_name,
                                                     Request* req);
 
-  //////////////////////////////////////////////////////////////////
-
-  // Element methods
-  virtual bool AddRequest(const char* media,
-                          streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
-
  private:
-  const string media_filtered_;
   const int64 ms_between_video_frames_;
   const bool drop_audio_;
-
-  // permanent callback to ProcessTag
-  streaming::Request* internal_req_;
-  streaming::ProcessingCallback* process_tag_callback_;
-
-  // The last keyframe tag that was extracted.
-  // Quickly provides the first keyframe to a new client.
-  scoped_ref<const Tag> last_extracted_keyframe_[kNumFlavours];
 
   DISALLOW_EVIL_CONSTRUCTORS(KeyFrameExtractorElement);
 };

@@ -69,7 +69,6 @@ int main(int argc, char ** argv) {
     LOG_ERROR << "Failed to open file: [" << FLAGS_f4v_path << "]";
     common::Exit(1);
   }
-  file_reader.decoder().set_order_frames_by_timestamp(false);
 
   streaming::rtp::H264Packetizer video_packetizer(false);
   streaming::rtp::Mp4aPacketizer audio_packetizer(false);
@@ -95,7 +94,8 @@ int main(int argc, char ** argv) {
           static_cast<const streaming::f4v::MoovAtom&>(*tag->atom());
 
       streaming::MediaInfo info;
-      bool success = streaming::util::ExtractMediaInfoFromMoov(moov, &info);
+      bool success = streaming::util::ExtractMediaInfoFromMoov(moov,
+          file_reader.decoder().frames(), &info);
       CHECK(success);
 
       streaming::rtp::Sdp sdp;

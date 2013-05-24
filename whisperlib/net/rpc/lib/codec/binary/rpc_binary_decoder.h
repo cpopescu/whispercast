@@ -40,62 +40,87 @@ namespace rpc {
 
 class BinaryDecoder : public rpc::Decoder {
  public:
-  explicit BinaryDecoder(io::MemoryStream& in)
-      : rpc::Decoder(in) {
-  }
-  virtual ~BinaryDecoder() {
-  }
+  BinaryDecoder() : Decoder(kCodecIdBinary) {}
+  virtual ~BinaryDecoder() {}
 
  private:
-  // decode a uint32 value that represents items counts in following array
-  // or map.
-  DECODE_RESULT DecodeItemsCount(uint32& count);
+  // decode a uint32 value that represents item counts in following struct,
+  // array, or map.
+  DECODE_RESULT DecodeItemCount(io::MemoryStream& in);
 
  public:
   //////////////////////////////////////////////////////////////////////
   //
   //                   rpc::Decoder interface methods
   //
-  DECODE_RESULT DecodeStructStart(uint32& num_attributes);
-  DECODE_RESULT DecodeStructContinue(bool& more_attributes);
-  DECODE_RESULT DecodeStructAttribStart();
-  DECODE_RESULT DecodeStructAttribMiddle();
-  DECODE_RESULT DecodeStructAttribEnd();
-  DECODE_RESULT DecodeArrayStart(uint32& num_elements);
-  DECODE_RESULT DecodeArrayContinue(bool& more_elements);
-  DECODE_RESULT DecodeMapStart(uint32& num_pairs);
-  DECODE_RESULT DecodeMapContinue(bool& more_pairs);
-  DECODE_RESULT DecodeMapPairStart();
-  DECODE_RESULT DecodeMapPairMiddle();
-  DECODE_RESULT DecodeMapPairEnd();
+  virtual DECODE_RESULT DecodeStructStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeStructContinue(io::MemoryStream& in, bool* more_attributes);
+  virtual DECODE_RESULT DecodeStructAttribStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeStructAttribMiddle(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeStructAttribEnd(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeArrayStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeArrayContinue(io::MemoryStream& in, bool* more_elements);
+  virtual DECODE_RESULT DecodeMapStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeMapContinue(io::MemoryStream& in, bool* more_pairs);
+  virtual DECODE_RESULT DecodeMapPairStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeMapPairMiddle(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeMapPairEnd(io::MemoryStream& in);
+
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, rpc::Void* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, bool* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, int32* out)   { return DecodeNumeric(in, out); }
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, uint32* out)  { return DecodeNumeric(in, out); }
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, int64* out)   { return DecodeNumeric(in, out); }
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, uint64* out)  { return DecodeNumeric(in, out); }
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, double* out)  { return DecodeNumeric(in, out); }
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, string* out);
+
+  virtual DECODE_RESULT ReadRawObject(io::MemoryStream& in, io::MemoryStream* out);
+
+  // these methods are public in the Decoder. But because of some compiler
+  // issue they need to be re-declared here.
+  template <typename T>
+  DECODE_RESULT Decode(io::MemoryStream& in, vector<T>* out) {
+    return Decoder::Decode(in, out);
+  }
+  template <typename K, typename V>
+  DECODE_RESULT Decode(io::MemoryStream& in, map<K, V>* out) {
+    return Decoder::Decode(in, out);
+  }
+  DECODE_RESULT Decode(io::MemoryStream& in, rpc::Custom* out) {
+    return Decoder::Decode(in, out);
+  }
+  DECODE_RESULT Decode(io::MemoryStream& in, rpc::Message* out) {
+    return Decoder::Decode(in, out);
+  }
+
 
  private:
   template <typename T>
-  DECODE_RESULT DecodeNumeric(T& out)  {
-    if ( in_.Size() < sizeof(T) ) {
+  DECODE_RESULT DecodeNumeric(io::MemoryStream& in, T* out)  {
+    if ( in.Size() < sizeof(T) ) {
       return DECODE_RESULT_NOT_ENOUGH_DATA;
     }
-    out = io::NumStreamer::ReadNumber<T>(
-        &in_, rpc::kBinaryByteOrder);
+    *out = io::NumStreamer::ReadNumber<T>(&in, rpc::kBinaryByteOrder);
     return DECODE_RESULT_SUCCESS;
   }
 
- protected:
-  DECODE_RESULT DecodeBody(rpc::Void& out);
-  DECODE_RESULT DecodeBody(bool& out);
-
-  DECODE_RESULT DecodeBody(int32& out)      { return DecodeNumeric(out); }
-  DECODE_RESULT DecodeBody(uint32& out)     { return DecodeNumeric(out); }
-  DECODE_RESULT DecodeBody(int64& out)      { return DecodeNumeric(out); }
-  DECODE_RESULT DecodeBody(uint64& out)     { return DecodeNumeric(out); }
-  DECODE_RESULT DecodeBody(double& out)     { return DecodeNumeric(out); }
-
-  DECODE_RESULT DecodeBody(string& out);
-
-  void Reset() {
+  void Reset1() {
     items_stack_.clear();
   }
- protected:
+
+ private:
+  // Helps with nested structures decoding.
+  // When decoding a struct:
+  //  - push here the number of attributes
+  //  - for every attribute read: decrement this number (last one in stack)
+  //  - if it reaches 0 => no more attributes, and pop the number from stack
+  //  - if an attribute is another struct, then push
+  //    the new struct attr's number on top
+  //     .. continue reading the inner structure, until completed, and it's
+  //        attr count is removed from stack
+  //    Continue with lower struct
+  // Similar for Array, Map.
   vector<uint32> items_stack_;
 
   DISALLOW_EVIL_CONSTRUCTORS(BinaryDecoder);

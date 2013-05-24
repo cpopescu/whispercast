@@ -30,9 +30,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 for f in $1/test_data/*.aac; do
-    outfile=/tmp/$(basename $f)
+    outfile=/tmp/$(basename $f).out
     echo " Test for: " $f
-    $2/aac_tag_printer --aac_path=$f > $outfile || exit 1
+    $2/media_file_printer --in=$f > $outfile || exit 1
     diff -q $f".out" $outfile || exit 1
     rm -f $outfile
 done

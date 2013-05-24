@@ -59,7 +59,7 @@ class FlvCoder {
       FlvFlagVideoCodec* video_codec,
       FlvFlagVideoFrameType* video_frame_type,
       AvcPacketType* video_avc_packet_type,
-      int32* video_avc_composition_time);
+      int32* video_avc_composition_offset_ms);
 
   // Extracts audio flags from the given frame.
   // The frame is the the body of a Flv Audio Tag.
@@ -74,16 +74,17 @@ class FlvCoder {
   // box inside, and if it it, extracts it in a separate tag.
   static FlvTag* DecodeAuxiliaryMoovTag(const FlvTag* tag);
 
-  // TODO(cosmin): This function appears to be unused. Maybe remove it.
-  //               It's quite a complex decoding, nonetheless.
-  //
-  // This looks in a flv tag and extract the exact codec data, that can
-  // be given to the decoder to decode it (i.e. without headers, decorations..)
-  // Returns the number of bytes extracted in buffer.
-  // Zero means not enough data, negative means corruption / invalid data
-  static int32 ExtractVideoCodecData(const FlvTag* tag,
-                                            uint8* buffer, int32 buffer_size);
-
+  // Extracts raw frame from FLV tag, skips specific FLV header.
+  // Returns success.
+  static bool ExtractVideoCodecData(const FlvTag* tag,
+                                    io::MemoryStream* out);
+  // Transforms NALU from packet format (<size><nalu><size><nalu>...)
+  // to byte stream format (<start_code><nalu><start_code><nalu>...)
+  // Returns success.
+  // For details, see: http://en.wikipedia.org/wiki/Network_Abstraction_Layer
+  static bool TransformNaluFromPacketToStream(io::MemoryStream& in,
+                                              AvcPacketType avc_packet_type,
+                                              io::MemoryStream* out);
 
   // metadata: the metadata to be updated
   // min_time_ms: if the time inside metadata is below this value, ignore meta.

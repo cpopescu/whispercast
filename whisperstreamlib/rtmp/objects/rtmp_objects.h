@@ -45,22 +45,8 @@
 
 // Types of data as encoded in rtmp / flv protocols
 //
-// NOTE: they are **NOT** thread safe !!
-//
-// Here we define a bunch of types for marshaing rtmp/flv data. The types
-// of these are as represented by CoreTypes in CObject::CoreObject.
-// We define for each one some marshaling / unmarshaling functions:
-//
-//  AmfUtil::ReadStatus ReadFromMemoryStream(io::MemoryStream* in,
-//                                           AmfUtil::Version version);
-//  void WriteToMemoryStream(io::MemoryStream* out,
-//                           AmfUtil::Version version) const;
-//
 // For now we implement only AMF0 marshaling. See ../amf/amf0_util.h
-// for a bunch of utility functions / constant names used on the amf0
-// stream.
-//
-// We define here:
+// for a bunch of utility functions / constant names used on the amf0 stream.
 //
 // CObject:
 //  |
@@ -81,10 +67,6 @@ namespace rtmp {
 
 class CObject {
  public:
-  //////////////////////////////////////////////////////////////////////
-  //
-  // We define here the types of objects that we can have
-  //
   enum CoreType {
     CORE_SKIP,   // padding
     // Null type marker
@@ -124,20 +106,6 @@ class CObject {
   };
   static const char* CoreTypeName(CoreType type);
 
-  // TODO(cpopescu): do we need these ?
-  enum {
-    // Custom datatype mock mask marker
-    CUSTOM_MOCK_MASK = 0x20,
-    // Custom datatype AMF mask
-    CUSTOM_AMF_MASK = 0x30,
-    // Custom datatype RTMP mask
-    CUSTOM_RTMP_MASK = 0x40,
-    // Custom datatype JSON mask
-    CUSTOM_JSON_MASK = 0x50,
-    // Custom datatype XML mask
-    CUSTOM_XML_MASK = 0x60,
-  };
-
  public:
   //////////////////////////////////////////////////////////////////////
   //
@@ -167,13 +135,12 @@ class CObject {
   // Returns a human readable string
   virtual string ToString() const = 0;
   // Reading / writting
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version) = 0;
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const = 0;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v) = 0;
+  virtual void Encode(io::MemoryStream* out,
+      AmfUtil::Version v) const = 0;
   virtual CObject* Clone() const = 0;
-  // how many bytes would WriteToMemoryStream() write.
-  virtual uint32 EncodingSize(AmfUtil::Version version) const = 0;
+  // how many bytes would Encode() write.
+  virtual uint32 EncodingSize(AmfUtil::Version v) const = 0;
 
  protected:
   const CoreType object_type_;
@@ -191,15 +158,13 @@ class CNull : public CObject {
   CNull(const CNull& other) : CObject(other) { }
 
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CNull(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     return 1;
   }
 };
@@ -215,15 +180,13 @@ class CBoolean : public CObject {
 
   virtual bool Equals(const CObject& obj) const;
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CBoolean(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     return 2;
   }
 
@@ -248,15 +211,13 @@ class CNumber : public CObject {
 
   virtual bool Equals(const CObject& obj) const;
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CNumber(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     // AMF0_TYPE_NUMBER + double value
     return 9;
   }
@@ -278,14 +239,12 @@ class CString : public CObject {
 
   virtual bool Equals(const CObject& obj) const;
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CString(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const;
+  virtual uint32 EncodingSize(AmfUtil::Version v) const;
 
  private:
   string value_;
@@ -310,15 +269,13 @@ class CDate : public CObject {
 
   virtual bool Equals(const CObject& obj) const;
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CDate(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     // AMF0_TYPE_DATE + double time + int16 timezone
     return 11;
   }
@@ -340,17 +297,15 @@ class CRecordSet : public CObject {
   virtual string ToString() const {
     return "CRecordSet";
   }
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CRecordSet(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     // TODO(cosmin): CRecordSet not fully implemented!!
-    //               The '13' is derived from WriteToMemoryStream impl.
+    //               The '13' is derived from Encode impl.
     return 13;
   }
 };
@@ -362,17 +317,15 @@ class CRecordSetPage : public CObject {
   virtual string ToString() const {
     return "CRecordSetPage";
   }
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CRecordSetPage(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     // TODO(cosmin): CRecordSetPage not fully implemented!!
-    //               The '17' is derived from WriteToMemoryStream impl.
+    //               The '17' is derived from Encode impl.
     return 17;
   }
 };
@@ -398,18 +351,16 @@ class CArray : public CObject {
 
   virtual bool Equals(const CObject& obj) const;
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CArray(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     uint32 size = 5; // AMF0_TYPE_ARRAY + int32 size
     for ( uint32 i = 0; i < data_.size(); i++ ) {
-      size += data_[i]->EncodingSize(version);
+      size += data_[i]->EncodingSize(v);
     }
     return size;
   }
@@ -448,19 +399,17 @@ class CStringMap : public CObject {
 
   virtual bool Equals(const CObject& obj) const;
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CStringMap(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     uint32 size = 1; // AMF0_TYPE_OBJECT
     for ( Map::const_iterator it = data_.begin(); it != data_.end(); ++it ) {
       size += 2 + it->first.size() +             // putString(key)
-              it->second->EncodingSize(version); // encode(value)
+              it->second->EncodingSize(v); // encode(value)
     }
     size += 2; // putString ""
     size += 1; // AMF0_TYPE_END_OF_OBJECT
@@ -494,6 +443,12 @@ class CMixedMap : public CObject {
   }
   virtual ~CMixedMap() { Clear(); }
 
+  CMixedMap& operator=(const CMixedMap& other) {
+    Clear();
+    SetAll(other);
+    return *this;
+  }
+
   const Map& data() const { return data_; }
   //Map& mutable_data() { return data_; }
 
@@ -514,20 +469,18 @@ class CMixedMap : public CObject {
 
   virtual bool Equals(const CObject& obj) const;
   virtual string ToString() const;
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version v);
+  virtual void Encode(io::MemoryStream* out, AmfUtil::Version v) const;
   virtual CObject* Clone() const {
     return new CMixedMap(*this);
   }
-  virtual uint32 EncodingSize(AmfUtil::Version version) const {
-    DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+  virtual uint32 EncodingSize(AmfUtil::Version v) const {
+    DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
     uint32 size = 1; // AMF0_TYPE_MIXED_ARRAY
     size += 4; // int32 unknown_
     for ( Map::const_iterator it = data_.begin(); it != data_.end(); ++it ) {
       size += 2 + it->first.size() +             // putString(key)
-              it->second->EncodingSize(version); // encode(value)
+              it->second->EncodingSize(v); // encode(value)
     }
     size += 2; // putString ""
     size += 1; // AMF0_TYPE_END_OF_OBJECT
@@ -536,12 +489,11 @@ class CMixedMap : public CObject {
 
 
  private:
-  // NOTE: when we implemented this w/ hash_map we used to initialize
-  //       buckets to this. If switching back, re-enable this.
-  // static const int kDefaultSize = 5;
   int32 unknown_;
   Map data_;
 };
+typedef class CMixedMap CMixedMap;
+
 //////////////////////////////////////////////////////////////////////
 }
 

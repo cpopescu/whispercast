@@ -45,10 +45,11 @@
 #include <whisperlib/common/base/callback.h>
 #include <whisperlib/common/base/ref_counted.h>
 #include <whisperlib/common/base/timer.h>
+#include <whisperlib/net/url/url.h>
 #include <whisperlib/net/base/user_authenticator.h>
 #include <whisperstreamlib/base/consts.h>
 #include <whisperstreamlib/base/tag.h>
-#include <whisperlib/net/url/url.h>
+#include <whisperstreamlib/base/stream_auth.h>
 #include <whisperstreamlib/base/auto/request_types.h>
 
 namespace streaming {
@@ -105,143 +106,32 @@ static const char kMediaParam_LocalPort[] = "local_port";
 
 // Capabilities of a media source / request
 struct Capabilities {
-  Tag::Type tag_type_;
   uint32 flavour_mask_;
   // TODO(cpopescu): add more ..
 
   explicit Capabilities()
-      : tag_type_(Tag::kAnyType),
-        flavour_mask_(kDefaultFlavourMask) {
+      : flavour_mask_(kDefaultFlavourMask) {
   }
-  explicit Capabilities(Tag::Type tag_type,
-                        uint32 flavour_mask)
-      : tag_type_(tag_type),
-        flavour_mask_(flavour_mask) {
+  explicit Capabilities(uint32 flavour_mask)
+      : flavour_mask_(flavour_mask) {
   }
   Capabilities(const Capabilities& caps)
-      : tag_type_(caps.tag_type_),
-        flavour_mask_(caps.flavour_mask_) {
-  }
-  const char* tag_type_name() const {
-    return Tag::TypeName(tag_type_);
+      : flavour_mask_(caps.flavour_mask_) {
   }
 
   bool IsCompatible(const Capabilities& c) const {
-    Capabilities tmp(tag_type_, flavour_mask_);
+    Capabilities tmp(flavour_mask_);
     tmp.IntersectCaps(c);
     return !tmp.is_invalid();
   }
   bool is_invalid() const {
-    return tag_type_ == Tag::kInvalidType;
+    return flavour_mask_ == 0;
   }
-  void IntersectCaps(const Capabilities& c);
-  string ToString() const;
-};
-
-extern const Capabilities kInvalidCaps;
-
-//////////////////////////////////////////////////////////////////////
-
-struct AuthorizerRequest {
-  // Identifies who needs to be authorized (any of these can be empty)
-  string user_;
-  string passwd_;
-  string token_;
-  string net_address_;   // normally the ip
-
-  // Identifies on which resource it needs authorization
-  string resource_;
-
-  // Identifies what user wants to do on the resource
-  string action_;
-
-  // How long (ms) the action was performed so far (for reauthorizations)
-  int64 action_performed_ms_;
-
-  AuthorizerRequest() {
+  void IntersectCaps(const Capabilities& c) {
+    flavour_mask_ &= c.flavour_mask_;
   }
-  AuthorizerRequest(const string& token,
-                    const string& net_address,
-                    const string& resource,
-                    const string& action)
-      : user_(),
-        passwd_(),
-        token_(token_),
-        net_address_(net_address),
-        resource_(resource),
-        action_(action),
-        action_performed_ms_(0) {
-  }
-  AuthorizerRequest(const string& user,
-                    const string& passwd,
-                    const string& net_address,
-                    const string& resource,
-                    const string& action)
-      : user_(user),
-        passwd_(passwd),
-        token_(),
-        net_address_(net_address),
-        resource_(resource),
-        action_(action),
-        action_performed_ms_(0) {
-  }
-  AuthorizerRequest(const AuthorizerRequest& r)
-      : user_(r.user_),
-        passwd_(r.passwd_),
-        token_(r.token_),
-        net_address_(r.net_address_),
-        resource_(r.resource_),
-        action_(r.action_),
-        action_performed_ms_(r.action_performed_ms_) {
-  }
-  const AuthorizerRequest& operator=(const AuthorizerRequest& r) {
-    user_ = r.user_;
-    passwd_ = r.passwd_;
-    token_ = r.token_;
-    net_address_ = r.net_address_;
-    resource_ = r.resource_;
-    action_ = r.action_;
-    action_performed_ms_ = r.action_performed_ms_;
-    return *this;
-  }
-  void ReadFromUrl(const URL& url);
-  void ReadQueryComponents(const vector< pair<string, string> >& comp);
-  string GetUrlQuery() const;
-
-  void ToSpec(MediaAuthorizerRequestSpec* spec) const;
-  void FromSpec(const MediaAuthorizerRequestSpec& spec);
-};
-
-struct AuthorizerReply {
-  bool allowed_;                 // if true -> allowed, else denied :)
-  int32 reauthorize_interval_ms_;
-                                 // if non zero need to reauthorize again
-                                 // in these many ms.
-  int32 time_limit_ms_;          // if non zero the *thing* was authorized
-                                 // for this long after which is dumped
-                                 // automatically.
-  explicit AuthorizerReply(bool allowed)
-      : allowed_(allowed),
-        reauthorize_interval_ms_(0),
-        time_limit_ms_(0) {
-  }
-  AuthorizerReply(bool allowed,
-                  int32 reauthorize_interval_ms,
-                  int32 time_limit_ms)
-      : allowed_(allowed),
-        reauthorize_interval_ms_(reauthorize_interval_ms),
-        time_limit_ms_(time_limit_ms) {
-  }
-  AuthorizerReply(const AuthorizerReply& a)
-      : allowed_(a.allowed_),
-        reauthorize_interval_ms_(a.reauthorize_interval_ms_),
-        time_limit_ms_(a.time_limit_ms_) {
-  }
-  const AuthorizerReply& operator=(const AuthorizerReply& a) {
-    allowed_ = a.allowed_;
-    reauthorize_interval_ms_ = a.reauthorize_interval_ms_;
-    time_limit_ms_ = a.time_limit_ms_;
-    return *this;
+  string ToString() const {
+    return strutil::StringPrintf("caps[mask: %x]", flavour_mask_);
   }
 };
 
@@ -250,9 +140,9 @@ struct AuthorizerReply {
 // Things that we know from the user and are associated with the request
 struct RequestInfo {
   // These are parameters for a request
-  int64  seek_pos_ms_;
-  int64  media_origin_pos_ms_;
-  int64  limit_ms_;
+  int64 seek_pos_ms_;         // must be >= 0
+  int64 media_origin_pos_ms_; // must be >= 0
+  int64 limit_ms_;            // -1: disabled, >= 0: enabled
 
   // Data about requestor
   string session_id_;                    // e.g. cookie / user id etc
@@ -263,13 +153,16 @@ struct RequestInfo {
   net::HostPort local_address_;
   int ip_class_;                         // IP classes - per classifier..
   string path_;
-  string internal_id_;
 
   AuthorizerRequest auth_req_;           // requestors's credentials
 
   int64 write_ahead_ms_;
   // Internal requestor (i.e. a saver);
   bool is_internal_;
+  // The requestor is a temporary element.
+  // Usefulness: because TimeSavingElement is overused, it needs to
+  //             distinguish temporary elem request and NOT save them.
+  bool is_temporary_requestor_;
 
   // Anything goes constructor :)
   RequestInfo()
@@ -278,7 +171,8 @@ struct RequestInfo {
         limit_ms_(-1), // undefined
         ip_class_(-1),
         write_ahead_ms_(0),
-        is_internal_(false) {
+        is_internal_(false),
+        is_temporary_requestor_(false) {
   }
 
   // Extracts from a url the parameters that can be included in the request
@@ -295,10 +189,10 @@ struct RequestInfo {
         local_address_(info.local_address_),
         ip_class_(info.ip_class_),
         path_(info.path_),
-        internal_id_(info.internal_id_),
         auth_req_(info.auth_req_),
         write_ahead_ms_(info.write_ahead_ms_),
-        is_internal_(info.is_internal_) {
+        is_internal_(info.is_internal_),
+        is_temporary_requestor_(info.is_temporary_requestor_) {
   }
   // Generates the query part for a url, from curent members
   string GetUrlQuery(bool append_auth) const;
@@ -309,14 +203,6 @@ struct RequestInfo {
 
   // Generates a 'unique' id string for these capabilities
   string GetId() const;
-
-  // The unique id url escaped
-  string GetUrlId() const {
-    if ( !internal_id_.empty() ) {
-      return internal_id_;
-    }
-    return URL::UrlEscape(GetId());
-  }
 
   // Generates a 'unique' path component to include client, session
   // and affiliate id, as <session_id>/<affiliate_id>/<client_id>
@@ -336,7 +222,7 @@ struct RequestServingInfo {
   string export_path_;
   string media_name_;
   vector< pair<string, string> > extra_headers_;
-  Tag::Type tag_type_;
+  MediaFormat media_format_;
   string content_type_;
   string authorizer_name_;
   int64 flow_control_total_ms_;
@@ -349,7 +235,7 @@ struct RequestServingInfo {
 
  public:
   RequestServingInfo()
-      : tag_type_(Tag::kAnyType),
+      : media_format_(kAnyMediaFormat),
         flow_control_total_ms_(0),
         flow_control_video_ms_(0),
         offset_(-1),
@@ -397,6 +283,7 @@ struct TempElementStruct {
   void Close(Closure* close_completed);
   // Called by each element, upon close completion.
   void ElementCloseCompleted(Element* element);
+  string ToString() const;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -411,38 +298,20 @@ class Request {
  public:
   typedef hash_map<ProcessingCallback*, streaming::Element*> CallbacksMap;
   typedef hash_map<streaming::Element*, ProcessingCallback*> RevCallbacksMap;
-  static uint64 g_count_instances_;
-  static int64 g_last_log_;
   Request()
       : callbacks_(kDefaultCallbackSize),
         rev_callbacks_(kDefaultCallbackSize),
-        auth_reply_(false),
         controller_(NULL),
         deleted_(false) {
-    g_count_instances_++;
-    int64 now = timer::TicksMsec();
-    if ( now - g_last_log_ > 5000 ) {
-      DLOG_DEBUG << "Request: " << g_count_instances_ << " instances";
-      g_last_log_ = now;
-    }
   }
   Request(const URL& url)
       : callbacks_(kDefaultCallbackSize),
-        auth_reply_(false),
         controller_(NULL),
         deleted_(false) {
-    g_count_instances_++;
-    int64 now = timer::TicksMsec();
-    if ( now - g_last_log_ > 5000 ) {
-      DLOG_DEBUG << "Request: " << g_count_instances_ << " instances";
-      g_last_log_ = now;
-    }
     SetFromUrl(url);
   }
   ~Request() {
-    g_count_instances_--;
     CHECK(callbacks_.empty());
-    DLOG_DEBUG << "Deleting request: " << this << " -> " << ToString();
   }
 
 
@@ -451,7 +320,6 @@ class Request {
   const CallbacksMap& callbacks() const           { return callbacks_; }
   const RevCallbacksMap& rev_callbacks() const    { return rev_callbacks_; }
   const RequestServingInfo& serving_info() const  { return serving_info_; }
-  const AuthorizerReply& auth_reply() const       { return auth_reply_; }
   const TempElementStruct& temp_struct() const    { return temp_struct_; }
 
   Capabilities* mutable_caps()                    { return &caps_; }
@@ -459,18 +327,16 @@ class Request {
   RevCallbacksMap* mutable_rev_callbacks()        { return &rev_callbacks_; }
   RequestInfo* mutable_info()                     { return &info_; }
   RequestServingInfo* mutable_serving_info()      { return &serving_info_; }
-  AuthorizerReply* mutable_auth_reply()           { return &auth_reply_; }
   TempElementStruct* mutable_temp_struct()        { return &temp_struct_; }
 
   void set_controller(ElementController* controller) {
-    DCHECK(controller == NULL || controller_ == NULL);
+    DCHECK(controller == NULL || controller_ == NULL)
+        << " controller_: " << controller_ << ", controller: " << controller;
     controller_ = controller;
   }
   ElementController* controller() { return controller_; }
 
   string ToString() const;
-
-  string GetUrlId() const                         { return info_.GetUrlId(); }
 
   void SetFromUrl(const URL& url);
 
@@ -484,7 +350,6 @@ class Request {
                               // Information about how to serve a request
   CallbacksMap callbacks_;    // The processing elements
   RevCallbacksMap rev_callbacks_;  // the reverse of callbacks
-  AuthorizerReply auth_reply_;   // what we can do.. so far..
 
   TempElementStruct temp_struct_;
 
@@ -494,15 +359,17 @@ class Request {
   bool deleted_;
 
   // TODO: add statistics
+ private:
+  DISALLOW_EVIL_CONSTRUCTORS(Request);
 };
-
-// Used for listing the media sources available through this element.
-typedef vector< pair<string, streaming::Capabilities> > ElementDescriptions;
 
 }
 
 inline ostream& operator<<(ostream& os, const streaming::Request& req) {
   return os << req.ToString();
+}
+inline ostream& operator<<(ostream& os, const streaming::Capabilities& caps) {
+  return os << caps.ToString();
 }
 
 #endif  //  __MEDIA_BASE_REQUEST_H__

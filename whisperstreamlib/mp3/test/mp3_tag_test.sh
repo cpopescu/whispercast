@@ -33,7 +33,7 @@
 for f in $1/test_data/*.mp3; do
     outfile=/tmp/$(basename $f).out
     echo " Test for: " $f
-    $2/mp3_tag_printer --mp3_path=$f > $outfile || exit 1
+    $2/media_file_printer --in=$f > $outfile || exit 1
     diff -q $f".out" $outfile || exit 1
     rm -f $outfile
 done

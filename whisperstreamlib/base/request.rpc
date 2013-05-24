@@ -68,6 +68,15 @@ Type MediaRequestInfoSpec {
 }
 
 //////////////////////////////////////////////////////////////////////
+// Generaly useful types
+
+Type TimeSpan {
+  // ms from epoch
+  bigint start_ts_;
+  bigint end_ts_;
+}
+
+//////////////////////////////////////////////////////////////////////
 //
 // Definitions related to exporting media
 //
@@ -81,18 +90,16 @@ Type AccessStruct {
 }
 
 Type ElementExportSpec {
-  string media_name_;   // as can be resolved by an ElementMapper
-  string protocol_;     // protocol to export on (now "http" or "rtmp"
-  string path_;         // path on which to export (for http start w/ an '/')
+  string media_name_;      // as can be resolved by an ElementMapper
+  string protocol_;        // protocol to export on (now "http" or "rtmp"
+  string path_;            // path on which to export (for http start w/ an '/')
+  string authorizer_name_; // if not empty: access limited to authorized clients
 
   optional string content_type_;
                         // optional specify for http the content type that
                         // is exported
   optional array<ExtraHeaders> extra_headers_;
                         // any extra headers to send (for http makes sense)
-  optional string authorizer_name_;
-                        // you may limit the access to guys authorized by
-                        // this guy
   optional int flow_control_total_ms_;
   optional int flow_control_video_ms_;
                         // the flow control values for video/total

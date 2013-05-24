@@ -44,19 +44,13 @@
 
 namespace streaming {
 
-const TagSplitter::Type FlvTagSplitter::kType = TagSplitter::TS_FLV;
-
 FlvTagSplitter::FlvTagSplitter(const string& name)
-    : streaming::TagSplitter(kType, name),
-      first_tag_timestamp_ms_(-1),
-      tag_timestamp_ms_(0),
+    : TagSplitter(MFORMAT_FLV, name),
       has_audio_(false),
       has_video_(false),
       first_audio_(),
       first_video_(),
-      first_metadata_(),
-      media_info_extracted_(false),
-      bootstrapping_(true) {
+      first_metadata_() {
 }
 FlvTagSplitter::~FlvTagSplitter() {
 }
@@ -67,7 +61,7 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
                                                  int64* timestamp_ms,
                                                  bool is_eos) {
   *tag = NULL;
-  if ( !tags_to_send_next_.empty() && !bootstrapping_ ) {
+  if ( !tags_to_send_next_.empty() && media_info_extracted_ ) {
     tag->reset(tags_to_send_next_.front().tag_.get());
     *timestamp_ms = tags_to_send_next_.front().timestamp_ms_;
     tags_to_send_next_.pop_front();
@@ -76,13 +70,8 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
     return READ_OK;
   }
 
-  // We need to defend ourselves from the header-in stream position...
   if ( in->Size() < sizeof(uint32) ) {
-    if ( is_eos && bootstrapping_ ) {
-      EndBootstrapping();
-      return READ_SKIP;
-    }
-    return READ_NO_DATA;
+    return is_eos ? READ_EOF : READ_NO_DATA;
   }
 
   ///////////////////////////////////////////////////
@@ -101,68 +90,56 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
 
     has_audio_ = header->has_audio();
     has_video_ = header->has_video();
-
-    if ( bootstrapping_ ) {
-      tags_to_send_next_.push_back(TagToSend(header.get(), 0));
-      return READ_SKIP;
+    if ( !generic_tags_ ) {
+      *tag = header.get();
+      *timestamp_ms = 0;
+      return READ_OK;
     }
-    *timestamp_ms = 0;
-    *tag = header.get();
-    VLOG(10) << "Next tag: " << (*tag)->ToString();
-    return READ_OK;
+    return READ_SKIP;
   }
 
   ///////////////////////////////////////////////////
   // Read FLV tag
   int cb = 0;
-
   scoped_ref<FlvTag> flv_tag;
   TagReadStatus result = FlvCoder::DecodeTag(in, &flv_tag, &cb);
   if ( result != READ_OK ) {
     if ( result != READ_NO_DATA ) {
       LOG_ERROR << "Failed to decode tag: " << TagReadStatusName(result);
     }
-    if ( result == READ_NO_DATA && is_eos && bootstrapping_ ) {
-      EndBootstrapping();
-      return READ_SKIP;
+    if ( result == READ_NO_DATA && is_eos ) {
+      return READ_EOF;
     }
     return result;
   }
   CHECK_NOT_NULL(flv_tag.get());
 
-  // update the attributes
-  flv_tag->update();
-
-  // additional processing
-  switch ( flv_tag->body().type() ) {
-    case FLV_FRAMETYPE_VIDEO:
-    break;
-    case FLV_FRAMETYPE_AUDIO:
-    break;
-    case FLV_FRAMETYPE_METADATA: {
-      FlvTag::Metadata& metadata = flv_tag->mutable_metadata_body();
-      if ( metadata.name().value() == kOnMetaData ) {
-        // If RetrieveCuePoints succeeds it fills in cue_points_.
-        //   if cue_points_ is extracted: send the cue_points_ now, and
-        ///                               postpone sending the metadata.
-        //   else: send the metadata tag now.
-        scoped_ref<CuePointTag> cue_points =
-            RetrieveCuePoints(metadata, flv_tag->timestamp_ms());
-        // This will modify the 'flv_tag' according to limits/controller
-        UpdateMetadata(metadata);
-
-        if ( cue_points.get() != NULL ) {
-          tags_to_send_next_.push_back(
-              TagToSend(cue_points.get(), flv_tag->timestamp_ms())
-           );
-        }
-      }
-    }
-    break;
+  if ( !generic_tags_ ) {
+    *tag = flv_tag.get();
+    *timestamp_ms = flv_tag->timestamp_ms();
+    return READ_OK;
   }
 
-  if ( first_tag_timestamp_ms_ == -1 ) {
-    first_tag_timestamp_ms_ = flv_tag->timestamp_ms();
+  ////////////////////////////////////////////////////////////////
+  // extract Cue Points
+  if ( flv_tag->body().type() == FLV_FRAMETYPE_METADATA &&
+       flv_tag->mutable_metadata_body().name().value() == kOnMetaData ) {
+    scoped_ref<CuePointTag> cue_points =
+        RetrieveCuePoints(flv_tag->metadata_body(), flv_tag->timestamp_ms());
+
+    if ( cue_points.get() != NULL ) {
+      tags_to_send_next_.push_back(
+          TagToSend(cue_points.get(), flv_tag->timestamp_ms()));
+    }
+  }
+
+  if ( !media_info_extracted_ &&
+        first_metadata_.get() == NULL &&
+        (flv_tag->body().type() == FLV_FRAMETYPE_AUDIO ||
+         flv_tag->body().type() == FLV_FRAMETYPE_VIDEO) ) {
+    LOG_ERROR << "No metadata before the first media tag"
+                 ", failed to extract media info";
+    media_info_extracted_ = true;
   }
 
   ///////////////////////////////////////////////////
@@ -183,31 +160,50 @@ TagReadStatus FlvTagSplitter::GetNextTagInternal(io::MemoryStream* in,
     if ( first_metadata_.get() != NULL &&
          (!has_audio_ || first_audio_.get() != NULL) &&
          (!has_video_ || first_video_.get() != NULL ) ) {
-      util::ExtractMediaInfoFromFlv(*first_metadata_.get(),
-          first_audio_.get(), first_video_.get(), &media_info_);
+      if ( !util::ExtractMediaInfoFromFlv(*first_metadata_.get(),
+                first_audio_.get(), first_video_.get(), &media_info_) ) {
+        LOG_ERROR << "ExtractMediaInfoFromFlv failed";
+        return READ_CORRUPTED;
+      }
 
-      LOG_DEBUG << media_info_.ToString();
       media_info_extracted_ = true;
+
+      // mask the metadata (replaced by MediaInfo)
+      if ( !generic_tags_ || first_metadata_.get() != flv_tag.get() ) {
+        tags_to_send_next_.push_back(
+            TagToSend(flv_tag.get(), flv_tag->timestamp_ms()));
+      }
+
+      *tag = new MediaInfoTag(0, kDefaultFlavourMask, media_info_);
+      *timestamp_ms = 0;
+
+      return READ_OK;
     }
     if ( tags_to_send_next_.size() > kMediaInfoMaxWait ) {
       LOG_ERROR << "Failed to extract media info, in the first "
-                << kMediaInfoMaxWait << " tags";
+                << kMediaInfoMaxWait << " tags"
+                << ", has_audio_: " << strutil::BoolToString(has_audio_)
+                << ", has_video_: " << strutil::BoolToString(has_video_)
+                << ", first_audio_: " << first_audio_.ToString()
+                << ", first_video_: " << first_video_.ToString()
+                << ", first_metadata_: " << first_metadata_.ToString();
       media_info_extracted_ = true;
     }
   }
 
-  if ( bootstrapping_ ) {
-    tags_to_send_next_.push_back(
-      TagToSend(flv_tag.get(), flv_tag->timestamp_ms())
-    );
-
-    if ( media_info_extracted_ ) {
-      EndBootstrapping();
-    }
+  // mask the metadata (replaced by MediaInfo)
+  if ( generic_tags_ &&
+       flv_tag->body().type() == FLV_FRAMETYPE_METADATA &&
+       flv_tag->metadata_body().name().value() == kOnMetaData ) {
     return READ_SKIP;
   }
 
-  tag_timestamp_ms_ = flv_tag->timestamp_ms();
+  if ( !media_info_extracted_ ) {
+    // still waiting => buffer this tag
+    tags_to_send_next_.push_back(
+      TagToSend(flv_tag.get(), flv_tag->timestamp_ms()));
+    return READ_SKIP;
+  }
 
   *timestamp_ms = flv_tag->timestamp_ms();
   *tag = flv_tag.get();
@@ -246,8 +242,7 @@ scoped_ref<CuePointTag> FlvTagSplitter::RetrieveCuePoints(
       const double time_double =
           static_cast<const rtmp::CNumber*>(time_obj)->value();
       // NOTE: without floor we get some nastyness
-      const int64 time_ms = static_cast<int64>(
-          ::floor(time_double * static_cast<double>(1000.00)));
+      const int64 time_ms = static_cast<int64>(::floor(time_double * 1000.0));
 
       const rtmp::CObject* params_obj = crt_cue->Find("parameters");
       if ( params_obj != NULL &&
@@ -269,29 +264,5 @@ scoped_ref<CuePointTag> FlvTagSplitter::RetrieveCuePoints(
   ::sort(cue_points->mutable_cue_points().begin(),
          cue_points->mutable_cue_points().end());
   return cue_points;
-}
-
-void FlvTagSplitter::EndBootstrapping() {
-  for (list<TagToSend>::iterator it = tags_to_send_next_.begin();
-      it != tags_to_send_next_.end(); ++it) {
-    if ( it->timestamp_ms_ < first_tag_timestamp_ms_ ) {
-      it->timestamp_ms_ = first_tag_timestamp_ms_;
-      continue;
-    }
-    break;
-  }
-
-  bootstrapping_ = false;
-  tags_to_send_next_.push_back(
-      TagToSend(new BosTag(0, kDefaultFlavourMask), first_tag_timestamp_ms_));
-}
-
-void FlvTagSplitter::UpdateMetadata(FlvTag::Metadata& metadata) {
-  if ( metadata.name().value() != kOnMetaData ) {
-    return;
-  }
-  metadata.mutable_values()->Erase("cuePoints");
-
-  VLOG(8) << "Metadata adjusted to: \n" << metadata.ToString();
 }
 }

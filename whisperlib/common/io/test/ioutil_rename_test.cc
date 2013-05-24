@@ -142,7 +142,7 @@ bool CreateDir(const string& dir) {
 
 bool IsEmptyDir(const string& dir) {
   vector<string> names;
-  if ( !io::DirList(dir, &names, true, NULL) ) {
+  if ( !io::DirList(dir, io::LIST_FILES | io::LIST_DIRS, NULL, &names) ) {
     LOG_ERROR << "io::DirList failed for dir: [" << dir << "]";
     return false;
   }
@@ -254,7 +254,7 @@ int main(int argc, char* argv[]) {
     CHECK(CreateFile(PATH("d1/t/f.txt"), "f1 text"));
     CHECK(CreateSymlink(PATH("d1/t/f.txt"), PATH("d1/s1")));
 
-    // file "f.txt" cannot be moved
+    // cannot overwrite: "d0/t/f.txt" -> "d1/t/f.txt"
     CHECK(!io::Rename(PATH("d0"), PATH("d1"), false));
 
     CHECK(Verify(PATH("d0"), D));

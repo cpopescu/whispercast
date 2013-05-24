@@ -49,6 +49,7 @@ struct StcoRecord {
   StcoRecord(const StcoRecord& other);
   ~StcoRecord();
 
+  bool Equals(const StcoRecord& other) const;
   StcoRecord* Clone() const;
 
   bool Decode(io::MemoryStream& in);

@@ -34,9 +34,10 @@
 #include <whisperlib/common/io/buffer/io_memory_stream.h>
 #include <whisperlib/common/io/ioutil.h>
 
-#include "elements/command_library/command_library.h"
-#include "elements/command_library/command_element.h"
-#include "elements/command_library/auto/command_library_invokers.h"
+#include <whisperstreamlib/base/consts.h>
+#include <whisperstreamlib/elements/command_library/command_library.h>
+#include <whisperstreamlib/elements/command_library/command_element.h>
+#include <whisperstreamlib/elements/command_library/auto/command_library_invokers.h>
 
 //////////////////////////////////////////////////////////////////////
 
@@ -77,8 +78,7 @@ void CommandLibrary::GetExportedPolicyTypes(vector<string>* policy_types) {
 
 int64 CommandLibrary::GetElementNeeds(const string& element_type) {
   if ( element_type == CommandElement::kElementClassName ) {
-    return (NEED_SELECTOR |
-            NEED_SPLITTER_CREATOR);
+    return NEED_SELECTOR;
   }
   return 0;
 }
@@ -93,6 +93,7 @@ streaming::Element* CommandLibrary::CreateElement(
     const string& element_params,
     const streaming::Request* req,
     const CreationObjectParams& params,
+    bool is_temporary_template,
     // Output:
     vector<string>* needed_policies,
     string* error_description) {
@@ -123,24 +124,21 @@ streaming::Element* CommandLibrary::CreateCommandElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   CHECK(mapper_ != NULL);
-  Tag::Type tag_type;
-  if ( !GetStreamType(spec.media_type_.get(), &tag_type) ) {
+  MediaFormat media_format;
+  if ( !MediaFormatFromSmallType(spec.media_type_.get(), &media_format) ) {
     *error = "Invalid media type specified for CommandElement";
     return NULL;
   }
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   CommandElement* element = new CommandElement(element_name.c_str(),
-                                               id.c_str(),
                                                mapper_,
-                                               params.selector_,
-                                               params.splitter_creator_);
+                                               params.selector_);
   for ( int i = 0; spec.commands_.get().size() > i; ++i )  {
     const CommandSpec& crt_spec = spec.commands_.get()[i];
     if ( !element->AddElement(crt_spec.name_.get().c_str(),
-                              tag_type,
+                              media_format,
                               crt_spec.command_.get().c_str(),
                               crt_spec.should_reopen_.get()) ) {
       // TODO(cpopescu): should we report an error on this one ?
@@ -171,7 +169,7 @@ class ServiceInvokerCommandLibraryServiceImpl
 
  private:
   virtual void AddCommandElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext<MediaOpResult>* call,
       const string& name,
       bool is_global,
       bool disable_rpc,

@@ -32,221 +32,143 @@
 #ifndef __NET_RPC_LIB_CODEC_RPC_DECODER_H__
 #define __NET_RPC_LIB_CODEC_RPC_DECODER_H__
 
-#include <list>
-
 #include <whisperlib/common/base/types.h>
-#include <whisperlib/common/io/input_stream.h>
-#include <whisperlib/common/io/output_stream.h>
-#include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
-#include <whisperlib/net/rpc/lib/types/rpc_message.h>
-
-#include <whisperlib/net/rpc/lib/codec/rpc_decode_result.h>
-#include <whisperlib/net/rpc/lib/codec/rpc_typename_codec.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
+#include <whisperlib/net/rpc/lib/rpc_constants.h>
 
 namespace rpc {
 
-class Decoder {
- public:
-  // Construct a decoder that reads data from the given input stream.
-  explicit Decoder(io::MemoryStream& in)
-      : in_(in) {
-  }
-  virtual ~Decoder() {
-  }
-
- public:
-  //  Methods for unwinding complex types: structure, array, map.
-  // returns:
-  //  success status.
-  // NOTE: in case of error or not-enough-data, the read data is not restored.
-  virtual DECODE_RESULT DecodeStructStart(uint32& nAttribs) = 0;
-  virtual DECODE_RESULT DecodeStructContinue(bool& bMoreAttribs) = 0;
-  virtual DECODE_RESULT DecodeStructAttribStart() = 0;
-  virtual DECODE_RESULT DecodeStructAttribMiddle() = 0;
-  virtual DECODE_RESULT DecodeStructAttribEnd() = 0;
-  virtual DECODE_RESULT DecodeArrayStart(uint32& nElements) = 0;
-  virtual DECODE_RESULT DecodeArrayContinue(bool& bMoreElements) = 0;
-  virtual DECODE_RESULT DecodeMapStart(uint32& nPairs) = 0;
-  virtual DECODE_RESULT DecodeMapContinue(bool& bMorePairs) = 0;
-  virtual DECODE_RESULT DecodeMapPairStart() = 0;
-  virtual DECODE_RESULT DecodeMapPairMiddle() = 0;
-  virtual DECODE_RESULT DecodeMapPairEnd() = 0;
-
- protected:
-  //  Decode a basic type value from the input stream. Usually the object type
-  //  is not stored in stream, so the decoder cannot check data correctness.
-  //  You must know somehow the type of data you're expecting.
-  //  These methods are the oposite of rpc::Encoder::EncodeBody(..).
-  // returns:
-  //   -   1  if the object succeessfully loads from stream
-  //   -   0  if there is not enough data in stream
-  //   - (-1) error loading object. Bad data in stream.
-  // NOTE: in case of error or not-enough-data, the read data is not restored.
-  // virtual DECODE_RESULT DecodeBody(rpc::Void& out) = 0;
-  virtual DECODE_RESULT DecodeBody(rpc::Void& out) = 0;
-  virtual DECODE_RESULT DecodeBody(bool& out) = 0;
-  virtual DECODE_RESULT DecodeBody(int32& out) = 0;
-  virtual DECODE_RESULT DecodeBody(uint32& out) = 0;
-  virtual DECODE_RESULT DecodeBody(int64& out) = 0;
-  virtual DECODE_RESULT DecodeBody(uint64& out) = 0;
-  virtual DECODE_RESULT DecodeBody(double& out) = 0;
-  virtual DECODE_RESULT DecodeBody(string& out) = 0;
+class Void;
+class Custom;
+class Message;
 
 #define DECODE_VERIFY(dec_op)                           \
   do {                                                  \
     const rpc::DECODE_RESULT result = dec_op;           \
     if ( result != rpc::DECODE_RESULT_SUCCESS ) {       \
+      LOG_ERROR << "" #dec_op " failed";                \
       return result;                                    \
     }                                                   \
   } while ( false )
 
+enum DECODE_RESULT {
+  DECODE_RESULT_SUCCESS,
+  DECODE_RESULT_NOT_ENOUGH_DATA,
+  DECODE_RESULT_ERROR,
+};
+const char* DecodeResultName(DECODE_RESULT result);
+
+class Decoder {
+ public:
+  // Construct a decoder that reads data from the given input stream.
+  Decoder(CodecId type) : type_(type) {}
+  virtual ~Decoder() {}
+
+  CodecId type() const { return type_; }
+  const string& type_name() const { return CodecName(type()); }
+
+  //  Methods for unwinding complex types: structure, array, map.
+  // returns:
+  //  success status.
+  // NOTE: in case of error or not-enough-data, the read data is not restored.
+  virtual DECODE_RESULT DecodeStructStart(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeStructContinue(io::MemoryStream& in, bool* bMoreAttribs) = 0;
+  virtual DECODE_RESULT DecodeStructAttribStart(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeStructAttribMiddle(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeStructAttribEnd(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeArrayStart(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeArrayContinue(io::MemoryStream& in, bool* bMoreElements) = 0;
+  virtual DECODE_RESULT DecodeMapStart(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeMapContinue(io::MemoryStream& in, bool* bMorePairs) = 0;
+  virtual DECODE_RESULT DecodeMapPairStart(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeMapPairMiddle(io::MemoryStream& in) = 0;
+  virtual DECODE_RESULT DecodeMapPairEnd(io::MemoryStream& in) = 0;
+
+  //  Decode a basic type value from the input stream. Usually the object type
+  //  is not stored in stream, so the decoder cannot check data correctness.
+  //  You must know somehow the type of data you're expecting.
+  //  These methods are the opposite of rpc::Encoder::Encode(..).
+  // NOTE: in case of error or not-enough-data, the read data is not restored.
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, rpc::Void* out) = 0;
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, bool* out) = 0;
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, int32* out) = 0;
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, uint32* out) = 0;
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, int64* out) = 0;
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, uint64* out) = 0;
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, double* out) = 0;
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, string* out) = 0;
+
+  // Copies the next object or value into 'out'. The data is copied raw,
+  // without decoding.
+  virtual DECODE_RESULT ReadRawObject(io::MemoryStream& in, io::MemoryStream* out) = 0;
+
+  //  Reset internal state. Should be called before Decode.
+  //  If a previous try to Decode failed for insufficient data,
+  //  the internal state may be mangled.
+  virtual void Reset1() = 0;
+
   template <typename T>
-  DECODE_RESULT DecodeBody(vector<T>& out) {
-    // decode array items count
-    uint32 count;
-    DECODE_VERIFY(DecodeArrayStart(count));
-    if ( count != kMaxUInt32 ) {
-      // TODO(cpopescu): well, this may not be that smart - to check
-      out.resize(count);
-
-      // decode elements
-      bool has_more = false;
-      for ( int i = 0; i < count; i++ ) {
-        DECODE_VERIFY(DecodeArrayContinue(has_more));
-        CHECK(has_more);
-        DECODE_VERIFY(Decode(out.at(i)));
-      }
-
-      // bug-trap
-      has_more = false;
-      DECODE_VERIFY(DecodeArrayContinue(has_more));
-      CHECK(!has_more);
-      return DECODE_RESULT_SUCCESS;
-    }
-    list<T> tmp;
+  DECODE_RESULT Decode(io::MemoryStream& in, vector<T>* out) {
+    DECODE_VERIFY(DecodeArrayStart(in));
 
     // decode elements in a temporary list
-    bool has_more = false;
     while ( true ) {
-      DECODE_VERIFY(DecodeArrayContinue(has_more));
+      bool has_more = false;
+      DECODE_VERIFY(DecodeArrayContinue(in, &has_more));
       if ( !has_more ) {
         break;
       }
-      tmp.push_back(T());
-      T& item = tmp.back();
-      DECODE_VERIFY(Decode(item));
-    }
-
-    // copy elements from temporary list to output array
-    //
-    out.resize(tmp.size());
-    uint32 i = 0;
-    for ( typename list<T>::iterator it = tmp.begin();
-          it != tmp.end(); ++it, ++i ) {
-      out[i] = *it;
+      T item;
+      DECODE_VERIFY(Decode(in, &item));
+      out->push_back(item);
     }
     return DECODE_RESULT_SUCCESS;
   }
 
   template <typename K, typename V>
-  DECODE_RESULT DecodeBody(map<K, V>& out) {
-    // decode map pairs count
-    //
-    uint32 count;
-    DECODE_RESULT result = DecodeMapStart(count);
-    if ( result != DECODE_RESULT_SUCCESS ) {
-      return result;
-    }
-
-    out.clear();
+  DECODE_RESULT Decode(io::MemoryStream& in, map<K, V>* out) {
+    out->clear();
+    DECODE_VERIFY(DecodeMapStart(in));
 
     // decode [key, value] pairs
     //
-    bool has_more = true;
-    K key;
-    V value;
-    while ( (result = DecodeMapContinue(has_more)) == DECODE_RESULT_SUCCESS &&
-            has_more ) {
-      DECODE_VERIFY(DecodeMapPairStart());
-      DECODE_VERIFY(Decode(key));
-      DECODE_VERIFY(DecodeMapPairMiddle());
-      DECODE_VERIFY(Decode(value));
-      DECODE_VERIFY(DecodeMapPairEnd());
-      out.insert(make_pair(key, value));
-    }
-    if ( result != DECODE_RESULT_SUCCESS ) {
-      return result;
+    while ( true ) {
+      bool has_more = true;
+      DECODE_VERIFY(DecodeMapContinue(in, &has_more));
+      if ( !has_more ) {
+        break;
+      }
+      DECODE_VERIFY(DecodeMapPairStart(in));
+      K key;
+      DECODE_VERIFY(Decode(in, &key));
+      DECODE_VERIFY(DecodeMapPairMiddle(in));
+      V value;
+      DECODE_VERIFY(Decode(in, &value));
+      DECODE_VERIFY(DecodeMapPairEnd(in));
+      (*out)[key] = value;
     }
 
-    // TODO(cpopescu): wtf is w/ this check here ?
-    if ( count != kMaxUInt32 ) {
-      CHECK_EQ(count, out.size());
-    }
     return DECODE_RESULT_SUCCESS;
   }
-  // TODO(cpopescu): shall we leave this around or redefine it (is needed
-  //   in rpc_json_decoder.cc
-  // #undef DECODE_VERIFY
 
   //  Decode a custom type object.
-  DECODE_RESULT DecodeBody(rpc::Custom& out) {
-    return out.SerializeLoad(*this);
-  }
+  DECODE_RESULT Decode(io::MemoryStream& in, rpc::Custom* out);
 
- public:
-  //  Reset internal state. Should be called before Decode.
-  //  If a previous try to Decode failed for insufficient data,
-  //  the internal state may be mangled.
-  virtual void Reset() = 0;
-
-  DECODE_RESULT Decode(std::_Bit_reference out) {
-    bool b = false;
-    DECODE_RESULT res = DecodeBody(b);
-    out = b;
-    return res;
-  }
-  //  Decode generic rpc::Object.
-  // Returns:
-  //   DECODE_RESULT_SUCCESS: if the object was successfully read.
-  //   DECODE_RESULT_NOT_ENOUGH_DATA: if there is not enough data
-  //                                  in the input buffer.
-  //                                  The read data is not restored.
-  //   DECODE_RESULT_ERROR: if the data does not look like the expected object.
-  //          The read data is not restored.
-  template<typename T>
-  DECODE_RESULT Decode(T& out) {
-    return DecodeBody(out);
-  }
-  // specialization for rpc::Message
-  DECODE_RESULT Decode(rpc::Message& out) {
-    return DecodePacket(out);
-  }
-
-  //  Skip bytes. Used to skip over unknown fields of custom objects.
-  // returns:
-  //   1 - on success.
-  //   0 - error: the input stream contains less than "size" bytes.
-  //       NOTE: on error the input stream is modified!
-  // int32 SkipBytes_TODO_DeleteMe(uint32 size) {
-  //  const uint32 skipped = in_.Skip(size);
-  //  return skipped < size ? 0 : 1;
-  // }
-
-  // Decodes data from the "input" stream trying to recompose a rpc::Message
+  // Decodes data from the "input" stream trying to recompose an rpc::Message
   //  which is stored in "out".
   // returns:
   //   DECODE_RESULT_SUCCESS: if a rpc::Message was successfully read.
   //   DECODE_RESULT_NOT_ENOUGH_DATA: if there is not enough data
   //                                  in the input buffer.
   //                                  The read data is not restored.
-  //   DECODE_RESULT_ERROR: if the data does not look like a rpc::Message.
-  //          The read data is not restored.
+  //   DECODE_RESULT_ERROR: if the data does not look like an rpc::Message.
+  //                        The read data is not restored.
   // NOTE: in case of error or not-enough-data, the read data is not restored.
-  virtual DECODE_RESULT DecodePacket(rpc::Message& out);
+  DECODE_RESULT Decode(io::MemoryStream& in, rpc::Message* out);
+
 
  protected:
-  io::MemoryStream& in_;
-
+  const CodecId type_;
   DISALLOW_EVIL_CONSTRUCTORS(Decoder);
 };
 }

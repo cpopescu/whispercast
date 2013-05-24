@@ -180,12 +180,11 @@ bool FailSafeClient::InternalStartRequest(PendingStruct* ps) {
   LOG_HTTP << " Sending request: " << ps->req_
            << " to " << servers_[min_id].ToString();
 
-  bool host_added = false;
   if ( !force_host_header_.empty() ) {
-    host_added = true;
     ps->req_->request()->client_header()->AddField(
         "Host", force_host_header_.c_str(), true, true);
   }
+  ps->req_->request()->client_data()->MarkerSet();
   clients_[min_id]->SendRequest(
       ps->req_,
       NewCallback(this, &FailSafeClient::CompletionCallback, ps));
@@ -195,9 +194,11 @@ bool FailSafeClient::InternalStartRequest(PendingStruct* ps) {
 void FailSafeClient::CompletionCallback(PendingStruct* ps) {
   CHECK(ps->req_->is_finalized());
   if ( closing_ || ps->req_->error() == CONN_OK ) {
+    ps->req_->request()->client_data()->MarkerClear();
     ps->completion_closure_->Run();
     delete ps;
   } else {
+    ps->req_->request()->client_data()->MarkerRestore();
     ps->req_->request()->server_data()->Clear();
     ps->req_->request()->server_header()->Clear();
     LOG_INFO << " Failsafe retrying request: " << ps->req_->name();

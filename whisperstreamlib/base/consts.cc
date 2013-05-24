@@ -38,10 +38,7 @@ const char* TagReadStatusName(TagReadStatus status) {
     CONSIDER(READ_OK);
     CONSIDER(READ_NO_DATA);
     CONSIDER(READ_SKIP);
-    CONSIDER(READ_CORRUPTED_CONT);
-    CONSIDER(READ_CORRUPTED_FAIL);
-    CONSIDER(READ_OVERSIZED_TAG);
-    CONSIDER(READ_UNKNOWN);
+    CONSIDER(READ_CORRUPTED);
     CONSIDER(READ_EOF);
   }
   LOG_FATAL << "Illegal TagReadStatus: " << status;
@@ -50,77 +47,125 @@ const char* TagReadStatusName(TagReadStatus status) {
 
 ///////
 
-bool GetStreamType(const string& str, Tag::Type* out) {
-  if ( str == "flv" )      { *out = Tag::TYPE_FLV; return true; }
-  if ( str == "mp3" )      { *out = Tag::TYPE_MP3; return true; }
-  if ( str == "aac" )      { *out = Tag::TYPE_AAC; return true; }
-  if ( str == "internal" ) { *out = Tag::TYPE_INTERNAL; return true; }
-  if ( str == "f4v" )      { *out = Tag::TYPE_F4V; return true; }
-  if ( str == "raw" )      { *out = Tag::TYPE_RAW; return true; }
+const MediaFormat kAnyMediaFormat = (MediaFormat)-2;
+
+const char* MediaFormatName(MediaFormat format) {
+  switch ( format ) {
+    CONSIDER(MFORMAT_F4V);
+    CONSIDER(MFORMAT_FLV);
+    CONSIDER(MFORMAT_MP3);
+    CONSIDER(MFORMAT_AAC);
+    CONSIDER(MFORMAT_MTS);
+    CONSIDER(MFORMAT_RAW);
+    CONSIDER(MFORMAT_INTERNAL);
+  }
+  if ( format == kAnyMediaFormat ) {
+    return "MFORMAT_ANY";
+  }
+  LOG_FATAL << "Illegal MediaFormat: " << (int)format;
+  return "unknown";
+}
+const char* MediaFormatToExtension(MediaFormat format) {
+  switch ( format ) {
+    case MFORMAT_F4V: return "f4v";
+    case MFORMAT_FLV: return "flv";
+    case MFORMAT_MP3: return "mp3";
+    case MFORMAT_AAC: return "aac";
+    case MFORMAT_MTS: return "ts";
+    case MFORMAT_RAW: return "raw";
+    case MFORMAT_INTERNAL: return "internal";
+  }
+  LOG_FATAL << "Illegal MediaFormat: " << (int)format;
+  return "unknown";
+}
+bool MediaFormatFromExtension(const string& ext2, MediaFormat* out_format) {
+  const string ext = strutil::StrToLower(ext2);
+  if ( ext == "flv" ) { *out_format = MFORMAT_FLV; return true; }
+  if ( ext == "f4v" || ext == "mp4" || ext == "mp4a" || ext == "m4v" ||
+       ext == "mov" ) { *out_format = MFORMAT_F4V; return true; }
+  if ( ext == "mp3" ) { *out_format = MFORMAT_MP3; return true; }
+  if ( ext == "aac" ) { *out_format = MFORMAT_AAC; return true; }
+  if ( ext == "ts" ) { *out_format = MFORMAT_MTS; return true; }
   return false;
 }
 
-Tag::Type GetStreamTypeFromContentType(const string& content_type) {
+const char* MediaFormatToContentType(MediaFormat format) {
+  switch ( format ) {
+    case MFORMAT_FLV:      return "video/x-flv";
+    case MFORMAT_F4V:      return "video/x-f4v";
+    case MFORMAT_MP3:      return "audio/mpeg";
+    case MFORMAT_AAC:      return "audio/aac";
+    case MFORMAT_MTS:      return "video/mp2t"; // Or: "video/x-mpegts" ?
+    case MFORMAT_RAW:      return "application/octet-stream";
+    case MFORMAT_INTERNAL: return kInternalMimeType;
+  }
+  LOG_FATAL << "Illegal MediaFormat: " << (int)format;
+  return "unknown";
+}
+bool MediaFormatFromContentType(const string& content_type,
+    MediaFormat* out_format) {
   if ( content_type == "video/x-flv" ) {
-    return Tag::TYPE_FLV;
+    *out_format = MFORMAT_FLV;
+    return true;
+  }
+  if ( content_type == "video/x-f4v" ||
+       content_type == "video/x-m4v" ) {
+    *out_format = MFORMAT_F4V;
+    return true;
   }
   if ( content_type == "audio/mpeg" ) {
-    return Tag::TYPE_MP3;
+    *out_format = MFORMAT_MP3;
+    return true;
   }
   if ( content_type == "audio/aac" ||
        content_type == "audio/aacp" ) {
-    return Tag::TYPE_AAC;
+    *out_format = MFORMAT_AAC;
+    return true;
+  }
+  if ( content_type == "video/mp2t" ||
+       content_type == "video/x-mpegts" ) {
+    *out_format = MFORMAT_MTS;
+    return true;
   }
   if ( content_type == kInternalMimeType ||
        content_type == "media/x-emoticon-internal" ) {
-    return Tag::TYPE_INTERNAL;
+    *out_format = MFORMAT_INTERNAL;
+    return true;
   }
-  if ( content_type == "video/x-f4v" ) {
-    return Tag::TYPE_F4V;
-  }
-  return Tag::TYPE_RAW;
+  LOG_ERROR << "Unknown content type: [" << content_type << "]";
+  return false;
 }
 
-const char* GetContentTypeFromStreamType(Tag::Type tag_type) {
-  switch ( tag_type ) {
-    case Tag::TYPE_FLV:       return "video/x-flv";
-    case Tag::TYPE_MP3:       return "audio/mpeg";
-    case Tag::TYPE_AAC:       return "audio/aac";
-    case Tag::TYPE_INTERNAL:  return kInternalMimeType;
-    case Tag::TYPE_F4V:       return "video/x-f4v";
-    default:                  return "application/octet-stream";
+const char* MediaFormatToSmallType(MediaFormat format) {
+  switch ( format ) {
+    case MFORMAT_F4V: return "f4v";
+    case MFORMAT_FLV: return "flv";
+    case MFORMAT_MP3: return "mp3";
+    case MFORMAT_AAC: return "aac";
+    case MFORMAT_MTS: return "mts";
+    case MFORMAT_RAW: return "raw";
+    case MFORMAT_INTERNAL: return "internal";
   }
+  LOG_FATAL << "Illegal MediaFormat: " << (int)format;
+  return "unknown";
 }
-const char* GetSmallTypeFromStreamType(Tag::Type tag_type) {
-  switch ( tag_type ) {
-    case Tag::TYPE_FLV:        return "flv";
-    case Tag::TYPE_MP3:        return "mp3";
-    case Tag::TYPE_AAC:        return "aac";
-    case Tag::TYPE_INTERNAL:   return "internal";
-    case Tag::TYPE_F4V:        return "f4v";
-    case Tag::TYPE_RAW:        return "raw";
-    default:                   return "error";
-  }
+bool MediaFormatFromSmallType(const string& small_type, MediaFormat* out_format) {
+  if ( small_type == "flv" ) { *out_format = MFORMAT_FLV; return true; }
+  if ( small_type == "f4v" ) { *out_format = MFORMAT_F4V; return true; }
+  if ( small_type == "mp3" ) { *out_format = MFORMAT_MP3; return true; }
+  if ( small_type == "aac" ) { *out_format = MFORMAT_AAC; return true; }
+  return false;
 }
 
-const char* GetSmallTypeFromContentType(const string& content_type) {
-  if ( content_type == "video/x-flv" ) {
-    return "flv";
+//////////////////////////////////////////////////////////////////////
+
+bool ExtensionToContentType(const string& ext, string* content_type) {
+  MediaFormat format;
+  if ( !MediaFormatFromExtension(ext, &format) ) {
+    return false;
   }
-  if ( content_type == "audio/mpeg" ) {
-    return "mp3";
-  }
-  if ( content_type == "audio/aac" ||
-       content_type == "audio/aacp" ) {
-    return "aac";
-  }
-  if ( content_type == kInternalMimeType ) {
-    return "internal";
-  }
-  if ( content_type == "video/x-f4v" ) {
-    return "f4v";
-  }
-  return content_type.c_str();
+  *content_type = MediaFormatToContentType(format);
+  return true;
 }
 
 //////////////////////////////////////////////////////////////////////

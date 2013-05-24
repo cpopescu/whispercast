@@ -65,7 +65,7 @@ class PlayStream : public Stream, protected streaming::Exporter {
   virtual void NotifyOutbufEmpty(int32 outbuf_size);
 
   // net selector
-  virtual bool ProcessEvent(Event* event, int64 timestamp_ms);
+  virtual bool ProcessEvent(const Event* event, int64 timestamp_ms);
 
   // called from ServerConnection::InvokeDeleteStream
   virtual void Close() {
@@ -87,15 +87,18 @@ class PlayStream : public Stream, protected streaming::Exporter {
   bool InvokeSeek(const EventInvoke* invoke);
   bool FlexSeek(const EventFlexMessage* flex);
 
-  bool ProcessPlay(const string& stream_name, int64 seek_time_ms);
+  bool ProcessPlay(const string& stream_name);
   bool ProcessPause(bool pause, int64 stream_time_ms);
   bool ProcessSeek(int64 seek_time_ms);
 
   //////////////////////////////////////////////////////////////////////
 
-  void HandlePlay(string stream_name, int64 seek_time_ms, bool dec_ref = false);
+  void HandlePlay(string stream_name, bool dec_ref = false);
   void HandlePause(bool pause, bool dec_ref = false);
   void HandleSeek(int64 seek_time_ms, bool dec_ref = false);
+
+  // send "StreamNotFound" to client and close connection.
+  void HandleStreamNotFound();
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -127,7 +130,7 @@ class PlayStream : public Stream, protected streaming::Exporter {
 
   virtual void OnStreamNotFound();
   virtual void OnTooManyClients();
-  virtual void OnAuthorizationFailed(bool is_reauthorization);
+  virtual void OnAuthorizationFailed();
   virtual void OnAddRequestFailed();
   virtual void OnPlay();
 
@@ -145,63 +148,55 @@ class PlayStream : public Stream, protected streaming::Exporter {
   // send that large media event
   void SendMediaTag();
 
+  void SendResetAudio(int64 ts);
+  void SendResetPings(int64 ts);
+  void SendClearBuffer();
+  void SendSwitchMedia(int64 ts);
+
+  // closes some things in media selector
   void CloseInternal(bool dec_ref = false);
+  // closes other things in net selector
+  void CloseInternalNet(bool dec_ref = false);
 
- protected:
-  //////////////////////////////////////////////////////////////////////
-  //
-  // MEDIA/NET THREAD members
-  //
+  // Add a bad stream name to the "missing stream cache".
+  void AddMissingStream(const string& stream_name);
+  // test if the stream_name is found in the "missing stream cache"
+  bool IsMissingStream(const string& stream_name);
 
+ private:
   // we are seeking
   bool seeking_;
-
-  //////////////////////////////////////////////////////////////////////
-  //
-  // MEDIA THREAD members
-  //
 
   // Enables us to process seek a little after we receive it.
   // Helps with multiple seeks in a short period of time.
   util::Alarm seek_alarm_;
 
+  // Delay HandleStreamNotFound() by several seconds.
+  // Helps with fast reconnecting clients on a missing stream.
+  // RACE WARN: If you set this alarm on OnStreamNotFound() this happens:
+  //             - missing stream is in cache => alarm set
+  //             - cache expires
+  //             - alarm runs => OnStreamNotFound => add missing stream to cache
+  //            So the cache is renewed and StartRequest() is never attempted.
+  util::Alarm handle_stream_not_found_alarm_;
+
   // F4V related members
   streaming::F4vToFlvConverter f4v2flv_;
   uint32 f4v_cue_point_number_;
 
-  //////////////////////////////////////////////////////////////////////
-  //
-  // NET THREAD members
-  //
+  // drop interframes before first keyframe. This is just to be extra-safe,
+  // internal streams should always start with keyframe.
+  bool dropping_interframes_;
 
-  // If we want are in building media aggregated tags we use these:
-  enum MediaBuildState {
-    WAITING_VIDEO,     // we decide that we build mediat tags, so we wait for
-                       // next video tag
-    WAITING_AUDIO,     // waiting for an audio tag in WAITING_VIDEO state
-    BUILDING_MEDIA,    // we accumulate in collapsed_media_tag_.
-  };
+  // Instead of sending huge MediaDataEvents right from the begging, we send
+  // small events at first (fast image), and then switch to MediaDataEvents.
+  int64 first_tag_ts_;
 
-  streaming::FlvFlagVideoCodec video_codec_;
-  streaming::FlvFlagVideoFrameType video_frame_type_;
-
-  MediaBuildState media_build_state_;
-
-  // The timestamp of the first video tag in WAITING_VIDEO state
-  int32 composed_media_data_tag_delta_;
+  // indicates the first media segment (because on media change we need to send
+  // the SWITCH media event)
+  bool first_media_segment_;
 
   scoped_ref<MediaDataEvent> media_event_;
-  int32 media_event_size_;
-  int64 media_event_timestamp_ms_;
-  int64 media_event_duration_ms_;
-
-  // If true then we are in the middle of the bootstrap
-  bool bootstrapping_;
-
-  // If true we need to send send reset/clear pings before the first media tag
-  bool send_reset_audio_;
-  bool send_reset_pings_;
-  bool send_switch_media_;
 
  private:
   DISALLOW_EVIL_CONSTRUCTORS(PlayStream);

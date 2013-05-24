@@ -73,19 +73,6 @@ if (NOT RPC_TESTS)
       "Options: No RPC Tests (use RPC_TESTS=All or RPS_TESTS=Some." FORCE)
 endif (NOT RPC_TESTS)
 
-if (WITH_GSTREAMER AND NOT APPLE)
-  add_definitions(-D__WITH_GSTREAMER__)
-  set(WITH_GSTREAMER 1 CACHE STRING
-      "Options: Enabling gstreamer dependent stuff." FORCE)
-  message(STATUS "=====> WITH gstreamer ")
-else (WITH_GSTREAMER AND NOT APPLE)
-  add_definitions(-D__NO_GSTREAMER__)
-  set(WITH_GSTREAMER 0 CACHE STRING
-      "Options: Disabling gstreamer dependent stuff." FORCE)
-  message(STATUS "=====> NO gstreamer ")
-endif (WITH_GSTREAMER AND NOT APPLE)
-
-
 if (WITH_ADMIN)
   set(WITH_ADMIN 1 CACHE STRING
       "Options: Enabling administration interface." FORCE)

@@ -42,6 +42,7 @@
 #include <whisperlib/common/base/log.h>
 #include <whisperlib/common/base/timer.h>
 #include <whisperlib/common/io/ioutil.h>
+#include <whisperlib/common/sync/mutex.h>
 
 namespace util {
 
@@ -73,7 +74,7 @@ class Cache : public CacheBase {
 public:
   typedef void (*ValueDestructor)(V);
 
-public:
+private:
   class Item;
   typedef map<K, Item*> ItemMap;
   typedef map<uint64, Item*> ItemByUseMap;
@@ -81,7 +82,7 @@ public:
   typedef typename ItemMap::iterator ItemMapIterator;
   typedef typename ItemList::iterator ItemListIterator;
 
-public:
+private:
   class Item {
   public:
     Item(V value, ValueDestructor destructor, uint64 use, int64 expiration_ts)
@@ -105,7 +106,8 @@ public:
     K key() { return items_it_->first; }
     string ToString() const {
       ostringstream oss;
-      oss << "(use_: " << use_ << ", value_: " << value_ << ")";
+      oss << "(use_: " << use_ << ", value_: " << value_
+          << ", expiration_ts_: " << expiration_ts_ << ")";
       return oss.str();
     }
   private:
@@ -124,12 +126,13 @@ public:
 
 
 public:
-  // null_value: what the cache returns on Get() if the key is not found.
   // destructor: a function which knows how to delete V type
   //             Use &DefaultValueDestructor() for default "delete" operator.
   //             Use NULL is you don't wish to destroy the values.
+  // null_value: what the cache returns on Get() if the key is not found.
+  // synchornized: if true, the cache is synchronized with a mutex
   Cache(Algorithm algorithm, uint32 max_size, uint64 expiration_time_ms,
-        ValueDestructor destructor, V null_value)
+        ValueDestructor destructor, V null_value, bool synchornized)
     : CacheBase(),
       algorithm_(algorithm),
       max_size_(max_size),
@@ -139,10 +142,13 @@ public:
       items_(),
       items_by_use_(),
       items_by_exp_(),
-      next_use_(0) {
+      next_use_(0),
+      sync_(synchornized ? new synch::Mutex(true) : NULL) {
   }
   virtual ~Cache() {
     Clear();
+    delete sync_;
+    sync_ = NULL;
   }
 
   Algorithm algorithm() const {
@@ -152,18 +158,21 @@ public:
     return AlgorithmName(algorithm());
   }
 
-  uint64 NextUse() {
-    return next_use_++;
-  }
-
   uint32 Size() const {
+    synch::MutexLocker lock(sync_);
     return items_.size();
   }
 
-  void Add(K key, V value) {
+  bool Add(K key, V value, bool replace = true) {
+    synch::MutexLocker lock(sync_);
     ExpireSomeCache();
-    if ( Find(key) != NULL ) {
-      Del(key);
+    Item* old_item = Find(key);
+    if ( old_item != NULL ) {
+      if ( !replace ) {
+        return false;
+      }
+      DelItem(old_item);
+      old_item = NULL;
     }
     if ( items_.size() >= max_size_ ) {
       DelByAlgorithm();
@@ -176,8 +185,10 @@ public:
     items_by_exp_.push_back(item);
     item->set_items_by_exp_it(--items_by_exp_.end());
     items_by_use_[use] = item;
+    return true;
   }
   V Get(K key) {
+    synch::MutexLocker lock(sync_);
     ExpireSomeCache();
     Item* item = Find(key);
     if ( item == NULL ) {
@@ -189,6 +200,7 @@ public:
     return item->value();
   }
   void GetAll(map<K,V>* out) {
+    synch::MutexLocker lock(sync_);
     ExpireSomeCache();
     for ( typename ItemMap::iterator it = items_.begin(); it != items_.end();
           ++it ) {
@@ -199,14 +211,16 @@ public:
   }
   // This method exists only for K == string.
   V GetPathBased(K key) {
+    synch::MutexLocker lock(sync_);
     Item* item = io::FindPathBased(&items_, key);
     if ( item == NULL ) {
       return null_value_;
     }
     return item->value();
   }
-  // removes a value from the cache, without destroying it.
+  // removes a value from the cache, and returns it.
   V Pop(K key) {
+    synch::MutexLocker lock(sync_);
     ExpireSomeCache();
     Item* item = Find(key);
     if ( item == NULL ) {
@@ -218,6 +232,7 @@ public:
     return v;
   }
   void Del(K key) {
+    synch::MutexLocker lock(sync_);
     Item* item = Find(key);
     if ( item == NULL ) {
       return;
@@ -226,6 +241,7 @@ public:
   }
 
   void Clear() {
+    synch::MutexLocker lock(sync_);
     for ( typename ItemMap::iterator it = items_.begin();
           it != items_.end(); ++it ) {
       Item* item = it->second;
@@ -236,6 +252,7 @@ public:
   }
 
   string ToString() const {
+    synch::MutexLocker lock(sync_);
     ostringstream oss;
     oss << "Cache{algorithm_: " << algorithm_name()
         << ", max_size_: " << max_size_
@@ -251,6 +268,9 @@ public:
   }
 
 private:
+  uint64 NextUse() {
+    return next_use_++;
+  }
   Item* Find(K key) {
     typename ItemMap::iterator it = items_.find(key);
     return it == items_.end() ? NULL : it->second;
@@ -316,6 +336,9 @@ protected:
   // If the cache is used by 1000000 ops/sec, there will still be
   // 599730 years until this counter resets.
   uint64 next_use_;
+
+  // if not NULL then all public methods are synchronized with this mutex
+  synch::Mutex* sync_;
 };
 
 }; // namespace util

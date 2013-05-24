@@ -36,6 +36,7 @@
 #include <whisperlib/common/base/types.h>
 #include <whisperstreamlib/base/consts.h>
 #include <whisperstreamlib/base/tag.h>
+#include <whisperstreamlib/base/tag_serializer.h>
 
 namespace io {
 class MemoryStream;
@@ -77,6 +78,8 @@ class InternalFrameTag : public streaming::Tag  {
   }
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return data_.size(); }
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return NULL; }
   virtual Tag* Clone() const {
     return new InternalFrameTag(*this);
   }
@@ -112,17 +115,16 @@ class InternalFrameTag : public streaming::Tag  {
 
 class InternalTagSerializer : public streaming::TagSerializer {
  public:
-  InternalTagSerializer() : streaming::TagSerializer() { }
+  InternalTagSerializer() : TagSerializer(MFORMAT_INTERNAL) { }
   virtual ~InternalTagSerializer() {}
   virtual void Initialize(io::MemoryStream* out) {}
   virtual void Finalize(io::MemoryStream* out) {}
  protected:
   virtual bool SerializeInternal(const Tag* tag, int64 base_timestamp_ms,
                                  io::MemoryStream* out) {
-    if ( tag->type() != Tag::TYPE_INTERNAL ) {
-      return false;
+    if ( tag->type() == Tag::TYPE_INTERNAL ) {
+      out->Write(static_cast<const InternalFrameTag*>(tag)->data());
     }
-    out->Write(reinterpret_cast<const InternalFrameTag*>(tag)->data());
     return true;
   }
  private:

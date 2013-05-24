@@ -81,7 +81,7 @@ class IOMemoryStream : public InputStream, public OutputStream {
     #ifdef _DEBUG
     const int32 original_size = in.Size();
     #endif
-    ms_->AppendStreamNonDestructive(in.ms_, size);
+    ms_->AppendStreamNonDestructive(in.ms_, 0, size);
     #ifdef _DEBUG
     CHECK_EQ(original_size, in.Size());   // "in" should not be modified
     #endif

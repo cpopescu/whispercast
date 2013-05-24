@@ -104,18 +104,19 @@ Type TimeSpec {
 }
 
 Type MediaSaverSpec {
-  string name_;
-  string media_name_;
+  string name_;        // saver name
+  string media_name_;  // internal media path to read and save
 
-  // when to start recording (if empty -> on command)
-  array< TimeSpec > timespecs_;
-  bool accepts_manual_commands_;
+  // when to start recording (if you want a schedule)
+  array<TimeSpec> schedule_;
+  
+  string save_dir_;    // directory where files are written
+  string save_format_; // possibly: 'flv', 'f4v'
 }
 
 Type MediaSaverState {
   string name_;
-  bigint last_start_time_;     // -1 - not started..
-  bool started_on_command_;
+  string start_ts_; // empty = saver is inactive
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -134,7 +135,6 @@ Type RpcAuthorizerRequest {
 
 Type RpcAuthorizerReply {
   bool allowed_;
-  int reauthorize_interval_ms_;
   int time_limit_ms_;
 }
 
@@ -144,14 +144,9 @@ Type RpcAuthorizerReply {
 //
 
 // What server can return on configuration commands.
-Type MediaOperationErrorData {
-  int error_;                           // 0 -> OK
-  optional string description_;
-}
-
-Type MediaHostAliasSpec {
-  string alias_name_;
-  string alias_ip_;
+Type MediaOpResult {
+  bool success_;
+  string error_; // error description
 }
 
 Type MediaAliasSpec {
@@ -163,46 +158,39 @@ Type MediaAliasSpec {
 
 // Interface of a server that maintains a configuration of elements.
 Service MediaElementService {
-  MediaOperationErrorData    AddPolicySpec(PolicySpecs spec);
-  MediaOperationErrorData    DeletePolicySpec(string name);
+  MediaOpResult    AddPolicySpec(PolicySpecs spec);
+  void             DeletePolicySpec(string name);
 
-  MediaOperationErrorData    AddElementSpec(MediaElementSpecs spec);
-  MediaOperationErrorData    DeleteElementSpec(string name);
+  MediaOpResult    AddElementSpec(MediaElementSpecs spec);
+  void             DeleteElementSpec(string name);
 
-  MediaOperationErrorData    AddAuthorizerSpec(AuthorizerSpecs spec);
-  MediaOperationErrorData    DeleteAuthorizerSpec(string name);
+  MediaOpResult    AddAuthorizerSpec(AuthorizerSpecs spec);
+  void             DeleteAuthorizerSpec(string name);
 
-  MediaOperationErrorData    StartExportElement(ElementExportSpec spec);
-  MediaOperationErrorData    StopExportElement(string protocol,
-                                               string path);
+  MediaOpResult            StartExportElement(ElementExportSpec spec);
+  void                     StopExportElement(string protocol, string path);
+  array<ElementExportSpec> GetElementExports();
 
-  MediaOperationErrorData    AddElementSaver(MediaSaverSpec spec);
-  MediaOperationErrorData    DeleteElementSaver(string name);
+  // start_now: immediately start, stop only on command
+  MediaOpResult          AddMediaSaver(MediaSaverSpec spec, bool start_now);
+  
+  void                   DeleteMediaSaver(string name);
+  MediaOpResult          StartMediaSaver(string name, int duration_sec);
+  void                   StopMediaSaver(string name);
+  array<MediaSaverState> GetCurrentSaves();
+  array<MediaSaverSpec>  GetSavesConfig();
 
-  MediaOperationErrorData    StartSaver(string name, string description);
-  MediaOperationErrorData    StopSaver(string name);
+  MediaOpResult         SetMediaAlias(string alias_name, string media_name);
+  string                GetMediaAlias(string alias_name);
+  array<MediaAliasSpec> GetAllMediaAliases();
 
-  array<string>              ListMedia(string media_name);
+  array<string> ListMedia(string media_name);
 
   string                     GetHttpExportRoot();
   ElementConfigurationSpecs  GetAllElementConfig();
   ElementConfigurationSpecs  GetElementConfig(string element);
 
-  array<ElementExportSpec>     GetElementExports();
-
-  array<MediaSaverState>     GetCurrentSaves();
-  array<MediaSaverSpec>      GetSavesConfig();
-
-  bool                       SaveConfig();
-
-  MediaOperationErrorData    SetMediaAlias(string alias_name,
-                                           string media_name);
-  string                     GetMediaAlias(string alias_name);
-  array<MediaAliasSpec>      GetAllMediaAliases();
-
-  MediaOperationErrorData    AddHostAlias(string alias_name, string alias_ip);
-  MediaOperationErrorData    DeleteHostAlias(string alias_name);
-  array<MediaHostAliasSpec>  GetHostAliases();
+  bool SaveConfig();
 }
 
 //////////////////////////////////////////////////////////////////////

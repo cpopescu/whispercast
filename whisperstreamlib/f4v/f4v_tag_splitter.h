@@ -44,9 +44,7 @@ namespace streaming {
 
 //////////////////////////////////////////////////////////////////////
 
-class F4vTagSplitter : public streaming::TagSplitter {
- public:
-  static const Type kType;
+class F4vTagSplitter : public TagSplitter {
  public:
   F4vTagSplitter(const string& name);
   virtual ~F4vTagSplitter();

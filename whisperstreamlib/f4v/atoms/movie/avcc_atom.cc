@@ -6,35 +6,19 @@ namespace f4v {
 AvccParameter::AvccParameter()
   : raw_data_() {
 }
+AvccParameter::AvccParameter(const string& data)
+  : raw_data_() {
+  raw_data_.Write(data);
+}
 AvccParameter::AvccParameter(const AvccParameter& other)
   : raw_data_() {
   raw_data_.AppendStreamNonDestructive(&other.raw_data_);
 }
 AvccParameter::~AvccParameter() {
 }
-
-uint8 AvccAtom::configuration_version() const {
-  return configuration_version_;
+bool AvccParameter::Equals(const AvccParameter& other) const {
+  return raw_data_.Equals(other.raw_data_);
 }
-uint8 AvccAtom::profile() const {
-  return profile_;
-}
-uint8 AvccAtom::profile_compatibility() const {
-  return profile_compatibility_;
-}
-uint8 AvccAtom::level() const {
-  return level_;
-}
-uint8 AvccAtom::nalu_length_size() const {
-  return nalu_length_size_;
-}
-const vector<AvccParameter*>& AvccAtom::seq_parameters() const {
-  return seq_parameters_;
-}
-const vector<AvccParameter*>& AvccAtom::pic_parameters() const {
-  return pic_parameters_;
-}
-
 AvccParameter* AvccParameter::Clone() const {
   return new AvccParameter(*this);
 }
@@ -72,11 +56,31 @@ AvccAtom::AvccAtom()
     profile_(0),
     profile_compatibility_(0),
     level_(0),
-    original_nalu_length_size_(0),
     nalu_length_size_(0),
-    original_seq_count_(0),
     seq_parameters_(),
     pic_parameters_() {
+}
+AvccAtom::AvccAtom(uint8 configuration_version,
+                   uint8 profile,
+                   uint8 profile_compatibility,
+                   uint8 level,
+                   uint8 nalu_length_size,
+                   const vector<string>& seq_parameters,
+                   const vector<string>& pic_parameters)
+  : BaseAtom(kType),
+    configuration_version_(configuration_version),
+    profile_(profile),
+    profile_compatibility_(profile_compatibility),
+    level_(level),
+    nalu_length_size_(nalu_length_size),
+    seq_parameters_(),
+    pic_parameters_() {
+  for ( uint32 i = 0; i < seq_parameters.size(); i++ ) {
+    seq_parameters_.push_back(new AvccParameter(seq_parameters[i]));
+  }
+  for ( uint32 i = 0; i < pic_parameters.size(); i++ ) {
+    pic_parameters_.push_back(new AvccParameter(pic_parameters[i]));
+  }
 }
 AvccAtom::AvccAtom(const AvccAtom& other)
   : BaseAtom(other),
@@ -84,9 +88,7 @@ AvccAtom::AvccAtom(const AvccAtom& other)
     profile_(other.profile_),
     profile_compatibility_(other.profile_compatibility_),
     level_(other.level_),
-    original_nalu_length_size_(other.original_nalu_length_size_),
     nalu_length_size_(other.nalu_length_size_),
-    original_seq_count_(other.original_seq_count_),
     seq_parameters_(),
     pic_parameters_() {
   for ( uint32 i = 0; i < other.seq_parameters_.size(); i++ ) {
@@ -107,6 +109,51 @@ AvccAtom::~AvccAtom() {
   pic_parameters_.clear();
 }
 
+uint8 AvccAtom::configuration_version() const {
+  return configuration_version_;
+}
+uint8 AvccAtom::profile() const {
+  return profile_;
+}
+uint8 AvccAtom::profile_compatibility() const {
+  return profile_compatibility_;
+}
+uint8 AvccAtom::level() const {
+  return level_;
+}
+uint8 AvccAtom::nalu_length_size() const {
+  return nalu_length_size_;
+}
+const vector<AvccParameter*>& AvccAtom::seq_parameters() const {
+  return seq_parameters_;
+}
+const vector<AvccParameter*>& AvccAtom::pic_parameters() const {
+  return pic_parameters_;
+}
+void AvccAtom::get_seq_parameters(vector<string>* out) const {
+  out->clear();
+  out->resize(seq_parameters_.size());
+  for ( uint32 i = 0; i < seq_parameters_.size(); i++ ) {
+    seq_parameters_[i]->raw_data_.PeekString(&out->at(i));
+  }
+}
+void AvccAtom::get_pic_parameters(vector<string>* out) const {
+  out->clear();
+  out->resize(pic_parameters_.size());
+  for ( uint32 i = 0; i < pic_parameters_.size(); i++ ) {
+    pic_parameters_[i]->raw_data_.PeekString(&out->at(i));
+  }
+}
+bool AvccAtom::EqualsBody(const BaseAtom& other) const {
+  const AvccAtom& a = static_cast<const AvccAtom&>(other);
+  return configuration_version_ == a.configuration_version_ &&
+         profile_ == a.profile_ &&
+         profile_compatibility_ == a.profile_compatibility_ &&
+         level_ == a.level_ &&
+         nalu_length_size_ == a.nalu_length_size_ &&
+         AllEqualsP<AvccParameter>(seq_parameters_, a.seq_parameters_) &&
+         AllEqualsP<AvccParameter>(pic_parameters_, a.pic_parameters_);
+}
 void AvccAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* AvccAtom::Clone() const {
@@ -115,6 +162,19 @@ BaseAtom* AvccAtom::Clone() const {
 TagDecodeStatus AvccAtom::DecodeBody(uint64 size,
                                      io::MemoryStream& in,
                                      Decoder& decoder) {
+  // AVCC Atom Structure:
+  //  int(8) configuration version
+  //  int(8) profile
+  //  int(8) profile compatibility
+  //  int(8) level
+  //  bit(6) reserved: 111111
+  //  int(2) nalu lenght size minus one
+  //  bit(3) reserved: 111
+  //  int(5) sequence parameter count
+  //  ... <int(16) param size><param data><int(16)><data> ...
+  //  int(8) picture parameter count
+  //  ... <int(16) param size><param data><int(16)><data> ...
+  //
   if ( in.Size() < size ) {
     DATOMLOG << "Not enough data in stream: " << in.Size()
              << " is less than expected: " << size;
@@ -129,21 +189,8 @@ TagDecodeStatus AvccAtom::DecodeBody(uint64 size,
   profile_ = io::NumStreamer::ReadByte(&in);
   profile_compatibility_ = io::NumStreamer::ReadByte(&in);
   level_ = io::NumStreamer::ReadByte(&in);
-  original_nalu_length_size_ = io::NumStreamer::ReadByte(&in);
-  // Hack from "rtmpd" project, file: atomavcc.cpp:96
-  nalu_length_size_ = 1 + (original_nalu_length_size_ & 0x03);
-  DATOMLOG << "original_nalu_length_size_: "
-           << static_cast<uint32>(original_nalu_length_size_)
-           << " => adjusted nalu_length_size_: "
-           << static_cast<uint32>(nalu_length_size_);
-
-  original_seq_count_ = io::NumStreamer::ReadByte(&in);
-  // Hack from "rtmpd" project, file: atomavcc.cpp:103
-  uint8 seq_count = original_seq_count_ & 0x1f;
-  DATOMLOG << "original_seq_count_: "
-           << static_cast<uint32>(original_seq_count_)
-           << " => adjusted seq_count: " << static_cast<uint32>(seq_count);
-
+  nalu_length_size_ = 1 + (0x03 & io::NumStreamer::ReadByte(&in));
+  uint8 seq_count = 0x1f & io::NumStreamer::ReadByte(&in);
   uint32 decoded_bytes = 6;
   for ( uint8 i = 0; i < seq_count; i++ ) {
     AvccParameter* p = new AvccParameter();
@@ -157,7 +204,6 @@ TagDecodeStatus AvccAtom::DecodeBody(uint64 size,
     decoded_bytes += p->MeasureSize();
     seq_parameters_.push_back(p);
   }
-
   if ( in.Size() < 1 ) {
     EATOMLOG << "Cannot decode from " << in.Size() << " bytes"
                 ", expected at least 1 bytes";
@@ -165,8 +211,6 @@ TagDecodeStatus AvccAtom::DecodeBody(uint64 size,
   }
   uint8 pic_count = io::NumStreamer::ReadByte(&in);
   decoded_bytes++;
-  DATOMLOG << "pic_count: " << static_cast<uint32>(pic_count)
-           << " => no adjustments";
 
   for ( uint8 i = 0; i < pic_count; i++ ) {
     AvccParameter* p = new AvccParameter();
@@ -183,8 +227,8 @@ TagDecodeStatus AvccAtom::DecodeBody(uint64 size,
 
   if ( decoded_bytes != size ) {
     CHECK_LT(decoded_bytes, size);
-    EATOMLOG << "Useless data at atom end:  " << (size - decoded_bytes)
-             << " bytes";
+    EATOMLOG << "Useless data at atom end: " << (size - decoded_bytes)
+             << " bytes, this: " << ToString();
     return TAG_DECODE_ERROR;
   }
   return TAG_DECODE_SUCCESS;
@@ -194,8 +238,8 @@ void AvccAtom::EncodeBody(io::MemoryStream& out, Encoder& encoder) const {
   io::NumStreamer::WriteByte(&out, profile_);
   io::NumStreamer::WriteByte(&out, profile_compatibility_);
   io::NumStreamer::WriteByte(&out, level_);
-  io::NumStreamer::WriteByte(&out, original_nalu_length_size_);
-  io::NumStreamer::WriteByte(&out, original_seq_count_);
+  io::NumStreamer::WriteByte(&out, 0xfc | (nalu_length_size_ - 1));
+  io::NumStreamer::WriteByte(&out, 0xe0 | ((uint8)seq_parameters_.size()));
   for ( uint32 i = 0; i < seq_parameters_.size(); i++ ) {
     seq_parameters_[i]->Encode(out);
   }
@@ -235,18 +279,14 @@ string AvccAtom::ToStringBody(uint32 indent) const {
                                "profile_: %u, "
                                "profile_compatibility_: %u, "
                                "level_: %u, "
-                               "original_nalu_length_size_: %u, "
                                "nalu_length_size_: %u, "
-                               "original_seq_count_: %u, "
                                "seq_parameters_: %s, "
                                "pic_parameters_: %s",
                                configuration_version_,
                                profile_,
                                profile_compatibility_,
                                level_,
-                               original_nalu_length_size_,
                                nalu_length_size_,
-                               original_seq_count_,
                                ToStringP(seq_parameters_).c_str(),
                                ToStringP(pic_parameters_).c_str());
 }

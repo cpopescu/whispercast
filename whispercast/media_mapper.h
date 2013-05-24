@@ -40,8 +40,7 @@
 #include <whisperstreamlib/elements/auto/factory_types.h>
 #include <whisperstreamlib/elements/auto/factory_invokers.h>
 
-class MediaMapper :
-  public ServiceInvokerMediaElementService {
+class MediaMapper : public ServiceInvokerMediaElementService {
 public:
   MediaMapper(net::Selector* selector,
               http::Server* http_server,
@@ -56,15 +55,10 @@ public:
 
   virtual ~MediaMapper();
 
-  // This loads the config file and creates the associated structures
-  enum LoadError {
-    LOAD_OK,
-    LOAD_FILE_ERROR,
-    LOAD_DATA_ERROR,
-  };
-  static const char* LoadErrorName(LoadError err);
+  net::Selector* selector() { return selector_; }
 
-  LoadError Load();
+  // This loads the config file and creates the associated structures
+  bool Load();
   // Saves the current configuration in the config file (safely :)
   bool Save() const;
 
@@ -77,6 +71,26 @@ public:
   void ExpireStateKeys();
 
   streaming::ElementMapper* mapper() { return &media_mapper_; }
+  const string& base_media_dir() const { return factory_.base_media_dir(); }
+
+  streaming::Element* FindElement(const string& element_name);
+  // Finds elements matching: <prefix><middle><suffix>.
+  // Returns the list of <middle>s.
+  void FindElementMatches(const string& prefix, const string& suffix,
+                          vector<string>* middle_out);
+  bool HasElement(const string& element_name);
+  template<typename T>
+  T* FindElementWithType(const string& element_name) {
+    streaming::Element* element = FindElement(element_name);
+    if ( element == NULL ) { return NULL; }
+    if ( element->type() != T::kElementClassName ) {
+      LOG_ERROR << "Element: " << element_name << " found with type: "
+                << element->type() << " is different than expected type: "
+                << T::kElementClassName;
+      return NULL;
+    }
+    return static_cast<T*>(element);
+  }
 
  private:
   // Returns the admin root page
@@ -87,135 +101,132 @@ public:
   void CheckpointPage(http::ServerRequest* req);
 
   // Loading helpers
-  MediaMapper::LoadError LoadElements();
-  MediaMapper::LoadError LoadHostAliases();
+  bool LoadElements();
 
   // Save helpers
   void InitializeSavers();
-  bool SaveHostAliases() const;
 
-  bool ExportElement(const ElementExportSpec& spec, string* error);
   void GetElementExports(vector< ElementExportSpec >* exports) const;
 
-  void StartSaverAlarm(const string& name, int64 last_start_time);
+  static string SaverStateKey(const string& saver_name) {
+    return "saver/" + saver_name;
+  }
+
+  class MSaver;
+  void ScheduleSaver(MSaver* saver);
   // This is run on the start saver alarm
-  void OnStartSaver(string* name,
-                    int duration_in_seconds,
-                    int64 last_start_time);
+  void OnStartSaver(string name, uint32 duration_in_seconds);
+  // Called from within the saver when it has stopped
+  void OnSaverStopped(streaming::Saver* saver);
 
-  // Called from within the saver when it was stoped
-  void OnSaveStopped(streaming::Saver* saver);
-
-  // The function that actually starts the saver.
-  //   if duration_in_seconds > 0 -> we stop after the give duration
-  //              (else it means is an "on-command" save
-  //   if last_start_time > 0 -> we 'relinquish' as save (continue saving
-  //              in the same directory - happens after a crash.
-  bool StartSaverInternal(const string& name,
-                          const string& description,
-                          int duration_in_seconds,
-                          int64 last_start_time,
-                          string* error);
   // Gets the current active saves
   void GetCurrentSaves(vector<MediaSaverState>* saves) const;
   // Gets the current saves configuration
-  void GetSavesConfig(vector< MediaSaverSpec >* saves) const;
-  // Composes the extra headers for the fiven path
-  string GetExtraHeaders(const string& path) const;
-  // Helper to get the current host aliases
-  void GetHostAliases(vector <MediaHostAliasSpec>* aliases) const;
+  void GetSavesConfig(vector<MediaSaverSpec>* saves) const;
+
+ public:
+  bool AddElement(const string& element_class_name,
+                  const string& element_name,
+                  bool is_global,
+                  const string& params,
+                  string* out_error);
+  void DeleteElement(const string& name);
+
+  bool AddPolicy(const string& class_name,
+                 const string& name,
+                 const string& params,
+                 string* out_error);
+  void DeletePolicy(const string& name);
+
+  bool AddAuthorizer(const string& class_name,
+                     const string& name,
+                     const string& params,
+                     string* out_error);
+  void DeleteAuthorizer(const string& name);
+
+  bool AddExport(const string& media_name,
+                 const string& export_protocol,
+                 const string& export_path,
+                 const string& authorizer_name,
+                 string* out_error);
+  void DeleteExport(const string& protocol, const string& path);
+
+  bool AddMediaSaver(const string& saver_name,
+                     const string& media_name,
+                     const vector<TimeSpec>& timespecs,
+                     const string& save_dir,
+                     const string& save_format,
+                     string* out_error);
+  void DeleteMediaSaver(const string& saver_name);
+
+  bool StartMediaSaver(const string& name, uint32 duration_sec,
+                       string* out_error);
+  void StopMediaSaver(const string& name);
+
+  void ListMedia(const string& media, vector<string>* out);
 
  protected:
   //////////////////////////////////////////////////////////////////////
   //
   // RPC Interface from RPCServiceInvokerMediaElementService
   //
-  void AddPolicySpec(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const PolicySpecs& spec);
-  void DeletePolicySpec(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& name);
+  void AddPolicySpec(rpc::CallContext<MediaOpResult>* call,
+                     const PolicySpecs& spec);
+  void DeletePolicySpec(rpc::CallContext<rpc::Void>* call,
+                        const string& name);
 
-  void AddAuthorizerSpec(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const AuthorizerSpecs& spec);
-  void DeleteAuthorizerSpec(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& name);
+  void AddAuthorizerSpec(rpc::CallContext<MediaOpResult>* call,
+                         const AuthorizerSpecs& spec);
+  void DeleteAuthorizerSpec(rpc::CallContext<rpc::Void>* call,
+                            const string& name);
 
-  void AddElementSpec(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const MediaElementSpecs& spec);
-  void DeleteElementSpec(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& name);
+  void AddElementSpec(rpc::CallContext<MediaOpResult>* call,
+                      const MediaElementSpecs& spec);
+  void DeleteElementSpec(rpc::CallContext<rpc::Void>* call,
+                         const string& name);
 
-  void StartExportElement(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const ElementExportSpec& spec);
-  void StopExportElement(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& protocol,
-      const string& path);
+  void StartExportElement(rpc::CallContext<MediaOpResult>* call,
+                          const ElementExportSpec& spec);
+  void StopExportElement(rpc::CallContext<rpc::Void>* call,
+                         const string& protocol,
+                         const string& path);
 
-  void AddElementSaver(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const MediaSaverSpec& spec);
-  void DeleteElementSaver(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& name);
+  void AddMediaSaver(rpc::CallContext<MediaOpResult>* call,
+                     const MediaSaverSpec& spec, bool start_now);
+  void DeleteMediaSaver(rpc::CallContext<rpc::Void>* call,
+                        const string& name);
 
-  void StartSaver(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& name, const string& description);
-  void StopSaver(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& name);
+  void StartMediaSaver(rpc::CallContext<MediaOpResult>* call,
+                       const string& name, int32 duration_sec);
+  void StopMediaSaver(rpc::CallContext<rpc::Void>* call,
+                      const string& name);
 
-  void ListMedia(
-      rpc::CallContext<vector<string> >* call,
-      const string& elementname);
+  void ListMedia(rpc::CallContext<vector<string> >* call,
+                 const string& elementname);
 
-  void GetHttpExportRoot(
-      rpc::CallContext<string>* call);
-  void GetAllElementConfig(
-      rpc::CallContext<ElementConfigurationSpecs>* call);
-  void GetElementConfig(
-      rpc::CallContext<ElementConfigurationSpecs>* call,
-      const string& element);
-  void GetElementExports(
-      rpc::CallContext< vector<ElementExportSpec> >* call);
+  void GetHttpExportRoot(rpc::CallContext<string>* call);
+  void GetAllElementConfig(rpc::CallContext<ElementConfigurationSpecs>* call);
+  void GetElementConfig(rpc::CallContext<ElementConfigurationSpecs>* call,
+                        const string& element);
+  void GetElementExports(rpc::CallContext< vector<ElementExportSpec> >* call);
 
-  void GetSavesConfig(
-      rpc::CallContext< vector<MediaSaverSpec> >* call);
-  void GetCurrentSaves(
-      rpc::CallContext<vector<MediaSaverState> >* call);
+  void GetSavesConfig(rpc::CallContext< vector<MediaSaverSpec> >* call);
+  void GetCurrentSaves(rpc::CallContext<vector<MediaSaverState> >* call);
 
-  void SaveConfig(
-      rpc::CallContext<bool>* call);
+  void SaveConfig(rpc::CallContext<bool>* call);
 
-  void AddHostAlias(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& alias_name,
-      const string& alias_ip);
-  void DeleteHostAlias(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& alias_name);
-  void GetHostAliases(
-    rpc::CallContext< vector <MediaHostAliasSpec> >* call);
-
-  void GetAllMediaAliases(
-      rpc::CallContext< vector<MediaAliasSpec> >* call);
-  void SetMediaAlias(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& alias_name,
-      const string& media_name);
-  void GetMediaAlias(
-      rpc::CallContext<string>* call,
-      const string& alias_name);
+  void GetAllMediaAliases(rpc::CallContext< vector<MediaAliasSpec> >* call);
+  void SetMediaAlias(rpc::CallContext<MediaOpResult>* call,
+                     const string& alias_name,
+                     const string& media_name);
+  void GetMediaAlias(rpc::CallContext<string>* call,
+                     const string& alias_name);
 
  private:
+  // relative to config_dir_
+  static const string kConfigFile;      // config file for elements&savers
+  static const string kHostAliasesFile; // names to IPs config
+
   net::Selector* selector_;
   http::Server* http_server_;
   http::Server* rpc_http_server_;
@@ -230,26 +241,38 @@ public:
   io::StateKeeper local_state_keeper_;
 
   const string config_dir_;                  // we keep here all our configs:
-  const string config_file_;                 // config file for elements&savers
-  const string hosts_aliases_config_file_;   // put names to IPs config
-  const string saver_config_file_;           // media savers config file
   streaming::ElementFactory factory_;        // maintaines config
   streaming::FactoryBasedElementMapper media_mapper_;   // maintains sources
   streaming::ElementMapper* aux_mapper_;     // auxiliary mapper for
                                              // functions update
-  bool loaded_;                              // is the config loaded ??
 
-  typedef map<string, string>  Host2IpMap;
-  Host2IpMap host_aliases_;
-
-  // Maps from saver to saver config
-  typedef map<string, MediaSaverSpec*> SaverSpecMap;
-  SaverSpecMap saver_specs_;
-
-  typedef map<string, streaming::Saver*> SaverMap;
+  struct MSaver {
+    // saver's config
+    MediaSaverSpec conf_;
+    // the actual saver
+    streaming::Saver saver_;
+    // schedules the next start for this saver
+    ::util::Alarm start_alarm_;
+    // just for status reporting
+    int64 start_ts_;
+    MSaver(net::Selector* selector,
+           const MediaSaverSpec& conf,
+           streaming::MediaFormat save_format,
+           streaming::ElementMapper* mapper,
+           streaming::Saver::StopCallback* stop_callback)
+      : conf_(conf),
+        saver_(conf.name_.get(),
+               mapper,
+               save_format,
+               conf.media_name_.get(),
+               conf.save_dir_.get(),
+               stop_callback),
+        start_alarm_(*selector),
+        start_ts_(0) {}
+  };
+  // Maps from saver_name to saver config
+  typedef map<string, MSaver*> SaverMap;
   SaverMap savers_;
-  typedef map<string, Closure*> SaverStopAlarmsMap;
-  SaverStopAlarmsMap savers_stoppers_;
 
   // We checkpoint from time to time w/ this alarm
   util::Alarm state_checkpointing_alarm_;

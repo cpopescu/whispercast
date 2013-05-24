@@ -166,15 +166,13 @@ ADD_LIBRARY (whisper_lib SHARED
   net/http/failsafe_http_client.cc
 
   net/rpc/lib/types/rpc_message.cc
-  net/rpc/lib/codec/rpc_decoder.cc
   net/rpc/lib/codec/rpc_encoder.cc
+  net/rpc/lib/codec/rpc_decoder.cc
   net/rpc/lib/codec/rpc_codec.cc
-  net/rpc/lib/codec/rpc_codec_id.cc
-  net/rpc/lib/codec/rpc_codec_factory.cc
+  net/rpc/lib/codec/binary/rpc_binary_encoder.cc
   net/rpc/lib/codec/binary/rpc_binary_decoder.cc
   net/rpc/lib/codec/json/rpc_json_decoder.cc
   net/rpc/lib/codec/json/rpc_json_encoder.cc
-  net/rpc/lib/codec/json/rpc_json_codec.cc
   net/rpc/lib/server/execution/rpc_execution_pool.cc
   net/rpc/lib/server/execution/rpc_execution_worker.cc
   net/rpc/lib/server/irpc_async_query_executor.cc
@@ -189,6 +187,7 @@ ADD_LIBRARY (whisper_lib SHARED
   net/rpc/lib/client/rpc_client_connection_http.cc
   net/rpc/lib/client/rpc_failsafe_client_connection_http.cc
   net/rpc/lib/client/rpc_service_wrapper.cc
+  net/rpc/lib/rpc_constants.cc
   net/rpc/lib/rpc_util.cc
 
   net/url/third-party/google-url/gurl.cc
@@ -366,26 +365,20 @@ install(FILES
   DESTINATION include/whisperlib/net/rpc/lib/client)
 
 install(FILES
-  net/rpc/lib/codec/binary/rpc_binary_codec.h
   net/rpc/lib/codec/binary/rpc_binary_common.h
   net/rpc/lib/codec/binary/rpc_binary_decoder.h
   net/rpc/lib/codec/binary/rpc_binary_encoder.h
   DESTINATION include/whisperlib/net/rpc/lib/codec/binary)
 
 install(FILES
-  net/rpc/lib/codec/json/rpc_json_codec.h
   net/rpc/lib/codec/json/rpc_json_decoder.h
   net/rpc/lib/codec/json/rpc_json_encoder.h
   DESTINATION include/whisperlib/net/rpc/lib/codec/json)
 
 install(FILES
   net/rpc/lib/codec/rpc_codec.h
-  net/rpc/lib/codec/rpc_codec_factory.h
-  net/rpc/lib/codec/rpc_codec_id.h
-  net/rpc/lib/codec/rpc_decode_result.h
   net/rpc/lib/codec/rpc_decoder.h
   net/rpc/lib/codec/rpc_encoder.h
-  net/rpc/lib/codec/rpc_typename_codec.h
   DESTINATION include/whisperlib/net/rpc/lib/codec)
 
 install(FILES

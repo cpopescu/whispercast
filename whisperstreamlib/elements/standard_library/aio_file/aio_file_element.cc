@@ -96,6 +96,7 @@ class AioFileReadingStruct : public ElementController {
                 this, &AioFileReadingStruct::AioOperationCompleted))),
         splitter_(splitter),
         buf_(),
+        is_first_tag_(true),
         pos_(0),
         read_skip_(0),
         seek_pos_ms_(-1),
@@ -117,6 +118,7 @@ class AioFileReadingStruct : public ElementController {
     unpause_alarm_.Set(NewPermanentCallback(this,
         &AioFileReadingStruct::ProcessDataResume), true, 0, false, false);
     req_->set_controller(this);
+    CHECK_GE(req_->info().media_origin_pos_ms_, 0);
   }
   virtual ~AioFileReadingStruct() {
     CHECK_NULL(aio_req_->buffer_);
@@ -162,10 +164,6 @@ class AioFileReadingStruct : public ElementController {
     return disable_duration_;
   }
 
-  bool SupportsPreprocessing() const {
-    return true;
-  }
-
   int64 Offset() const {
     return req_->mutable_serving_info()->offset_;
   }
@@ -199,27 +197,31 @@ class AioFileReadingStruct : public ElementController {
   // Seek in file. It just sets the seek position. The actual seek is initiated
   // by InitiateAioRequest()
   virtual bool Seek(int64 seek_pos_ms) {
+    ILOG_DEBUG << "Seek seek_pos_ms: " << seek_pos_ms << ", media_origin: "
+               << req_->info().media_origin_pos_ms_;
+    CHECK_GE(seek_pos_ms, 0);
     if ( disable_seek_ ) {
       ILOG_ERROR << "Cannot seek to: " << seek_pos_ms << ", disable_seek_: true";
       return false;
     }
     seek_pos_ms += req_->info().media_origin_pos_ms_;
+    CHECK_GE(seek_pos_ms, 0);
 
     if ( cue_points_.get() != NULL ) {
       int found = cue_points_->GetCueForTime(seek_pos_ms);
-      if ( found >= 0 ) {
-        seek_pos_ms_ = seek_pos_ms;
-        seek_offset_ = cue_points_->cue_points()[found].second;
-        ILOG_DEBUG << "Seeking to: " << cue_points_->cue_points()[found].first
-                  << ", offset: " << cue_points_->cue_points()[found].second
-                  << ", requested: " << seek_pos_ms;
-
-        if ( !in_data_processing_ && !in_io_operation_ ) {
-          InitiateAioRequest(false);
-        }
-        return true;
+      if ( found < 0 ) {
+        return false;
       }
-      return false;
+      seek_pos_ms_ = seek_pos_ms;
+      seek_offset_ = cue_points_->cue_points()[found].second;
+      ILOG_DEBUG << "Seeking to: " << cue_points_->cue_points()[found].first
+                << ", offset: " << cue_points_->cue_points()[found].second
+                << ", requested: " << seek_pos_ms;
+
+      if ( !in_data_processing_ && !in_io_operation_ ) {
+        InitiateAioRequest(false);
+      }
+      return true;
     }
 
     seek_pos_ms_ = seek_pos_ms;
@@ -296,9 +298,9 @@ class AioFileReadingStruct : public ElementController {
     // We completed the AIO operation - we have the buffer - need to inform
     // the BufferManager
     if ( aio_req_->errno_ == 0 ) {
-      ILOG_DEBUG << "Read completed for: " << buffer_->data_key()
-                 << " -> " << aio_req_->result_
-                 << " vs: " << aio_req_->size_;
+      //ILOG_DEBUG << "Read completed for: " << buffer_->data_key()
+      //           << " -> " << aio_req_->result_
+      //           << " vs: " << aio_req_->size_;
       buffer_->MarkValidData(aio_req_->result_);
     } else {
       ILOG_ERROR << "Error in aio operation"
@@ -375,10 +377,8 @@ class AioFileReadingStruct : public ElementController {
       TagReadStatus err = splitter_->GetNextTag(
           &buf_, &tag, &timestamp_ms, is_eof_);
 
-      if ( err == streaming::READ_CORRUPTED_FAIL ||
-           err == streaming::READ_OVERSIZED_TAG ||
-           err == streaming::READ_EOF ||
-           err == streaming::READ_UNKNOWN ) {
+      if ( err == streaming::READ_CORRUPTED ||
+           err == streaming::READ_EOF ) {
         if ( err != streaming::READ_EOF ) {
           ILOG_ERROR << "Error reading next tag, media element: ["
                      << filename_ << "], result: " << err << "("
@@ -411,12 +411,14 @@ class AioFileReadingStruct : public ElementController {
         continue;
       }
 
-      if ( tag->type() == Tag::TYPE_BOS ) {
-        DCHECK(bootstrapping_);
-
+      if ( is_first_tag_ ) {
+        is_first_tag_ = false;
         // If an initial seek was requested then stop and do the seek
         if ( req_->info().media_origin_pos_ms_ > 0 ||
-            req_->info().seek_pos_ms_ >= 0 ) {
+             req_->info().seek_pos_ms_ > 0 ) {
+          if ( bootstrapping_ ) {
+            bootstrapper_.ProcessTag(tag.get(), timestamp_ms);
+          }
           if ( !Seek(req_->info().seek_pos_ms_) ) {
             StopElement(false);
 
@@ -428,7 +430,6 @@ class AioFileReadingStruct : public ElementController {
 
         // End bootstrapping now and proceed
         EndBootstrapping(timestamp_ms, false);
-        continue;
       }
 
       // If a seek operation is pending then stop and do the seek
@@ -519,6 +520,7 @@ class AioFileReadingStruct : public ElementController {
     callback_->Run(tag, timestamp_ms);
     in_tag_processing_ = false;
   }
+
   void EndBootstrapping(int64 timestamp_ms, bool send_seek) {
     DCHECK(bootstrapping_);
     bootstrapping_ = false;
@@ -597,6 +599,9 @@ class AioFileReadingStruct : public ElementController {
   TagSplitter* const splitter_;
   io::MemoryStream buf_;
 
+  // marker for first tag (we need to trigger the initial Seek)
+  bool is_first_tag_;
+
   // current file read position
   int64 pos_;
   // skip these many bytes on read completion (used on seek between cuepoints)
@@ -646,27 +651,22 @@ class AioFileReadingStruct : public ElementController {
 const char AioFileElement::kElementClassName[] = "aio_file";
 
 AioFileElement::AioFileElement(
-    const char* _name,
-    const char* id,
+    const string& _name,
     ElementMapper* mapper,
     net::Selector* selector,
-    SplitterCreator* splitter_creator,
     map<string, io::AioManager*>* aio_managers,
     io::BufferManager* buf_manager,
-    Tag::Type tag_type,
-    const char* home_dir,
-    const char* file_pattern,
-    const char* default_index_file,
-    const char* data_key_prefix,
+    const string& home_dir,
+    const string& file_pattern,
+    const string& default_index_file,
+    const string& data_key_prefix,
     bool disable_pause,
     bool disable_seek,
     bool disable_duration)
-    : Element(kElementClassName, _name, id, mapper),
-      caps_(tag_type, streaming::kDefaultFlavourMask),
+    : Element(kElementClassName, _name, mapper),
       selector_(selector),
-      splitter_creator_(splitter_creator),
       aio_managers_(aio_managers),
-      home_dir_(strutil::NormalizePath(home_dir)),
+      home_dir_(home_dir),
       file_pattern_(file_pattern),
       default_index_file_(default_index_file),
       data_key_prefix_(data_key_prefix),
@@ -676,7 +676,7 @@ AioFileElement::AioFileElement(
       call_on_close_(NULL),
       buf_manager_(buf_manager),
       media_info_cache_(util::CacheBase::LRU, 100, 1000LL * 3600,
-          &util::DefaultValueDestructor, NULL),
+          &util::DefaultValueDestructor, NULL, false),
       notify_frs_closed_callback_(NewPermanentCallback(this,
           &AioFileElement::NotifyFrsClosed)) {
   ILOG_DEBUG << "AioFileElement created under home directory: " << home_dir;
@@ -686,7 +686,6 @@ AioFileElement::AioFileElement(
 
 AioFileElement::~AioFileElement() {
   CHECK(file_ops_.empty());
-  delete splitter_creator_;
   delete notify_frs_closed_callback_;
 }
 
@@ -704,33 +703,25 @@ bool AioFileElement::Initialize() {
   return true;
 }
 
-bool AioFileElement::HasMedia(const char* media, Capabilities* out) {
+bool AioFileElement::HasMedia(const string& media) {
   const string filename = FileNameFromMedia(media);
-  if ( !io::IsReadableFile(filename) ) {
-    if ( !default_index_file_.empty() && io::IsDir(filename) &&
-         io::IsReadableFile(
-             strutil::JoinPaths(filename, default_index_file_)) ) {
-      *out = caps_;
-      return true;
-    }
+  if ( filename == "" ) {
+    ILOG_ERROR << "Invalid media: [" << media << "]"
+                  ", looking in home_dir: [" << home_dir_ << "]"
+                  ", pattern: " << file_pattern_.regex();
     return false;
   }
-  *out = caps_;
-  return true;
+  if ( io::IsReadableFile(filename) ) {
+    return true;
+  }
+  return !default_index_file_.empty() && io::IsDir(filename) &&
+         io::IsReadableFile(strutil::JoinPaths(filename, default_index_file_));
 }
 
-void AioFileElement::ListMedia(const char* media_dir,
-                               ElementDescriptions* media) {
-  const string dir_name = FileNameFromMedia(media_dir);
-  vector<string> tmp_elements;
-  io::RecursiveListing(dir_name, &tmp_elements, &file_pattern_);
-  int len = dir_name.length();
-  for ( vector<string>::const_iterator it = tmp_elements.begin();
-        it != tmp_elements.end(); ++it ) {
-    media->push_back(make_pair(
-                         strutil::NormalizePath(name_ + "/" + it->substr(len)),
-                         caps_));
-  }
+void AioFileElement::ListMedia(const string& media_dir,
+                               vector<string>* out) {
+  io::DirList(strutil::JoinPaths(home_dir_, media_dir),
+              io::LIST_FILES | io::LIST_RECURSIVE, &file_pattern_, out);
 }
 // declared in base/media_info_util.h
 namespace util {
@@ -738,11 +729,10 @@ bool ExtractMediaInfoFromFile(const string& filename, MediaInfo* out);
 }
 bool AioFileElement::DescribeMedia(const string& media,
                                    MediaInfoCallback* callback) {
-  const string filename = FileNameFromMedia(
-      strutil::JoinPaths(name_, media).c_str());
+  const string filename = FileNameFromMedia(media);
   if ( filename == "" ) {
-    ILOG_ERROR << "cannot find file: [" << filename << "], media: ["
-               << media << "], looking in home_dir: [" << home_dir_ << "]"
+    ILOG_ERROR << "Invalid media: [" << media << "]"
+                  ", looking in home_dir: [" << home_dir_ << "]"
                   ", pattern: " << file_pattern_.regex();
     return false;
   }
@@ -768,26 +758,22 @@ bool AioFileElement::DescribeMedia(const string& media,
   return true;
 }
 
-bool AioFileElement::AddRequest(const char* media_name,
+bool AioFileElement::AddRequest(const string& media,
                                 streaming::Request* req,
                                 streaming::ProcessingCallback* callback) {
+  LOG_WARNING << "AddRequest media: " << media;
   CHECK(file_ops_.find(req) == file_ops_.end());
   if ( call_on_close_ != NULL ) {
     ILOG_ERROR << "AddRequest failed, AioFileElement is closing";
     return false;
   }
-  if ( !caps_.IsCompatible(req->caps()) ) {
-    ILOG_ERROR << "AddRequest failed: mismatching caps."
-               << caps_.ToString() << " vs. " << req->caps().ToString();
-    return false;
-  }
 
   string opened_file;
-  string filename_relative_to_element = FileNameFromMedia(media_name, false);
-  string filename = FileNameFromMedia(media_name, true);
-  if ( filename.empty() ) {
-    ILOG_ERROR << "cannot find file: [" << filename << "], media_name: ["
-               << media_name << "], looking in home_dir: [" << home_dir_ << "]"
+  string filename_relative_to_element = media;
+  string filename = FileNameFromMedia(media);
+  if ( filename == "" ) {
+    ILOG_ERROR << "Invalid media: [" << media << "]"
+                  ", looking in home_dir: [" << home_dir_ << "]"
                   ", pattern: " << file_pattern_.regex();
     return false;
   }
@@ -858,10 +844,17 @@ bool AioFileElement::AddRequest(const char* media_name,
   if ( req->info().seek_pos_ms_ <= 0 ) {
     req->mutable_serving_info()->offset_ = 0;
   }
-  req->mutable_caps()->IntersectCaps(caps_);
+  req->mutable_caps()->flavour_mask_ = kDefaultFlavourMask;
   const string filekey = data_key_prefix_.empty()
-                         ? media_name
+                         ? media
                          : data_key_prefix_ + filename.substr(home_dir_.size());
+
+  MediaFormat media_format;
+  if ( !MediaFormatFromExtension(strutil::Extension(filename), &media_format) ) {
+    LOG_ERROR << "Unrecognized media format: [" << filename << "]";
+    ::close(fd);
+    return false;
+  }
 
   AioFileReadingStruct* const frs = new AioFileReadingStruct(
       selector_,
@@ -877,7 +870,7 @@ bool AioFileElement::AddRequest(const char* media_name,
       aio_manager,
       buf_manager_,
       fd,
-      splitter_creator_->CreateSplitter(media_name, caps_.tag_type_),
+      CreateSplitter(media, media_format),
       callback,
       notify_frs_closed_callback_);
   if ( !frs->InitiateAioRequest(true) ) {
@@ -955,30 +948,13 @@ void AioFileElement::NotifyFrsClosed(AioFileReadingStruct* frs) {
   }
 }
 
-string AioFileElement::FileNameFromMedia(const char* media, bool full) {
-  if ( *media == 0 ) {
-    return "";
-  }
-  if ( *media == '/' ) {
-    media++;
-  }
-  if ( name_ == media ) {
-    return home_dir_;
-  }
-  pair<string, string> p = strutil::SplitFirst(media, "/");
-  if ( name_ != p.first ) {
-    ILOG_ERROR << "Bad media, not our name: [" << p.first << "]";
-    return "";
-  }
-  if ( !file_pattern_.Matches(p.second) ) {
+string AioFileElement::FileNameFromMedia(const string& m) {
+  if ( !file_pattern_.Matches(m) ) {
     ILOG_ERROR << "Bad media, mismatching pattern: " << file_pattern_.regex()
-               << " for path: [" << p.second << "]";
+               << " for path: [" << m << "]";
     return "";
   }
-  if ( full ) {
-    return  strutil::JoinPaths(home_dir_, p.second);
-  }
-  return p.second;
+  return strutil::JoinPaths(home_dir_, m);
 }
 
 }

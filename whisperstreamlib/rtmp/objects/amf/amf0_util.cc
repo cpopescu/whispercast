@@ -87,107 +87,121 @@ AmfUtil::ReadStatus Amf0Util::ReadNextObject(io::MemoryStream* in,
   if ( in->Size() < sizeof(uint8) ) {
     return AmfUtil::READ_NO_DATA;
   }
-  in->MarkerSet();
-  const Type obtype = Type(io::NumStreamer::ReadByte(in));
+  // just peek the stream to figure out what Object is next
+  const Type obtype = Type(io::NumStreamer::PeekByte(in));
   switch ( obtype ) {
-  case AMF0_TYPE_NUMBER:      *obj = new CNumber(); break;
-  case AMF0_TYPE_BOOLEAN:     *obj = new CBoolean(); break;
-  case AMF0_TYPE_STRING:
-  case AMF0_TYPE_LONG_STRING: *obj = new CString(); break;
-  case AMF0_TYPE_OBJECT:      *obj = new CStringMap(); break;
-  case AMF0_TYPE_NULL:
-  case AMF0_TYPE_UNDEFINED:   *obj = new CNull(); break;
-  case AMF0_TYPE_MIXED_ARRAY: *obj = new CMixedMap(); break;
-  case AMF0_TYPE_ARRAY:       *obj = new CArray(); break;
-  case AMF0_TYPE_DATE:        *obj = new CDate(); break;
+    case AMF0_TYPE_NUMBER:      *obj = new CNumber(); break;
+    case AMF0_TYPE_BOOLEAN:     *obj = new CBoolean(); break;
+    case AMF0_TYPE_STRING:
+    case AMF0_TYPE_LONG_STRING: *obj = new CString(); break;
+    case AMF0_TYPE_OBJECT:      *obj = new CStringMap(); break;
+    case AMF0_TYPE_NULL:
+    case AMF0_TYPE_UNDEFINED:   *obj = new CNull(); break;
+    case AMF0_TYPE_MIXED_ARRAY: *obj = new CMixedMap(); break;
+    case AMF0_TYPE_ARRAY:       *obj = new CArray(); break;
+    case AMF0_TYPE_DATE:        *obj = new CDate(); break;
 
-  case AMF0_TYPE_REFERENCE:
-    if ( in->Size() < sizeof(uint16) ) {
-      return AmfUtil::READ_NO_DATA;
-    }
-    LOG_WARNING << " Unsupported reference type found: "
+    case AMF0_TYPE_REFERENCE:
+      if ( in->Size() < sizeof(uint16) ) {
+        return AmfUtil::READ_NO_DATA;
+      }
+      LOG_ERROR << "Unsupported reference type found: "
                 << io::NumStreamer::ReadInt16(in, common::BIGENDIAN);
-    return AmfUtil::READ_UNSUPPORTED_REFERENCES;
-    break;
-  case AMF0_TYPE_CLASS_OBJECT: {
-    CString class_name;
-    const AmfUtil::ReadStatus err = class_name.ReadFromMemoryStream(
-      in, AmfUtil::AMF0_VERSION);
-    if ( err != AmfUtil::READ_OK ) {
-      return err;
+      return AmfUtil::READ_UNSUPPORTED_REFERENCES;
+    case AMF0_TYPE_CLASS_OBJECT: {
+      CString class_name;
+      in->MarkerSet();
+      in->Skip(1); // the obtype byte which was Peeked
+      AmfUtil::ReadStatus err = class_name.Decode(in, AmfUtil::AMF0_VERSION);
+      in->MarkerRestore();
+      if ( err != AmfUtil::READ_OK ) {
+        LOG_ERROR << "Failed to read class_name, err: "
+                  << AmfUtil::ReadStatusName(err);
+        return err;
+      }
+      if ( class_name.value() == "RecordSet" ) {
+        *obj = new CRecordSet();
+      } else if ( class_name.value() == "RecordSetPage" ) {
+        *obj = new CRecordSetPage();
+      } else {
+        LOG_ERROR << "READ_NOT_IMPLEMENTED for AMF0_TYPE_CLASS_OBJECT"
+                     " w/ name: [" << class_name << "]";
+        return AmfUtil::READ_NOT_IMPLEMENTED;
+      }
+      break;
     }
-    if ( class_name.value() == "RecordSet" ) {
-      *obj = new CRecordSet();
-    } else if ( class_name.value() == "RecordSetPage" ) {
-      *obj = new CRecordSetPage();
-    } else {
-      LOG_WARNING << " AMF0 READ_NOT_IMPLEMENTED for "
-                  << " AMF0_TYPE_CLASS_OBJECT w/ name: ["
-                  << class_name << "]";
+    case AMF0_TYPE_XML:
+    case AMF0_TYPE_MOVIECLIP:
+    case AMF0_TYPE_RECORDSET:
+    case AMF0_TYPE_UNSUPPORTED:
+    case AMF0_TYPE_AMF3_OBJECT:
+      LOG_ERROR << "AMF0 READ_NOT_IMPLEMENTED for " << obtype;
       return AmfUtil::READ_NOT_IMPLEMENTED;
-    }
-  }
-    break;
-  case AMF0_TYPE_XML:
-  case AMF0_TYPE_MOVIECLIP:
-  case AMF0_TYPE_RECORDSET:
-  case AMF0_TYPE_UNSUPPORTED:
-  case AMF0_TYPE_AMF3_OBJECT:
-    LOG_WARNING << " AMF0 READ_NOT_IMPLEMENTED for " << obtype;
-    return AmfUtil::READ_NOT_IMPLEMENTED;
 
-  case AMF0_TYPE_END_OF_OBJECT:
-  default:
-    return AmfUtil::READ_CORRUPTED_DATA;
+    case AMF0_TYPE_END_OF_OBJECT:
+    default:
+      LOG_ERROR << "Unknown object type: " << (int)obtype;
+      return AmfUtil::READ_CORRUPTED_DATA;
   }
-  in->MarkerRestore();
+  // the stream is intact, nothing was consumed; decode full object
   DCHECK(*obj != NULL);
-  return (*obj)->ReadFromMemoryStream(in, AmfUtil::AMF0_VERSION);
+  return (*obj)->Decode(in, AmfUtil::AMF0_VERSION);
 }
 
 
-AmfUtil::ReadStatus Amf0Util::ReadString(io::MemoryStream* in, string* s) {
-  if ( in->Size() < sizeof(uint8) )
+AmfUtil::ReadStatus Amf0Util::ReadString(io::MemoryStream* in, string* out) {
+  if ( in->Size() < sizeof(uint8) ) {
     return AmfUtil::READ_NO_DATA;
+  }
   const Type obtype = Type(io::NumStreamer::ReadByte(in));
   uint32 len = 0;
   if ( obtype == AMF0_TYPE_STRING ) {
-    if ( in->Size() < sizeof(uint16) )
+    if ( in->Size() < sizeof(uint16) ) {
       return AmfUtil::READ_NO_DATA;
+    }
     len = io::NumStreamer::ReadUInt16(in, common::BIGENDIAN);
   } else if ( obtype == AMF0_TYPE_LONG_STRING ) {
-    if ( in->Size() < sizeof(uint32) )
+    if ( in->Size() < sizeof(uint32) ) {
       return AmfUtil::READ_NO_DATA;
+    }
     len = io::NumStreamer::ReadUInt32(in, common::BIGENDIAN);
   } else {
+    LOG_ERROR << "Illegal string type: " << obtype;
     return AmfUtil::READ_CORRUPTED_DATA;
   }
   if ( len > AmfUtil::kMaximumStringReadableData ) {
+    LOG_ERROR << "String length: " << len << " too long";
     return AmfUtil::READ_STRUCT_TOO_LONG;
   }
-  if ( in->Size() < len )
+  if ( in->Size() < len ) {
     return AmfUtil::READ_NO_DATA;
-  CHECK_EQ(in->ReadString(s, len), len);
+  }
+  CHECK_EQ(in->ReadString(out, len), len);
   return AmfUtil::READ_OK;
 }
 
-AmfUtil::ReadStatus Amf0Util::PickString(io::MemoryStream* in, string* s) {
-  uint32 len = 0;
-  s->clear();
-  if ( in->Size() < sizeof(uint16) )
+AmfUtil::ReadStatus Amf0Util::PickString(io::MemoryStream* in, string* out) {
+  if ( in->Size() < sizeof(uint16) ) {
     return AmfUtil::READ_NO_DATA;
-  len = io::NumStreamer::ReadUInt16(in, common::BIGENDIAN);
-  if ( len > 0 ) {
-    if ( in->Size() < len )
-      return AmfUtil::READ_NO_DATA;
-    CHECK_EQ(in->ReadString(s, len), len);
   }
+  uint32 len = io::NumStreamer::ReadUInt16(in, common::BIGENDIAN);
+  if ( in->Size() < len ) {
+    return AmfUtil::READ_NO_DATA;
+  }
+  CHECK_EQ(in->ReadString(out, len), len);
   return AmfUtil::READ_OK;
 }
 
 AmfUtil::ReadStatus Amf0Util::ReadGenericObjectEnd(io::MemoryStream* in) {
-  if ( io::NumStreamer::ReadByte(in) != AMF0_TYPE_END_OF_OBJECT )
+  if ( in->Size() < sizeof(uint8) ) {
+    return AmfUtil::READ_NO_DATA;
+  }
+  uint8 obtype = io::NumStreamer::ReadByte(in);
+  if ( obtype != AMF0_TYPE_END_OF_OBJECT ) {
+    LOG_ERROR << "Expected AMF0_TYPE_END_OF_OBJECT, found: "
+              << strutil::StringPrintf("%02x", obtype);
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
   return AmfUtil::READ_OK;
 }
 }

@@ -43,7 +43,6 @@ FilteringCallbackData::FilteringCallbackData()
       req_(NULL),
       here_process_tag_callback_(NULL),
       client_process_tag_callback_(NULL),
-      registered_type_(Tag::kInvalidType),
       flavour_mask_(0),
       private_flags_(0),
       ref_count_(0),
@@ -60,7 +59,7 @@ FilteringCallbackData::~FilteringCallbackData() {
 }
 
 void FilteringCallbackData::SendTag(const Tag* tag, int64 timestamp_ms) {
-  DCHECK(registered_type() != Tag::kInvalidType ||
+  DCHECK(flavour_mask_ != 0 ||
          tag->type() == Tag::TYPE_EOS);
 
   if ( tag->type() == Tag::TYPE_EOS ) {
@@ -82,15 +81,14 @@ bool FilteringCallbackData::Register(streaming::Request* req) {
   here_process_tag_callback_ =
       NewPermanentCallback(this, &FilteringCallbackData::ProcessTag);
 
-  if ( !mapper_->AddRequest(media_name_.c_str(),
-                           req,
-                           here_process_tag_callback_) ) {
+  if ( !mapper_->AddRequest(media_name_,
+                            req,
+                            here_process_tag_callback_) ) {
     delete here_process_tag_callback_;
     here_process_tag_callback_ = NULL;
 
     return false;
   }
-  registered_type_ = req->caps().tag_type_;
   flavour_mask_ = req->caps().flavour_mask_;
   req_ = req;
   uint32 f = flavour_mask_;
@@ -108,7 +106,6 @@ bool FilteringCallbackData::Unregister(streaming::Request* req) {
   if ( req_ == NULL ) {
     return true;   // Already unregistered
   }
-  registered_type_ = Tag::kInvalidType;
   flavour_mask_ = 0;
   req_ = NULL;  // we need to do that in order to avoin multiple inner calls
   mapper_->RemoveRequest(req, here_process_tag_callback_);
@@ -161,12 +158,11 @@ void FilteringCallbackData::Close() {
 //
 // FilteringElement implementation
 //
-FilteringElement::FilteringElement(const char* type,
-                                   const char* name,
-                                   const char* id,
+FilteringElement::FilteringElement(const string& type,
+                                   const string& name,
                                    ElementMapper* mapper,
                                    net::Selector* selector)
-    : Element(type, name, id, mapper),
+    : Element(type, name, mapper),
       selector_(selector),
       callbacks_(),
       close_completed_(NULL) {
@@ -193,37 +189,28 @@ void FilteringElement::CloseAllClients(Closure* call_on_close) {
   }
 }
 
-bool FilteringElement::AddRequest(const char* cpath,
+bool FilteringElement::AddRequest(const string& media,
                                   streaming::Request* req,
                                   streaming::ProcessingCallback* callback) {
-  DLOG_DEBUG << "add callback for path: [" << cpath << "]";
   if ( callbacks_.find(req) != callbacks_.end() ) {
-    LOG_FATAL << "cannot add callback for path: ["
-              << cpath << "] because the callback was already added";
+    LOG_FATAL << "Duplicate AddRequest on path: [" << media << "]";
     return false;
   }
-  pair<string, string> split(strutil::SplitFirst(cpath, '/'));
-  if ( split.first != name() ) {
-    LOG_ERROR << "cannot add callback for path: ["
-              << cpath << "] because our name is [" << name() << "]";
-    return false;
-  }
-  FilteringCallbackData* const data = CreateCallbackData(split.second.c_str(),
-                                                         req);
+  FilteringCallbackData* const data = CreateCallbackData(media, req);
   if ( data == NULL ) {
-    LOG_ERROR << "NULL CallbackData for subpath: [" << split.second << "]";
+    LOG_ERROR << "NULL CallbackData for subpath: [" << media << "]";
     return false;
   }
   data->IncRef();
   data->master_ = this;
   data->mapper_ = mapper_;
-  data->media_name_ = split.second.c_str();
+  data->media_name_ = media;
   data->client_process_tag_callback_ = callback;
   data->filtering_element_name_ = name();
 
   if ( !data->Register(req) ) {
     LOG_ERROR << "FilteringElement cannot add callback for subpath: ["
-              << split.second << "]";
+              << media << "]";
     DeleteCallbackData(data);
     return false;
   }
@@ -250,21 +237,13 @@ void FilteringElement::RemoveRequest(streaming::Request* req) {
   }
 }
 
-bool FilteringElement::HasMedia(const char* media_name, Capabilities* out) {
-  pair<string, string> split(strutil::SplitFirst(media_name, '/'));
-  if ( split.first != name() ) {
-    return false;
-  }
-  return mapper_->HasMedia(split.second.c_str(), out);
+bool FilteringElement::HasMedia(const string& media) {
+  return mapper_->HasMedia(media);
 }
 
-void FilteringElement::ListMedia(const char* media_dir,
-                                 ElementDescriptions* media) {
-  pair<string, string> split(strutil::SplitFirst(media_dir, '/'));
-  if ( split.first != name() ) {
-    return;
-  }
-  mapper_->ListMedia(split.second.c_str(), media);
+void FilteringElement::ListMedia(const string& media_dir,
+                                 vector<string>* out) {
+  mapper_->ListMedia(media_dir, out);
 }
 bool FilteringElement::DescribeMedia(const string& media,
                                      MediaInfoCallback* callback) {

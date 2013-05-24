@@ -82,6 +82,10 @@ class scoped_ptr {
       ptr_ = p;
     }
   }
+  void operator=(C* p) {
+    reset(p);
+  }
+
 
   // Accessors to get the owned object.
   // operator* and operator-> will assert() if there is no current object.

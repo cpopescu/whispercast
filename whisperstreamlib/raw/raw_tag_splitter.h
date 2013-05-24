@@ -41,6 +41,7 @@
 #include <whisperlib/common/base/ref_counted.h>
 #include <whisperstreamlib/base/tag.h>
 #include <whisperstreamlib/base/tag_splitter.h>
+#include <whisperstreamlib/base/tag_serializer.h>
 
 namespace streaming {
 
@@ -48,85 +49,54 @@ class RawTag : public Tag {
  public:
   static const Type kType;
   RawTag(uint32 attributes,
-         uint32 flavour_mask,
-         ref_counted<io::MemoryStream>* data = NULL,
-         bool duplicate_data = false)
+         uint32 flavour_mask)
       : Tag(kType, attributes, flavour_mask),
-        content_type_(),
-        data_(data) {
-    if ( data == NULL || duplicate_data ) {
-      data_ = new ref_counted<io::MemoryStream>(
-                  new io::MemoryStream(),
-                  mutex_pool_.GetMutex(this));
-    }
-    if ( data != NULL && duplicate_data ) {
-      data_->get()->Clear();
-      data_->get()->AppendStreamNonDestructive(data->get());
-    }
-    data_->IncRef();
+        content_type_() {
   }
   RawTag(const RawTag& other, bool duplicate_data)
       : Tag(other),
-        content_type_(other.content_type_),
-        data_(other.data_) {
+        content_type_(other.content_type_) {
     if ( duplicate_data ) {
-      data_ = new ref_counted<io::MemoryStream>(
-                  new io::MemoryStream(),
-                  mutex_pool_.GetMutex(this));
-      data_->get()->AppendStreamNonDestructive(other.data_->get());
+      data_.AppendStreamNonDestructive(&other.data_);
     }
-    data_->IncRef();
   }
   virtual ~RawTag() {
-    data_->DecRef();
   }
 
   virtual int64 duration_ms() const { return 0; }
-  virtual uint32 size() const { return data()->Size(); }
+  virtual uint32 size() const { return data_.Size(); }
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return NULL; }
   // the new tag shares the internal data buffer with this tag
   virtual Tag* Clone() const {
     return new RawTag(*this, false);
   }
   virtual string ToStringBody() const {
     return strutil::StringPrintf("RawTag(%d - {%s})",
-                                 data()->Size(), content_type_.c_str());
+        size(), content_type_.c_str());
   }
 
   const string& content_type() const {
     return content_type_;
   }
-  const io::MemoryStream* data() const {
-    return data_->get();
-  }
-  io::MemoryStream* mutable_data() {
-    CHECK(data_->ref_count() == 1) << " Attempting to modify tag shared data";
-    return data_->get();
-  }
-  ref_counted<io::MemoryStream>* share_data() {
+  const io::MemoryStream& data() const {
     return data_;
   }
-  void set_data(io::MemoryStream* in) {
-    CHECK(data_->ref_count() == 1) << " Attempting to modify tag shared data";
-    mutable_data()->Clear();
-    mutable_data()->AppendStream(in);
+  io::MemoryStream* mutable_data() {
+    return &data_;
   }
 
  private:
-  static const int kNumMutexes;
-  static synch::MutexPool mutex_pool_;
-
   string content_type_;
-  ref_counted<io::MemoryStream>* data_;
+  io::MemoryStream data_;
 
   DISALLOW_EVIL_CONSTRUCTORS(RawTag);
 };
 
 class RawTagSplitter : public streaming::TagSplitter {
  public:
-  static const Type kType;
- public:
   RawTagSplitter(const string& name, int bits_per_second)
-      : streaming::TagSplitter(kType, name),
+      : TagSplitter(MFORMAT_RAW, name),
         bits_per_second_(bits_per_second),
         stream_offset_(0),
         total_size_(0) {
@@ -159,9 +129,9 @@ class RawTagSplitter : public streaming::TagSplitter {
   DISALLOW_EVIL_CONSTRUCTORS(RawTagSplitter);
 };
 
-class RawTagSerializer : public streaming::TagSerializer {
+class RawTagSerializer : public TagSerializer {
  public:
-  RawTagSerializer() : streaming::TagSerializer() {
+  RawTagSerializer() : TagSerializer(MFORMAT_RAW) {
   }
   virtual ~RawTagSerializer() {
   }
@@ -176,7 +146,12 @@ class RawTagSerializer : public streaming::TagSerializer {
   }
  protected:
   virtual bool SerializeInternal(const Tag* tag, int64 timestamp_ms,
-                                 io::MemoryStream* out);
+                                 io::MemoryStream* out) {
+    if ( tag->Data() != NULL ) {
+      out->AppendStreamNonDestructive(tag->Data());
+    }
+    return true;
+  }
 
  private:
   DISALLOW_EVIL_CONSTRUCTORS(RawTagSerializer);

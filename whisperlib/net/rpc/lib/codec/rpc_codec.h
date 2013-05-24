@@ -32,80 +32,42 @@
 #ifndef __NET_RPC_LIB_CODEC_RPC_CODEC_H__
 #define __NET_RPC_LIB_CODEC_RPC_CODEC_H__
 
-#include <string>
 #include <whisperlib/common/base/types.h>
+#include <whisperlib/common/base/scoped_ptr.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
 #include <whisperlib/net/rpc/lib/codec/rpc_encoder.h>
 #include <whisperlib/net/rpc/lib/codec/rpc_decoder.h>
-#include <whisperlib/net/rpc/lib/codec/rpc_codec_id.h>
+
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_decoder.h>
+#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_decoder.h>
 
 namespace rpc {
 
-class Codec {
- public:
-  Codec() {
+Encoder* CreateEncoder(CodecId codec);
+Decoder* CreateDecoder(CodecId codec);
+
+// Helper methods for easy encoding/decoding when only the codec Type is known.
+
+template <typename T>
+void EncodeBy(CodecId codec, const T& in, io::MemoryStream* out) {
+  switch ( codec ) {
+    case kCodecIdBinary: BinaryEncoder().Encode(in,out); return;
+    case kCodecIdJson: JsonEncoder().Encode(in,out); return;
   }
-  virtual ~Codec() {
+  LOG_FATAL << "Illegal codec id: " << codec;
+}
+template <typename T>
+DECODE_RESULT DecodeBy(CodecId codec, io::MemoryStream& in, T* out) {
+  switch ( codec ) {
+    case kCodecIdBinary: return BinaryDecoder().Decode(in, out);
+    case kCodecIdJson: return JsonDecoder().Decode(in, out);
   }
+  LOG_FATAL << "Illegal codec id: " << codec;
+  return DECODE_RESULT_ERROR;
+}
 
-  // Allocate an encoder which will write serialized data to stream "out".
-  // When no longer needed, delete the encoder.
-  virtual rpc::Encoder* CreateEncoder(io::MemoryStream& out) = 0;
-
-  // Allocate a decoder which reads serialized data from the stream "in".
-  // When no longer needed, delete the decoder.
-  virtual rpc::Decoder* CreateDecoder(io::MemoryStream& in) = 0;
-
-  // Allocate a new identical codec.
-  virtual rpc::Codec* Clone() const = 0;
-
-  // Returns the codec id for this factory.
-  // Used in RPC handshake to estabilish a common codec to use.
-  virtual rpc::CODEC_ID GetCodecID() const = 0;
-
-  // Returns codec name, based on codec id.
-  const char* GetCodecName() const;
-
-  // Easy encode rpc::Object "obj" to stream "out".
-  template <typename T>
-  void Encode(io::MemoryStream& out, const T& obj) {
-    rpc::Encoder* const encoder = CreateEncoder(out);
-    encoder->Encode(obj);
-    delete encoder;
-  }
-
-  // Easy decode expected "obj" from stream "in".
-  // Returns the return value of rpc::Decoder::Decode(obj) :
-  //   DECODE_RESULT_SUCCESS: if the object was successfully read.
-  //   DECODE_RESULT_NOT_ENOUGH_DATA: if there is not enough data in the input
-  //                                  buffer. The read data is not restored.
-  //   DECODE_RESULT_ERROR: if the data does not look like the expected object.
-  //                        The read data is not restored.
-  template <typename T>
-  DECODE_RESULT Decode(io::MemoryStream& in, T& obj) {
-    rpc::Decoder* const decoder = CreateDecoder(in);
-    const DECODE_RESULT result = decoder->Decode(obj);
-    delete decoder;
-    return result;
-  }
-
-  // Easy encode a single RPC packet.
-  void EncodePacket(io::MemoryStream& out, const rpc::Message& p);
-
-  //  Easy decode a single RPC packet.
-  // Returns the same value as rpc::Decoder::DecodePacket(p) :
-  //   DECODE_RESULT_SUCCESS: if a rpc::Message was successfully read.
-  //   DECODE_RESULT_NOT_ENOUGH_DATA: if there is not enough data in the input
-  //                                  buffer. The read data is not restored.
-  //   DECODE_RESULT_ERROR: if the data does not look like a rpc::Message.
-  //                        The read data is not restored.
-  // NOTE: in case of error or not-enough-data, the read data is not restored.
-  DECODE_RESULT DecodePacket(io::MemoryStream& in, rpc::Message& p);
-
-  virtual string ToString() const = 0;
-
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(Codec);
-};
 }
 
 #endif   // __NET_RPC_LIB_CODEC_RPC_CODEC_H__

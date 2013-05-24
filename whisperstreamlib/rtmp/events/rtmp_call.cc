@@ -64,20 +64,20 @@
 
 namespace rtmp {
 
-const char* Call::CallStatusName(CallStatus status) {
+const char* Call::StatusName(Status status) {
   switch ( status ) {
-    CONSIDER(CALL_STATUS_PENDING);
-    CONSIDER(CALL_STATUS_SUCCESS_RESULT);
-    CONSIDER(CALL_STATUS_SUCCESS_NULL);
-    CONSIDER(CALL_STATUS_SUCCESS_VOID);
-    CONSIDER(CALL_STATUS_SERVICE_NOT_FOUND);
-    CONSIDER(CALL_STATUS_METHOD_NOT_FOUND);
-    CONSIDER(CALL_STATUS_ACCESS_DENIED);
-    CONSIDER(CALL_STATUS_INVOCATION_EXCEPTION);
-    CONSIDER(CALL_STATUS_GENERAL_EXCEPTION);
+    CONSIDER(STATUS_PENDING);
+    CONSIDER(STATUS_SUCCESS_RESULT);
+    CONSIDER(STATUS_SUCCESS_NULL);
+    CONSIDER(STATUS_SUCCESS_VOID);
+    CONSIDER(STATUS_SERVICE_NOT_FOUND);
+    CONSIDER(STATUS_METHOD_NOT_FOUND);
+    CONSIDER(STATUS_ACCESS_DENIED);
+    CONSIDER(STATUS_INVOCATION_EXCEPTION);
+    CONSIDER(STATUS_GENERAL_EXCEPTION);
   }
-  LOG_FATAL << "Illegal CallStatus: " << status;
-  return "CALL_STATUS_UNKOWN";   // keep g++ happy
+  LOG_FATAL << "Illegal Status: " << status;
+  return "STATUS_UNKOWN";   // keep g++ happy
 }
 string Call::ToString() const {
   ostringstream oss;
@@ -102,26 +102,12 @@ string Call::ToString() const {
   return oss.str();
 }
 
-AmfUtil::ReadStatus Call::ReadCallData(io::MemoryStream* in,
-                                       int stream_id,
-                                       bool is_notify,
-                                       AmfUtil::Version version) {
-  CHECK_EQ(version, AmfUtil::AMF0_VERSION);
+AmfUtil::ReadStatus Call::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  CHECK_EQ(v, AmfUtil::AMF0_VERSION);
   CString action;
-  AmfUtil::ReadStatus err = action.ReadFromMemoryStream(in, version);
-  if ( err != AmfUtil::READ_OK )
+  AmfUtil::ReadStatus err = action.Decode(in, v);
+  if ( err != AmfUtil::READ_OK ) {
     return err;
-
-  // TODO(cpopescu): check action value (size at least)..
-  in->MarkerSet();
-  CNumber invoke_id;
-  err = invoke_id.ReadFromMemoryStream(in, version);
-  if ( err == AmfUtil::READ_OK ) {
-    invoke_id_ = static_cast<uint32>(invoke_id.int_value());
-    in->MarkerClear();
-  } else {
-    invoke_id_ = 0;
-    in->MarkerRestore();
   }
 
   size_t pos_dot = action.value().find_last_of(".");
@@ -131,59 +117,57 @@ AmfUtil::ReadStatus Call::ReadCallData(io::MemoryStream* in,
     service_name_.assign(action.value().substr(0, pos_dot));
     method_name_.assign(action.value().substr(pos_dot + 1));
   }
-  CObject* obj = NULL;
-  bool first = true;
-  do {
-    obj = NULL;
-    err = Amf0Util::ReadNextObject(in, &obj);
+
+  in->MarkerSet();
+  CNumber invoke_id;
+  err = invoke_id.Decode(in, v);
+  if ( err == AmfUtil::READ_OK ) {
+    invoke_id_ = static_cast<uint32>(invoke_id.int_value());
+    in->MarkerClear();
+  } else {
+    invoke_id_ = 0;
+    in->MarkerRestore();
+  }
+
+  set_connection_params(NULL);
+  while ( !in->IsEmpty() ) {
+    CObject* obj = NULL;
+    AmfUtil::ReadStatus err = Amf0Util::ReadNextObject(in, &obj);
     if ( err != AmfUtil::READ_OK ) {
-      if ( err != AmfUtil::READ_NO_DATA ) {
-        delete obj;
-        return err;
-      }
-    } else {
-      // Before the actual parameters we sometimes (especially on "connect")
-      // get a map of parameters; this is usually null, but if set it should be
-      // passed to the connection object.
-      if ( first ) {
-        set_connection_params(obj);
-        first = false;
-      } else {
-        AddArgument(obj);
-      }
+      delete obj;
+      return err;
     }
-  } while ( err == AmfUtil::READ_OK );
+
+    // Before the actual parameters we sometimes (especially on "connect")
+    // get a map of parameters; this is usually null, but if set it should be
+    // passed to the connection object.
+    if ( connection_params_ == NULL ) {
+      set_connection_params(obj);
+      continue;
+    }
+    AddArgument(obj);
+  }
   return AmfUtil::READ_OK;
 }
 
-void Call::WriteCallData(io::MemoryStream* out,
-                         bool write_invoke_id,
-                         AmfUtil::Version version) {
-  CHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  // !! IMPORTANT !!
-  // the result is written only if
-  // status() == Call::CALL_STATUS_PENDING
-  // see org.red5.server.net.rtmp.codec.RTMPProtocolEncoder.
-  //                                             encodeNotifyOrInvoke:502
+void Call::Encode(bool write_invoke_id, AmfUtil::Version v,
+                  io::MemoryStream* out) {
+  CHECK_EQ(v, AmfUtil::AMF0_VERSION);
   if ( service_name_.empty() ) {
     Amf0Util::WriteString(out, method_name_);
   } else {
     Amf0Util::WriteString(out, service_name_ + "." + method_name_);
   }
   if ( write_invoke_id ) {
-    CNumber(invoke_id_).WriteToMemoryStream(out, version);
+    CNumber(invoke_id_).Encode(out, v);
   }
   if ( connection_params_ != NULL ) {
-    connection_params_->WriteToMemoryStream(out, version);
+    connection_params_->Encode(out, v);
   } else {
-    CNull null;
-    null.WriteToMemoryStream(out, version);
+    CNull().Encode(out, v);
   }
-  // TODO(cpopescu): verify - is this true ???
-  // if ( status() == Call::CALL_STATUS_PENDING ) {
   for ( int i = 0; i < arguments_.size(); i++ ) {
-    arguments_[i]->WriteToMemoryStream(out, version);
-  //  }
+    arguments_[i]->Encode(out, v);
   }
 }
 }

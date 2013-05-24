@@ -66,6 +66,20 @@ int FindNextAuthorityTerminator(const CHAR* spec,
   return spec_len;  // Not found.
 }
 
+template<typename CHAR>
+void ParseAuthority(const CHAR* spec,
+                    const Component& auth,
+                    Component* username,
+                    Component* password,
+                    Component* hostname,
+                    Component* port_num);
+template<typename CHAR>
+void ParsePath(const CHAR* spec,
+               const Component& path,
+               Component* filepath,
+               Component* query,
+               Component* ref);
+
 // Fills in all members of the Parsed structure except for the scheme.
 //
 // |spec| is the full spec being parsed, of length |spec_len|.

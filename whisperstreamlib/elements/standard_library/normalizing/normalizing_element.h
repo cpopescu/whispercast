@@ -47,8 +47,7 @@ namespace streaming {
 class NormalizingElement : public FilteringElement {
  public:
   // Constructs a SwitchingElement - we don NOT own empty callback !
-  NormalizingElement(const char* name,
-                     const char* id,
+  NormalizingElement(const string& name,
                      ElementMapper* mapper,
                      net::Selector* selector,
                      int64 flow_control_write_ahead_ms,
@@ -66,7 +65,7 @@ class NormalizingElement : public FilteringElement {
   // FilteringElement methods
 
   virtual FilteringCallbackData* CreateCallbackData(
-      const char* media_name, Request* req);
+      const string& media_name, Request* req);
 
  private:
   const int64 flow_control_write_ahead_ms_;

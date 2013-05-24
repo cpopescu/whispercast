@@ -59,6 +59,7 @@ class F4vToFlvConverter {
                          bool is_aac_header,
                          const io::MemoryStream& data);
   FlvTag* CreateVideoTag(int64 timestamp,
+                         int64 composition_offset_ms,
                          bool is_avc_header,
                          bool is_keyframe,
                          const io::MemoryStream& data);
@@ -77,9 +78,10 @@ class F4vToFlvConverter {
                   const f4v::AvccAtom* avcc);
   FlvTag* GetMetadata(int64 timestamp,
                       const f4v::MoovAtom* moov);
-
-  int32 previous_tag_size_;
-  f4v::Encoder f4v_encoder_;
+ private:
+  // extracted from MOOV
+  MediaInfo::Audio::Format audio_format_;
+  MediaInfo::Video::Format video_format_;
 
   DISALLOW_EVIL_CONSTRUCTORS(F4vToFlvConverter);
 };

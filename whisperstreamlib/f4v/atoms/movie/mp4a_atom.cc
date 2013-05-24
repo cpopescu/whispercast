@@ -234,6 +234,26 @@ uint64 Mp4aAtom::MeasureDataSize() const {
   }
   return inner_version_ == 0 ? 24 : 24 + 16;
 }
+bool Mp4aAtom::EqualsData(const ContainerVersionedAtom& other) const {
+  const Mp4aAtom& a = static_cast<const Mp4aAtom&>(other);
+  if ( !raw_data_.IsEmpty() ) {
+    return raw_data_.Equals(a.raw_data_);
+  }
+  return unknown_ == a.unknown_ &&
+         data_reference_index_ == a.data_reference_index_ &&
+         inner_version_ == a.inner_version_ &&
+         revision_level_ == a.revision_level_ &&
+         vendor_ == a.vendor_ &&
+         number_of_channels_ == a.number_of_channels_ &&
+         sample_size_in_bits_ == a.sample_size_in_bits_ &&
+         compression_id_ == a.compression_id_ &&
+         packet_size_ == a.packet_size_ &&
+         sample_rate_ == a.sample_rate_ &&
+         samples_per_packet_ == a.samples_per_packet_ &&
+         bytes_per_packet_ == a.bytes_per_packet_ &&
+         bytes_per_frame_ == a.bytes_per_frame_ &&
+         bytes_per_sample_ == a.bytes_per_sample_;
+}
 string Mp4aAtom::ToStringData(uint32 indent) const {
   return strutil::StringPrintf("data_reference_index_: %u"
                                ", inner_version_: %u"

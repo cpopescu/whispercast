@@ -47,14 +47,13 @@
 namespace rpc {
 
 class Server;
-class ServerConnection
-    : public rpc::IResultHandler {
+class ServerConnection : public rpc::IResultHandler {
  public:
   ServerConnection(net::Selector* selector,
                    bool auto_delete_on_close,
                    net::NetConnection* net_connection,
                    rpc::IAsyncQueryExecutor& queryExecutor);
-  ~ServerConnection();
+  virtual ~ServerConnection();
 
  protected:
   //  Helper methods for synchronized incrementing and decrementing of
@@ -88,12 +87,6 @@ class ServerConnection
   //   p: the packet to be sent. Must be dynamically allocated.
   void WriteWithEncodeInSelector(const rpc::Message* p);
 
-  //  Encode the packet in a dynamically allocate a memory stream,
-  //  then queues a closure to send the stream from selector thread.
-  //  NOTE: this saves time in selector, loading the current thread.
-  void WriteWithEncodeNow(const rpc::Message& p);
-
-
  protected:
   //////////////////////////////////////////////////////////////
   //
@@ -107,12 +100,6 @@ class ServerConnection
   //   msg: the rpc message to be sent. Must be dynamically allocated& will
   //        be automatically deleted.
   void CallbackSendRPCPacket(const rpc::Message* msg);
-
-  //  Sends all the data in the given memory stream to the network
-  // input:
-  //   ms: the stream containing the data to be sent.
-  //       Must be dynamically allocated & will be automatically deleted.
-  void CallbackSendData(const io::MemoryStream* ms);
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -155,15 +142,6 @@ class ServerConnection
   // we own the underlying TCP connection
   net::NetConnection * net_connection_;
 
-  // Buffer used by the Write function to serialize every packet before
-  // sending it to network.
-  io::MemoryStream cachedPacketBuffer_;
-
-  // Synchronize access to cachedPacketBuffer_ . The execution model is
-  // asynchronous, so query results may arrive & be sent back to client
-  // anytime anyorder.
-  synch::Mutex syncCachedPacketBuffer_;
-
   enum HANDSHAKE_STATE {
     HS_WAITING_REQUEST = 0,
     HS_WAITING_RESPONSE = 1,
@@ -186,8 +164,9 @@ class ServerConnection
   // true if we're registered in the executor.
   bool registeredToQueryExecutor_;
 
-  // the codec used by this connection. It is estabilished in the hanshake.
-  rpc::Codec* codec_;
+  // the codec used by this connection. Established in the handshake.
+  Encoder* encoder_;
+  Decoder* decoder_;
 
   // the number of WriteWith... closures queued in selector and not run yet
   uint32 expectedWriteReplyCalls_;

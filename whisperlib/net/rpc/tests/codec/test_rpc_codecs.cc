@@ -92,7 +92,7 @@ void TestPartialDecode(io::MemoryStream& ms,
        strcmp(TYPENAME(T), "string") ) {
     // compute size without the ending blanks
     io::MemoryStream in;
-    in.AppendStreamNonDestructive(&tmp);
+    in.AppendStreamNonDestructive1(&tmp);
     for ( uint32 i = 0; !in.IsEmpty(); ++i ) {
       char c;
       in.Read(&c, 1);
@@ -107,7 +107,7 @@ void TestPartialDecode(io::MemoryStream& ms,
   T a;
   for ( uint32 i = 0; i < size; ++i ) {
     CHECK(ms.IsEmpty());
-    ms.AppendStreamNonDestructive(&tmp, i);
+    ms.AppendStreamNonDestructive1(&tmp, i);
     CHECK_EQ(ms.Size(), i);
 
     // reset internal state after an incomplete Decode
@@ -129,7 +129,7 @@ void TestPartialDecode(io::MemoryStream& ms,
     }
     ms.Clear();
   }
-  ms.AppendStreamNonDestructive(&tmp);
+  ms.AppendStreamNonDestructive1(&tmp);
   decoder.Reset();
   rpc::DECODE_RESULT result = decoder.Decode(a);
   CHECK(result == rpc::DECODE_RESULT_SUCCESS)

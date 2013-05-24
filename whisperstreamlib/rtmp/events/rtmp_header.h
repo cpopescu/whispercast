@@ -50,17 +50,21 @@ enum HeaderType {
 const char* HeaderTypeName(HeaderType ht);
 int32 HeaderLength(HeaderType ht);
 
-class ProtocolData;
+class Coder;
 
 class Header {
  public:
-  explicit Header(ProtocolData* protocol_data);
-  Header(ProtocolData* protocol_data, const Header& header);
+  static const uint32 kInvalidChannelId = kMaxUInt32;
+  static const uint32 kInvalidStreamId = kMaxUInt32;
+ public:
+  Header();
+  Header(uint32 channel_id,
+         uint32 stream_id,
+         EventType event_type,
+         uint32 timestamp_ms,
+         bool is_timestamp_relative);
   virtual ~Header();
 
-  const ProtocolData* protocol_data() const {
-    return protocol_data_;
-  }
   uint32 channel_id() const {
     return channel_id_;
   }
@@ -70,9 +74,6 @@ class Header {
   EventType event_type() const {
     return event_type_;
   }
-  uint32 event_size() const {
-    return event_size_;
-  }
   uint32 timestamp_ms() const {
     return timestamp_ms_;
   }
@@ -80,19 +81,6 @@ class Header {
     return is_timestamp_relative_;
   }
 
-  // TODO(cpopescu): consider protected setters ..
-  void set_channel_id(uint32 channel_id) {
-    channel_id_ = channel_id;
-  }
-  void set_stream_id(uint32 stream_id) {
-    stream_id_ = stream_id;
-  }
-  void set_event_type(EventType event_type) {
-    event_type_ = event_type;
-  }
-  void set_event_size(uint32 event_size) {
-    event_size_ = event_size;
-  }
   void set_timestamp_ms(uint32 ts) {
     timestamp_ms_ = ts;
   }
@@ -100,32 +88,19 @@ class Header {
     is_timestamp_relative_ = is_ts_relative;
   }
 
-  // Returns a human readable string
+  AmfUtil::ReadStatus Decode(io::MemoryStream* in,
+                             AmfUtil::Version version,
+                             const Coder* coder,
+                             uint32* out_event_size);
+  void Encode(AmfUtil::Version version,
+              const Coder* coder,
+              uint32 event_size,
+              bool force_continue,
+              io::MemoryStream* out) const;
+
   string ToString() const;
-  // Reading / writting
-  AmfUtil::ReadStatus ReadFromMemoryStream(io::MemoryStream* in,
-                                           AmfUtil::Version version);
-  void WriteToMemoryStream(io::MemoryStream* out,
-                           AmfUtil::Version version,
-                           bool force_continue) const;
-
-  AmfUtil::ReadStatus ReadMediaFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-
-  void CopyParams(const Header& header) {
-    stream_id_ = header.stream_id();
-    event_type_ = header.event_type();
-    event_size_ = header.event_size();
-    timestamp_ms_ = header.timestamp_ms();
-    is_timestamp_relative_ = header.is_timestamp_relative();
-  }
-
 
  private:
-  // this header is part of this communication channel
-  // (we do not own it, but we can modify it)
-  ProtocolData* const protocol_data_;
-
   // These two define the conversation inside a communication channel
   uint32 channel_id_;
   uint32 stream_id_;
@@ -133,18 +108,16 @@ class Header {
   // What kind of event this header precedes
   EventType event_type_;
 
-  // The size of the event that follows (in bytes - encoded version :)
-  uint32 event_size_;
+  // NOTE: Removed event_size_. There is no point in having this info here
+  //       when you can look at the Event body size.
+  // The size of the event that follows (in bytes)
+  //uint32 event_size_;
 
   // The time of the event - this is tricky - can be relative to the precedent
   // event of the same type or absolute time from the beginning of the stream.
   uint32 timestamp_ms_;
   // Determines the kind of timestamp (see above);
-  bool is_timestamp_relative_;   // default = true
-
-  static const uint32 kInvalidUint32 = kMaxUInt32;
-
-  DISALLOW_EVIL_CONSTRUCTORS(Header);
+  bool is_timestamp_relative_;
 };
 inline ostream& operator<<(ostream& os, const Header& obj) {
   return os << obj.ToString();

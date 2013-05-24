@@ -41,8 +41,6 @@
 
 #include <whisperlib/common/base/log.h>
 #include <whisperlib/net/rpc/lib/rpc_constants.h>
-#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_codec.h>
-#include <whisperlib/net/rpc/lib/codec/json/rpc_json_codec.h>
 #include <whisperlib/net/rpc/lib/server/rpc_core_types.h>
 #include <whisperlib/net/rpc/lib/server/rpc_service_invoker.h>
 #include <whisperlib/net/http/http_server_protocol.h>
@@ -95,13 +93,13 @@ class HttpServer {
                           const string& sub_path,
                           const rpc::Transport& transport,
                           const rpc::Message& p,
-                          rpc::Codec* codec,
+                          rpc::CodecId codec,
                           int timeout);
 
   // Request processing continuation (after authentication)
   void ProcessAuthenticatedRequest(
     http::ServerRequest* req,
-    string* service_name, string* method_name,
+    string service_name, string method_name,
     net::UserAuthenticator::Answer auth_answer);
 
   // Callback upon query completion
@@ -113,9 +111,6 @@ class HttpServer {
   // Callback completion for secondary requests
   void RpcSecondaryCallback(const io::MemoryStream* params,
                             const rpc::Query& query);
-
-  // Callback to send http reply from selector context.
-  void RpcReply(http::ServerRequest* req, io::MemoryStream* reply);
 
   // We run your processing callbacks in the select loop of this selector
   net::Selector* const selector_;
@@ -134,10 +129,6 @@ class HttpServer {
 
   // Current statistics
   int current_requests_;
-
-  // Used for encoding / decoding of stuff
-  rpc::BinaryCodec binary_codec_;
-  rpc::JsonCodec json_codec_;
 
   // What services we provide ..
   typedef map<string, rpc::ServiceInvoker*> ServicesMap;

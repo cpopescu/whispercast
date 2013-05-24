@@ -73,39 +73,18 @@ class Mutex {
   DISALLOW_EVIL_CONSTRUCTORS(Mutex);
 };
 
-class MutexPool {
- public:
-  MutexPool(int num, bool is_reentrant = false)
-      : mutex_(new Mutex*[num]),
-        num_(num) {
-    for ( int i = 0; i < num_; ++i ) {
-      mutex_[i] = new Mutex(is_reentrant);
-    }
-  }
-  ~MutexPool() {
-    for ( int i = 0; i < num_; ++i ) {
-      delete mutex_[i];
-    }
-    delete [] mutex_;
-  }
-  Mutex* GetMutex(const void* p) {
-    // 'p' can have any value!
-    // e.g. 0xffffffff when cast to int => -1
-    return mutex_[reinterpret_cast<long long unsigned int>(p) % num_];
-  }
- private:
-  Mutex** mutex_;
-  int num_;
-};
-
 // Utility class for scope protected locking
 class MutexLocker {
  public:
   explicit MutexLocker(Mutex* mutex) : mutex_(mutex) {
-    mutex_->Lock();
+    if ( mutex_ != NULL ) {
+      mutex_->Lock();
+    }
   }
   ~MutexLocker() {
-    mutex_->Unlock();
+    if ( mutex_ != NULL ) {
+      mutex_->Unlock();
+    }
   }
  protected:
   Mutex* const mutex_;

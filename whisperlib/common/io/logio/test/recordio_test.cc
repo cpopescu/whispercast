@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
   io::MemoryStream in;
   int32 rec_id = 0;
   while ( !out.IsEmpty() ) {
-    int32 to_pull = min(rand_r(&g_rand_seed) % 2048, out.Size());
+    int32 to_pull = min(rand_r(&g_rand_seed) % 2048, (int)out.Size());
     in.AppendStream(&out, to_pull);
     while ( true ) {
       io::MemoryStream crt;

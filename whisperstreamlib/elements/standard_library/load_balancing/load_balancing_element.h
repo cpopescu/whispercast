@@ -43,8 +43,7 @@ namespace streaming {
 
 class LoadBalancingElement : public Element {
  public:
-  LoadBalancingElement(const char* name,
-                       const char* id,
+  LoadBalancingElement(const string& name,
                        ElementMapper* mapper,
                        net::Selector* selector,
                        const vector<string>& sub_elements);
@@ -54,12 +53,11 @@ class LoadBalancingElement : public Element {
 
   // Element Interface:
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir,
-                         streaming::ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 

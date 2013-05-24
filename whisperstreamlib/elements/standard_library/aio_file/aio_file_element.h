@@ -80,19 +80,15 @@ class AioFileReadingStruct;
 class AioFileElement : public Element {
  public:
   static const char kElementClassName[];
-  // We take ownership and delete the splitter_creator!
-  AioFileElement(const char* name,
-                 const char* id,
+  AioFileElement(const string& name,
                  ElementMapper* mapper,
                  net::Selector* selector,
-                 SplitterCreator* splitter_creator,
                  map<string, io::AioManager*>* aio_managers,
                  io::BufferManager* buf_manager,
-                 Tag::Type tag_type,
-                 const char* home_dir,
-                 const char* file_pattern,
-                 const char* default_index_file,
-                 const char* data_key_prefix,
+                 const string& home_dir,
+                 const string& file_pattern,
+                 const string& default_index_file,
+                 const string& data_key_prefix,
                  bool disable_pause,
                  bool disable_seek,
                  bool disable_duration);
@@ -101,12 +97,11 @@ class AioFileElement : public Element {
 
   // Element Interface:
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir,
-                         streaming::ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 
@@ -116,18 +111,14 @@ class AioFileElement : public Element {
   void InternalClose();
   // Every FRS calls this function just before deleting itself.
   void NotifyFrsClosed(AioFileReadingStruct* frs);
-  // Media is something like: "aio_file_element/a/b/file.flv"
-  // Returns: "a/b/file.flv" on success (name_ == "aio_file_element")
-  //          "" on failure (name_ != "aio_file_element")
-  string FileNameFromMedia(const char* media, bool full = true);
+  // Media is something like: "a/b/file.flv"
+  // Returns: "a/b/file.flv" on success (media matches the internal pattern)
+  //          "" on failure (mismatching pattern)
+  string FileNameFromMedia(const string& media);
 
  private:
-  // Tags we expect..
-  const Capabilities caps_;
   // Eveything is synchronized on this thread..
   net::Selector* const selector_;
-  // Creates splitters for us
-  SplitterCreator* splitter_creator_;
   // This should be constructed w/ the same selector.. - manages our
   // file acceses
   map<string, io::AioManager*>* const aio_managers_;

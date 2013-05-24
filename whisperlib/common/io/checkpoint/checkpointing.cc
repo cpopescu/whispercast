@@ -60,7 +60,7 @@ bool GetCheckpointFiles(const string& checkpoint_dir,
   re::RE reg("^" + file_base +
              "_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$");
 
-  if ( !DirList(checkpoint_dir, files, false, &reg) ) {
+  if ( !DirList(checkpoint_dir, LIST_FILES, &reg, files) ) {
     LOG_ERROR << "Cannot list directory: [" << checkpoint_dir
               << "] for file base: " << file_base;
     return false;

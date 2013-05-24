@@ -12,6 +12,11 @@ MdatAtom::MdatAtom(const MdatAtom& other)
 }
 MdatAtom::~MdatAtom() {
 }
+bool MdatAtom::EqualsBody(const BaseAtom& other) const {
+  const MdatAtom& a = static_cast<const MdatAtom&>(other);
+  (void)a;
+  return true;
+}
 void MdatAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* MdatAtom::Clone() const {

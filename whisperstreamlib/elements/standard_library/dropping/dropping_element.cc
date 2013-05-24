@@ -311,18 +311,17 @@ const char DroppingElement::kElementClassName[] = "dropping";
 //
 //  DroppingElement
 //
-DroppingElement::DroppingElement(const char* name,
-                                 const char* id,
+DroppingElement::DroppingElement(const string& name,
                                  ElementMapper* mapper,
                                  net::Selector* selector,
-                                 const char* media_filtered,
+                                 const string& media_filtered,
                                  int64 audio_accept_period_ms,
                                  int64 audio_drop_period_ms,
                                  int64 video_accept_period_ms,
                                  int64 video_drop_period_ms,
                                  int32 video_grace_period_key_frames)
-    : FilteringElement(kElementClassName, name, id, mapper, selector),
-      media_filtered_(media_filtered != NULL ? media_filtered : ""),
+    : FilteringElement(kElementClassName, name, mapper, selector),
+      media_filtered_(media_filtered),
       audio_accept_period_ms_(audio_accept_period_ms),
       audio_drop_period_ms_(audio_drop_period_ms),
       video_accept_period_ms_(video_accept_period_ms),
@@ -330,7 +329,6 @@ DroppingElement::DroppingElement(const char* name,
       video_grace_period_key_frames_(video_grace_period_key_frames),
       internal_req_(new streaming::Request()),
       process_tag_callback_(NULL) {
-  internal_req_->mutable_info()->internal_id_ = id;
 }
 
 DroppingElement::~DroppingElement() {
@@ -403,7 +401,7 @@ void DroppingElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
 }
 
 FilteringCallbackData* DroppingElement::CreateCallbackData(
-    const char* media_name,
+    const string& media_name,
     streaming::Request* req) {
   if ( !media_filtered_.empty() && media_filtered_ != media_name ) {
     LOG_WARNING << name() << ": Dropping element cannot create an element "
@@ -418,9 +416,8 @@ FilteringCallbackData* DroppingElement::CreateCallbackData(
                                          video_grace_period_key_frames_);
 }
 
-bool DroppingElement::AddRequest(const char* media,
-                                 streaming::Request* req,
-                                 streaming::ProcessingCallback* callback) {
+bool DroppingElement::AddRequest(const string& media, Request* req,
+                                 ProcessingCallback* callback) {
   VLOG(10) << "DroppingElement adding callback for name: [" << name() << "]";
   if ( !FilteringElement::AddRequest(media, req, callback) ) {
     return false;

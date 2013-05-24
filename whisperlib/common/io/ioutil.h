@@ -54,13 +54,27 @@ bool Exists(const char* path);
 bool Exists(const string& path);
 int64 GetFileSize(const char* name);
 int64 GetFileSize(const string& name);
-bool DirList(const string& dir,
-             vector<string>* names,
-             bool list_dirs,
-             re::RE* regex = NULL);
-bool RecursiveListing(const string& dir,
-                      vector<string>* dir_names,
-                      re::RE* regex = NULL);
+// returns ms from Epoch
+int64 GetFileModificationTime(const string& filename);
+// List a directory, possibly looking into subdirectories, filter by regex.
+// Symlinks are not followed, and completely ignored.
+// list_attr: a combinations of 1 or more DirListAttributes
+// out: Returned entries are relative to 'dir' (they do not contain the 'dir').
+// Returns success.
+enum DirListAttributes {
+  // return regular files
+  LIST_FILES = 0x01,
+  // return directories
+  LIST_DIRS = 0x02,
+  // return symlinks (no matter what they point to)
+  LIST_SYMLINKS = 0x04,
+  // return everything (files, dirs, symlinks, sockets, pipes,..)
+  LIST_EVERYTHING = 0x0f,
+  // look into subdirectories
+  LIST_RECURSIVE = 0x80,
+};
+bool DirList(const string& dir, uint32 list_attr, re::RE* regex,
+    vector<string>* out);
 
 bool CreateRecursiveDirs(
   const char* dirname,

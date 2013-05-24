@@ -40,8 +40,10 @@
 #include <whisperlib/common/base/types.h>
 #include <whisperlib/common/base/callback.h>
 #include <whisperlib/common/base/log.h>
-#include <whisperlib/common/io/buffer/memory_stream.h>
 #include <whisperlib/common/base/ref_counted.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
+#include <whisperstreamlib/base/media_info.h>
+#include <whisperstreamlib/base/consts.h>
 
 namespace streaming {
 
@@ -50,6 +52,7 @@ namespace streaming {
 class Tag : public RefCounted {
  public:
   enum Type {
+    TYPE_MEDIA_INFO,
     // flv streams: name: 'flv', content-type: 'video/x-flv'
     TYPE_FLV,
     TYPE_FLV_HEADER,
@@ -62,11 +65,11 @@ class Tag : public RefCounted {
     TYPE_INTERNAL,
     // f4v streams: name: 'f4v', content-type: 'video/x-f4v'
     TYPE_F4V,
+    // mpeg transport stream: name 'mts', content-type: 'video/mp2t'
+    TYPE_MTS,
     // internal formated stream: name: 'raw',
     //                           content-type: 'application/octet-stream'
     TYPE_RAW,
-    // the first tag you will see on a processing callback
-    TYPE_BOS,
     // the last tag you will see on a processing callback
     // ** YOU MUST ** remove the association between the request and callback
     //                at *this* point
@@ -86,8 +89,6 @@ class Tag : public RefCounted {
     // we just did a seek to another position in file. A new sequence of media
     // tags follow
     TYPE_SEEK_PERFORMED,
-    // we need to flush the pipeline
-    TYPE_FLUSH,
 
     // the bootstrap begin/end sequence
     TYPE_BOOTSTRAP_BEGIN,
@@ -116,8 +117,7 @@ class Tag : public RefCounted {
   Tag(Type type,
       uint32 attributes,
       uint32 flavour_mask)
-    : RefCounted(mutex_pool_.GetMutex(this)),
-      type_(type),
+    : type_(type),
       attributes_(attributes),
       flavour_mask_(flavour_mask) {
     // sanity check: attribute flags should be in the least significant 2 bytes
@@ -129,8 +129,7 @@ class Tag : public RefCounted {
         << ", MUST contain just 1 flavour_id";
   }
   Tag(const Tag& other)
-    : RefCounted(mutex_pool_.GetMutex(this)),
-      type_(other.type_),
+    : type_(other.type_),
       attributes_(other.attributes_),
       flavour_mask_(other.flavour_mask_) {
     CHECK_EQ((attributes_ & 0xFF00), 0);
@@ -144,7 +143,14 @@ class Tag : public RefCounted {
   // Every tag is responsible with implementing these.
   // If a tag does not care for some of these it should return 0.
   virtual int64 duration_ms() const = 0;
+  // TODO(cosmin): is this encoding size? If so, in what format?
   virtual uint32 size() const = 0;
+
+  // presentation ts = decoding ts + composition_offset_ms
+  // The tag timestamp widely used internally is actually decoding ts.
+  // Tags that don't distinguish between decoding & presentation
+  // timestamp should just return 0.
+  virtual int64 composition_offset_ms() const = 0;
 
   uint32 attributes() const { return attributes_; }
   string attributes_name() const { return AttributesName(attributes_); }
@@ -178,6 +184,10 @@ class Tag : public RefCounted {
     return (attributes_ & ATTR_METADATA) == ATTR_METADATA;
   }
 
+  // For a media tag this represents the internal media data.
+  // For a signal tag this is NULL.
+  virtual const io::MemoryStream* Data() const = 0;
+
   virtual Tag& operator=(const Tag& other) {
     CHECK_EQ(type(), other.type());
     attributes_ = other.attributes_;
@@ -200,10 +210,6 @@ class Tag : public RefCounted {
         ToStringBody().c_str());
   }
 
- protected:
-  static const int kNumMutexes;
-  static synch::MutexPool mutex_pool_;
-
  private:
   const Type type_;
 
@@ -217,6 +223,36 @@ class Tag : public RefCounted {
 //
 // Several common tag data types
 //
+//////////////////////////////////////////////////////////////////////
+
+class MediaInfoTag : public Tag {
+ public:
+  static const Type kType;
+  MediaInfoTag(uint32 attributes, uint32 flavour_mask, const MediaInfo& info)
+    : Tag(kType, attributes, flavour_mask),
+      info_(info) {
+  }
+  MediaInfoTag(const MediaInfoTag& other)
+    : Tag(other),
+      info_(other.info_) {
+  }
+  virtual ~MediaInfoTag() {
+  }
+
+  const MediaInfo& info() const { return info_; }
+  MediaInfo* mutable_info() { return &info_; }
+
+  virtual int64 duration_ms() const { return 0; }
+  virtual uint32 size() const { return 0; }
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return NULL; }
+  virtual Tag* Clone() const { return new MediaInfoTag(*this); }
+  virtual string ToStringBody() const { return info_.ToString(); }
+
+ private:
+  MediaInfo info_;
+};
+
 //////////////////////////////////////////////////////////////////////
 
 class CuePointTag : public Tag {
@@ -239,6 +275,7 @@ class CuePointTag : public Tag {
 
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
+  virtual int64 composition_offset_ms() const { return 0; }
 
   const vector< pair<int64, int64> >& cue_points() const {
     return cue_points_;
@@ -261,12 +298,13 @@ class CuePointTag : public Tag {
     }
     return l;
   }
+  virtual const io::MemoryStream* Data() const { return NULL; }
   virtual Tag* Clone() const {
     return new CuePointTag(*this);
   }
   virtual string ToStringBody() const {
     string s = "{\n";
-    for ( int i = 0; i < cue_points_.size(); ++i ) {
+    for ( uint32 i = 0; i < cue_points_.size(); ++i ) {
       s += strutil::StringPrintf(
           "%4d - @%"PRId64" ms / %"PRId64" B\n",
           i,
@@ -307,7 +345,9 @@ class FeatureFoundTag : public Tag {
 
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
+  virtual int64 composition_offset_ms() const { return 0; }
 
+  virtual const io::MemoryStream* Data() const { return NULL; }
   virtual Tag* Clone() const {
     return new FeatureFoundTag(*this);
   }
@@ -370,6 +410,8 @@ class SourceChangedTag : public Tag {
   //
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return NULL; }
 
  private:
   // The very source element name (e.g. "aio_file/spiderman.flv")
@@ -491,10 +533,6 @@ class ElementController {
   // Not only seeks are disabled, by we also hide duration
   virtual bool DisabledDuration() const { return false; }
 
-  // Return true if an element supports preprocessing of the data (in order to
-  // do a better tag splitting in wire packets)
-  virtual bool SupportsPreprocessing() const { return false; }
-
   // Pause the element (pause true - > stop, false -> restart)
   virtual bool Pause(bool pause) {
     return false;
@@ -512,17 +550,16 @@ class ElementController {
 
 class TagSet : public RefCounted {
  public:
-  static const int kMaxSize = 16;
+  static const uint32 kMaxSize = 16;
   TagSet()
-      : RefCounted(mutex_pool_.GetMutex(this)),
-        size_(0) {
+      : size_(0) {
   }
   virtual ~TagSet() {
-    for ( int i = 0; i < size_; ++i ) {
+    for ( uint32 i = 0; i < size_; ++i ) {
       tags_[i] = NULL;
     }
   }
-  int size() const {
+  uint32 size() const {
     return size_;
   }
   bool is_full() const {
@@ -538,9 +575,6 @@ class TagSet : public RefCounted {
   }
 
  private:
-  static const int kNumMutexes;
-  static synch::MutexPool mutex_pool_;
-
   size_t size_;
   scoped_ref<const Tag> tags_[kMaxSize];
 
@@ -608,6 +642,8 @@ class ComposedTag : public Tag {
     }
     return s;
   }
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return NULL; }
   virtual Tag* Clone() const {
     return new ComposedTag(*this);
   }
@@ -653,7 +689,8 @@ class TSignalTag : public Tag {
   //
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return 0; }
-
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return NULL; }
   virtual Tag* Clone() const {
     return new TSignalTag<TYPE>(*this);
   }
@@ -663,7 +700,6 @@ class TSignalTag : public Tag {
   }
 };
 
-typedef TSignalTag<Tag::TYPE_BOS> BosTag;
 class EosTag : public TSignalTag<Tag::TYPE_EOS> {
  public:
   EosTag(uint32 attributes,
@@ -707,57 +743,6 @@ typedef TSignalTag<Tag::TYPE_BOOTSTRAP_END> BootstrapEndTag;
 
 typedef TSignalTag<Tag::TYPE_SEEK_PERFORMED> SeekPerformedTag;
 
-typedef TSignalTag<Tag::TYPE_FLUSH> FlushTag;
-
-//////////////////////////////////////////////////////////////////////
-//
-// General interface for saving a tag to some place..
-//
-
-class TagSerializer {
- public:
-  TagSerializer() { }
-  virtual ~TagSerializer() { }
-
-  // If any starting things are necessary to be serialized before the
-  // actual tags, this is the moment :)
-  virtual void Initialize(io::MemoryStream* out) = 0;
-  // The main interface function - puts "tag" into "out".
-  // It mainly calls serialize internal, but breaking composed tags
-  bool Serialize(const Tag* tag, int64 timestamp_ms, io::MemoryStream* out) {
-    if ( tag->type() != Tag::TYPE_COMPOSED ) {
-      return SerializeInternal(tag, timestamp_ms, out);
-    } else {
-      /*
-      const ComposedTag* ctd = static_cast<const ComposedTag*>(tag);
-      bool is_ok = true;
-      if ( timestamp_ms < 0 )
-        timestamp_ms = tag->timestamp_ms();
-      else
-        timestamp_ms = timestamp_ms - tag->timestamp_ms();
-      for ( int i = 0; is_ok && i < ctd->tags().size(); ++i ) {
-        is_ok |= SerializeInternal(ctd->tags().tag(i).get(),
-                                   timestamp_ms,
-                                   out);
-      }
-      return is_ok;
-      */
-      return false;
-    }
-  }
-  // If any finishing touches things are necessary to be serialized after the
-  // actual tags, this is the moment :)
-  virtual void Finalize(io::MemoryStream* out) = 0;
-
- protected:
-  // Override this to do your serialization
-  virtual bool SerializeInternal(const Tag* tag,
-                                 int64 timestamp_ms,
-                                 io::MemoryStream* out) = 0;
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(TagSerializer);
-};
-
 //////////////////////////////////////////////////////////////////////
 //
 // Utility for calculating stream time. Tags circulate in a broken stream;
@@ -771,7 +756,7 @@ class TagSerializer {
 //   Tag timestamp = 782                                 | => stream time 222
 //   Tag timestamp = 783                                 | => stream time 223
 //   ...
-//   Tag timestamp = 933                      | => stream time 374
+//   Tag timestamp = 933                                 | => stream time 374
 //   SourceStartedTag timestamp = 7    // stream c       | => stream time 374
 //   Tag timestamp = 8                                   | => stream time 375
 //   Tag timestamp = 9                                   | => stream time 376

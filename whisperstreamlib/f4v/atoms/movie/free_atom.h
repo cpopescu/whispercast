@@ -50,6 +50,7 @@ public:
 
  ///////////////////////////////////////////////////////////////////////////
  // Methods from BaseAtom
+ virtual bool EqualsBody(const BaseAtom& other) const;
  virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
  virtual BaseAtom* Clone() const;
  virtual TagDecodeStatus DecodeBody(uint64 size, io::MemoryStream& in,

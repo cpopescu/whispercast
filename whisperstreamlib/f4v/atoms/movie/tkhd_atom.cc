@@ -114,7 +114,20 @@ void TkhdAtom::set_height(FPU16U16 height) {
   height_ = height;
 }
 
-
+bool TkhdAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const TkhdAtom& a = static_cast<const TkhdAtom&>(other);
+  return creation_time_ == a.creation_time_ &&
+         modification_time_ == a.modification_time_ &&
+         id_ == a.id_ &&
+         duration_ == a.duration_ &&
+         layer_ == a.layer_ &&
+         alternate_group_ == a.alternate_group_ &&
+         volume_ == a.volume_ &&
+         ::memcmp(matrix_structure_, a.matrix_structure_,
+             sizeof(matrix_structure_)) == 0 &&
+         width_ == a.width_ &&
+         height_ == a.height_;
+}
 void TkhdAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* TkhdAtom::Clone() const {

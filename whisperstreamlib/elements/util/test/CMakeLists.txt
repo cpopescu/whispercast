@@ -35,6 +35,6 @@ ADD_DEPENDENCIES(streaming_date_test
   whisper_streamlib)
 TARGET_LINK_LIBRARIES(streaming_date_test
   whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib)
 ADD_TEST(streaming_date_test
   streaming_date_test)

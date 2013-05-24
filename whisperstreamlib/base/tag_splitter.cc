@@ -33,19 +33,6 @@
 
 namespace streaming {
 
-const char* TagSplitter::TypeName(Type type) {
-  switch(type) {
-    CONSIDER(TS_F4V);
-    CONSIDER(TS_FLV);
-    CONSIDER(TS_RAW);
-    CONSIDER(TS_MP3);
-    CONSIDER(TS_AAC);
-    CONSIDER(TS_INTERNAL);
-  }
-  LOG_FATAL << "Illegal type: " << type;
-  return "UNKNOWN";
-}
-
 TagReadStatus TagSplitter::GetNextTag(io::MemoryStream* in,
                                       scoped_ref<Tag>* tag,
                                       int64* timestamp_ms,
@@ -53,6 +40,7 @@ TagReadStatus TagSplitter::GetNextTag(io::MemoryStream* in,
   while ( true ) {
     if ( next_tag_to_send_.get() != NULL ) {
       next_tag_to_send_.MoveTo(tag);
+      *timestamp_ms = next_tag_to_send_ts_;
       return READ_OK;
     }
 
@@ -60,66 +48,65 @@ TagReadStatus TagSplitter::GetNextTag(io::MemoryStream* in,
       if ( crt_composed_tag_->tags().is_full() ||
            crt_composed_tag_->duration_ms() > max_composition_tag_time_ms_ ) {
         crt_composed_tag_.MoveTo(tag);
+        *timestamp_ms = crt_composed_tag_ts_;
         return READ_OK;
       }
     }
 
-    scoped_ref<Tag> proc_tag;
-    int64 proc_timestamp_ms;
-    TagReadStatus err = GetNextTagInternal(in, &proc_tag,
-        &proc_timestamp_ms, is_at_eos);
+    TagReadStatus err = GetNextTagInternal(in, tag, timestamp_ms, is_at_eos);
     if ( err == READ_NO_DATA ) {
       if ( crt_composed_tag_.get() != NULL && is_at_eos ) {
         crt_composed_tag_.MoveTo(tag);
+        *timestamp_ms = crt_composed_tag_ts_;
         return READ_OK;
       }
       return is_at_eos ? READ_EOF : READ_NO_DATA;
     }
     if ( err != READ_OK ) {
-      CHECK_NULL(proc_tag.get());
+      CHECK_NULL(tag->get());
       return err;
     }
-    CHECK_NOT_NULL(proc_tag.get());
+    CHECK_NOT_NULL(tag->get());
 
     // Update stats
     stats_.num_decoded_tags_++;
-    stats_.total_tag_size_ += proc_tag->size();
-    if ( proc_tag->size() > stats_.max_tag_size_ )
-      stats_.max_tag_size_ = proc_tag->size();
-    if ( proc_tag->is_video_tag() ) {
+    stats_.total_tag_size_ += (*tag)->size();
+    if ( (*tag)->size() > stats_.max_tag_size_ )
+      stats_.max_tag_size_ = (*tag)->size();
+    if ( (*tag)->is_video_tag() ) {
       stats_.num_video_tags_++;
-      stats_.num_video_bytes_ += proc_tag->size();
+      stats_.num_video_bytes_ += (*tag)->size();
     }
-    if ( proc_tag->is_audio_tag() ) {
+    if ( (*tag)->is_audio_tag() ) {
       stats_.num_audio_tags_++;
-      stats_.num_audio_bytes_ += proc_tag->size();
+      stats_.num_audio_bytes_ += (*tag)->size();
     }
 
     // maybe add to current composed tag
     if ( crt_composed_tag_.get() != NULL ) {
-      if ( IsComposable(proc_tag.get()) ) {
-        crt_composed_tag_->add_tag(proc_tag.get(), proc_timestamp_ms);
+      if ( IsComposable(tag->get()) ) {
+        crt_composed_tag_->add_tag(tag->get(), *timestamp_ms);
         continue;
       }
       // current tag is not composable, break current composed tag now
+      next_tag_to_send_ = *tag;
+      next_tag_to_send_ts_ = *timestamp_ms;
       *tag = crt_composed_tag_.get();
+      *timestamp_ms = crt_composed_tag_ts_;
       crt_composed_tag_ = NULL;
-
-      next_tag_to_send_ = proc_tag;
       return READ_OK;
     }
 
     // no current composed tag, create a new composed tag now
     if ( max_composition_tag_time_ms_ > 0 &&
-         IsComposable(proc_tag.get()) ) {
+         IsComposable(tag->get()) ) {
       crt_composed_tag_ = new ComposedTag(0, kDefaultFlavourMask);
-      crt_composed_tag_->add_tag(proc_tag.get(), proc_timestamp_ms);
+      crt_composed_tag_ts_ = *timestamp_ms;
+      crt_composed_tag_->add_tag(tag->get(), *timestamp_ms);
       continue;
     }
 
     // cannot compose tag, just return it
-    *timestamp_ms = proc_timestamp_ms;
-    *tag = proc_tag;
     return READ_OK;
   }
   LOG_FATAL << name() << ": This place should not be reached";

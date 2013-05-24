@@ -54,7 +54,7 @@ Type CommandElementSpec {
 }
 
 Service CommandLibraryService {
-  MediaOperationErrorData AddCommandElementSpec(
+  MediaOpResult AddCommandElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,

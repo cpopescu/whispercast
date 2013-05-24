@@ -29,6 +29,7 @@
 //
 // Author: Cosmin Tudorache & Catalin Popescu
 
+#include <whisperstreamlib/base/media_info_util.h>
 #include <whisperstreamlib/flv/flv_tag.h>
 #include <whisperstreamlib/flv/flv_coder.h>
 
@@ -53,117 +54,94 @@ void FlvHeader::AppendStandardHeader(io::MemoryStream* out,
   h->Write(out);
 }
 
-synch::MutexPool FlvTag::mutex_pool_(FlvTag::kNumMutexes);
-
-void FlvTag::update() {
+void FlvTag::LearnAttributes() {
   switch ( body().type() ) {
     case FLV_FRAMETYPE_VIDEO: {
       const FlvTag::Video& video_body = this->video_body();
       add_attributes(Tag::ATTR_VIDEO);
-      if ( video_body.video_frame_type() ==
-           FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ) {
+      if ( video_body.frame_type() == FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ) {
         add_attributes(Tag::ATTR_CAN_RESYNC);
       }
 
-      if ( video_body.video_codec() == FLV_FLAG_VIDEO_CODEC_AVC ) {
-        mutable_video_body().set_video_avc_moov(
-          FlvCoder::DecodeAuxiliaryMoovTag(this));
+      if ( video_body.codec() == FLV_FLAG_VIDEO_CODEC_AVC ) {
+        mutable_video_body().set_avc_moov(
+            FlvCoder::DecodeAuxiliaryMoovTag(this));
 
-        if ( video_body.video_avc_packet_type() != AVC_SEQUENCE_HEADER ) {
+        if ( video_body.avc_packet_type() != AVC_SEQUENCE_HEADER ) {
           add_attributes(Tag::ATTR_DROPPABLE);
         }
       } else {
         add_attributes(Tag::ATTR_DROPPABLE);
       }
+      break;
     }
-    break;
     case FLV_FRAMETYPE_AUDIO: {
       const FlvTag::Audio& audio_body = this->audio_body();
       add_attributes(Tag::ATTR_AUDIO |
                               Tag::ATTR_CAN_RESYNC);
-      if ( audio_body.audio_format() != FLV_FLAG_SOUND_FORMAT_AAC ||
-           !audio_body.audio_is_aac_header() ) {
+      if ( audio_body.format() != FLV_FLAG_SOUND_FORMAT_AAC ||
+           !audio_body.is_aac_header() ) {
         add_attributes(Tag::ATTR_DROPPABLE);
       }
+      break;
     }
-    break;
     case FLV_FRAMETYPE_METADATA: {
+      add_attributes(Tag::ATTR_METADATA);
+      break;
     }
-    break;
   }
 }
 
-void FlvTag::Audio::append_data(const void* data, uint32 size) {
-  data_.Write(data, size);
-  FlvCoder::DecodeAudioFlags(data_, &audio_type_, &audio_format_,
-        &audio_rate_, &audio_size_, &audio_is_aac_header_);
-}
-void FlvTag::Audio::append_data(const io::MemoryStream& data) {
-  data_.AppendStreamNonDestructive(&data);
-  FlvCoder::DecodeAudioFlags(data_, &audio_type_, &audio_format_,
-        &audio_rate_, &audio_size_, &audio_is_aac_header_);
-}
 TagReadStatus FlvTag::Audio::Decode(io::MemoryStream& in, uint32 size) {
   if ( in.Size() < size )  {
     return READ_NO_DATA;
   }
   data_.Clear();
   data_.AppendStream(&in, size);
-  return FlvCoder::DecodeAudioFlags(data_, &audio_type_, &audio_format_,
-      &audio_rate_, &audio_size_, &audio_is_aac_header_);
+  return FlvCoder::DecodeAudioFlags(data_, &type_, &format_,
+      &rate_, &size_, &is_aac_header_);
 }
 void FlvTag::Audio::Encode(io::MemoryStream* out) const {
   out->AppendStreamNonDestructive(&data_);
 }
 string FlvTag::Audio::ToString() const {
-  return strutil::StringPrintf("Audio{data_: %d bytes, audio_type_: %s, "
-      "audio_format_: %s, audio_rate_: %s, audio_size_: %s, "
-      "audio_is_aac_header_: %s}",
+  return strutil::StringPrintf("Audio{data_: %d bytes, type_: %s, "
+      "format_: %s, rate_: %s, size_: %s, is_aac_header_: %s}",
       data_.Size(),
-      FlvFlagSoundTypeName(audio_type_),
-      FlvFlagSoundFormatName(audio_format_),
-      FlvFlagSoundRateName(audio_rate_),
-      FlvFlagSoundSizeName(audio_size_),
-      strutil::BoolToString(audio_is_aac_header_).c_str());
+      FlvFlagSoundTypeName(type_),
+      FlvFlagSoundFormatName(format_),
+      FlvFlagSoundRateName(rate_),
+      FlvFlagSoundSizeName(size_),
+      strutil::BoolToString(is_aac_header_).c_str());
 }
 
-void FlvTag::Video::append_data(const void* data, uint32 size) {
-  data_.Write(data, size);
-  FlvCoder::DecodeVideoFlags(data_, &video_codec_, &video_frame_type_,
-      &video_avc_packet_type_, &video_avc_composition_time_);
-}
-void FlvTag::Video::append_data(const io::MemoryStream& data) {
-  data_.AppendStreamNonDestructive(&data);
-  FlvCoder::DecodeVideoFlags(data_, &video_codec_, &video_frame_type_,
-      &video_avc_packet_type_, &video_avc_composition_time_);
-}
 TagReadStatus FlvTag::Video::Decode(io::MemoryStream& in, uint32 size) {
   if ( in.Size() < size )  {
     return READ_NO_DATA;
   }
   data_.Clear();
   data_.AppendStream(&in, size);
-  return FlvCoder::DecodeVideoFlags(data_, &video_codec_,
-      &video_frame_type_, &video_avc_packet_type_,
-      &video_avc_composition_time_);
+  return FlvCoder::DecodeVideoFlags(data_, &codec_,
+      &frame_type_, &avc_packet_type_,
+      &avc_composition_offset_ms_);
 }
 void FlvTag::Video::Encode(io::MemoryStream* out) const {
   out->AppendStreamNonDestructive(&data_);
 }
 string FlvTag::Video::ToString() const {
   string more_info;
-  if ( video_codec_ == FLV_FLAG_VIDEO_CODEC_AVC ) {
-    more_info += strutil::StringPrintf(", video_avc_packet_type_: %s, "
-        "video_avc_composition_time_: %d, video_avc_moov_: %s",
-        AvcPacketTypeName(video_avc_packet_type_),
-        video_avc_composition_time_,
-        video_avc_moov_.ToString().c_str());
+  if ( codec_ == FLV_FLAG_VIDEO_CODEC_AVC ) {
+    more_info += strutil::StringPrintf(", avc_packet_type_: %s, "
+        "avc_composition_offset_ms_: %d, avc_moov_: %s",
+        AvcPacketTypeName(avc_packet_type_),
+        avc_composition_offset_ms_,
+        avc_moov_.ToString().c_str());
   }
-  return strutil::StringPrintf("Video{data_: %d bytes, video_codec_: %s,"
-      "video_frame_type_: %s%s}",
+  return strutil::StringPrintf("Video{data_: %d bytes, codec_: %s,"
+      "frame_type_: %s%s}",
       data_.Size(),
-      FlvFlagVideoCodecName(video_codec_),
-      FlvFlagVideoFrameTypeName(video_frame_type_),
+      FlvFlagVideoCodecName(codec_),
+      FlvFlagVideoFrameTypeName(frame_type_),
       more_info.c_str());
 }
 
@@ -172,23 +150,23 @@ TagReadStatus FlvTag::Metadata::Decode(io::MemoryStream& ms, uint32 size) {
   uint32 initial_size = ms.Size();
   ms.MarkerSet();
 
-  rtmp::AmfUtil::ReadStatus status = name_.ReadFromMemoryStream(
+  rtmp::AmfUtil::ReadStatus status = name_.Decode(
       &ms, rtmp::AmfUtil::AMF0_VERSION);
   if ( status != rtmp::AmfUtil::READ_OK ) {
     ms.MarkerRestore();
     LOG_ERROR << "Failed to decode Metadata name, status: " <<
                  rtmp::AmfUtil::ReadStatusName(status)
               << " input stream: " << ms.DumpContent();
-    return READ_CORRUPTED_FAIL;
+    return READ_CORRUPTED;
   }
-  status = values_.ReadFromMemoryStream(
+  status = values_.Decode(
       &ms, rtmp::AmfUtil::AMF0_VERSION);
   if ( status != rtmp::AmfUtil::READ_OK ) {
     ms.MarkerRestore();
     LOG_ERROR << "Failed to decode Metadata value, status: " <<
                  rtmp::AmfUtil::ReadStatusName(status)
               << " input stream: " << ms.DumpContent();
-    return READ_CORRUPTED_FAIL;;
+    return READ_CORRUPTED;;
   }
   ms.MarkerClear();
 
@@ -200,8 +178,8 @@ TagReadStatus FlvTag::Metadata::Decode(io::MemoryStream& ms, uint32 size) {
   return READ_OK;
 }
 void FlvTag::Metadata::Encode(io::MemoryStream* out) const {
-  name_.WriteToMemoryStream(out, rtmp::AmfUtil::AMF0_VERSION);
-  values_.WriteToMemoryStream(out, rtmp::AmfUtil::AMF0_VERSION);
+  name_.Encode(out, rtmp::AmfUtil::AMF0_VERSION);
+  values_.Encode(out, rtmp::AmfUtil::AMF0_VERSION);
 }
 uint32 FlvTag::Metadata::Size() const {
   return name_.EncodingSize(rtmp::AmfUtil::AMF0_VERSION) +
@@ -213,11 +191,11 @@ string FlvTag::Metadata::ToString() const {
                                 values_.ToString().c_str());
 }
 
-
+//////////////////////////////////////////////////////////////////////
 
 FlvTagSerializer::FlvTagSerializer(bool write_header,
                                    bool has_video, bool has_audio)
-  : streaming::TagSerializer(),
+  : TagSerializer(MFORMAT_FLV),
     write_header_(write_header),
     has_video_(has_video),
     has_audio_(has_audio),
@@ -238,41 +216,76 @@ void FlvTagSerializer::Initialize(io::MemoryStream* out) {
 bool FlvTagSerializer::SerializeInternal(const streaming::Tag* tag,
                                          int64 timestamp_ms,
                                          io::MemoryStream* out) {
-  if ( tag->type() == Tag::TYPE_FLV ) {
-    const FlvTag* flv_tag = static_cast<const FlvTag*>(tag);
-    SerializeFlvTag(flv_tag, timestamp_ms, out);
+  CHECK_GE(timestamp_ms, 0) << "Illegal timestamp: " << timestamp_ms;
+  if ( tag->type() == Tag::TYPE_MEDIA_INFO ) {
+    const MediaInfoTag* inf = static_cast<const MediaInfoTag*>(tag);
+    scoped_ref<FlvTag> meta;
+    if ( !streaming::util::ComposeFlv(inf->info(), &meta) ) {
+      LOG_ERROR << "Cannot compose Metadata from: " << tag->ToString();
+      return false;
+    }
+    return SerializeInternal(meta.get(), timestamp_ms, out);
+  }
+  // Establish frame type
+  FlvFrameType flv_frame_type;
+  const FlvTag* flv_metadata_tag = NULL;
+  if ( tag->is_audio_tag() ) {
+    flv_frame_type = FLV_FRAMETYPE_AUDIO;
+  } else if ( tag->is_video_tag() ) {
+    flv_frame_type = FLV_FRAMETYPE_VIDEO;
+  } else if ( tag->is_metadata_tag() ) {
+    if ( tag->type() != Tag::TYPE_FLV ) {
+      return true;
+    }
+    flv_frame_type = FLV_FRAMETYPE_METADATA;
+    flv_metadata_tag = static_cast<const FlvTag*>(tag);
+  } else {
+    // probably a signaling tag
+    LOG_WARNING << "Ignoring signaling tag: " << tag->ToString();
     return true;
   }
-  return false;
-}
 
-void FlvTagSerializer::SerializeFlvTag(const FlvTag* flv_tag,
-                                       int64 timestamp_ms,
-                                       io::MemoryStream* out) {
+  // Establish frame size
+  uint32 size = 0;
+  if ( tag->is_audio_tag() || tag->is_video_tag() ) {
+    CHECK_NOT_NULL(tag->Data());
+    size = tag->Data()->Size();
+  } else {
+    CHECK_NOT_NULL(flv_metadata_tag);
+    size = flv_metadata_tag->size();
+  }
+
   io::NumStreamer::WriteInt32(out, previous_tag_size_, common::BIGENDIAN);
   const int32 initial_size = out->Size();
-  io::NumStreamer::WriteByte(out, flv_tag->body().type());
-  io::NumStreamer::WriteUInt24(out, flv_tag->body().Size(), common::BIGENDIAN);
+  io::NumStreamer::WriteByte(out, flv_frame_type);
+  io::NumStreamer::WriteUInt24(out, size, common::BIGENDIAN);
   io::NumStreamer::WriteUInt24(out, timestamp_ms & 0xFFFFFF,  // 24 bit mask
                               common::BIGENDIAN);
-  timestamp_ms = (timestamp_ms < 0) ? flv_tag->timestamp_ms() : timestamp_ms;
   io::NumStreamer::WriteByte(out, (timestamp_ms >> 24) & 0xFF);
-  io::NumStreamer::WriteUInt24(out, flv_tag->stream_id(), common::BIGENDIAN);
-  flv_tag->body().Encode(out);
+  io::NumStreamer::WriteUInt24(out, 0, common::BIGENDIAN);
+  if ( tag->is_audio_tag() || tag->is_video_tag() ) {
+    CHECK_NOT_NULL(tag->Data());
+    out->AppendStreamNonDestructive(tag->Data());
+  } else {
+    CHECK_NOT_NULL(flv_metadata_tag);
+    flv_metadata_tag->body().Encode(out);
+  }
   previous_tag_size_ = out->Size() - initial_size;
+  return true;
+}
+
+void FlvTagSerializer::Finalize(io::MemoryStream* out) {
+  // nothing to do. A flv file abruptly ends.
 }
 
 uint32 FlvTagSerializer::EncodingSize(const FlvTag* tag) {
   return 4 +  // int32:  previous tag size
-         1 +  // byte:   frame type
-         3 +  // uint24: body size
-         3 +  // uint24: timestamp
-         1 +  // byte:   timestamp extension
-         3 +  // uint24: stream id
+         1 +   // byte:   frame type
+         3 +   // uint24: body size
+         3 +   // uint24: timestamp
+         1 +   // byte:   timestamp extension
+         3 +   // uint24: stream id
          tag->body().Size();
 }
 
-void FlvTagSerializer::Finalize(io::MemoryStream* out) {
-  // Nothing here :)
-}
 }

@@ -63,18 +63,31 @@ link_libraries(${COMMON_LINK_LIBRARIES})
 
 ####################
 
+IF (WITH_HAPPHUB)
+  set(happhub_src "happhub_manager.cc")
+  set(happhub_dependency_libs "extra_streaming_elements")
+ELSE (WITH_HAPPHUB)
+  set(happhub_src "")
+  set(happhub_dependency_libs "")
+ENDIF (WITH_HAPPHUB)
+
 ADD_EXECUTABLE(whispercast
   media_mapper.cc
+  ${happhub_src}
   stream_request.cc
   stream_server.cc)
 
 ADD_DEPENDENCIES(whispercast
   whisper_lib
-  whisper_streamlib)
+  whisper_streamlib
+  standard_streaming_elements
+  ${happhub_dependency_libs})
 
 TARGET_LINK_LIBRARIES(whispercast
-  ${whisperlib_LIBRARY}
-  ${whisperstreamlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib
+  standard_streaming_elements
+  ${happhub_dependency_libs})
 
 ####################
 
@@ -86,8 +99,8 @@ ADD_DEPENDENCIES(rtmp_client
   whisper_streamlib)
 
 TARGET_LINK_LIBRARIES(rtmp_client
-  ${whisperlib_LIBRARY}
-  ${whisperstreamlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 
 ####################
 
@@ -116,9 +129,9 @@ install(TARGETS whispercast
 install(TARGETS rtmp_client
   DESTINATION bin)
 
-install(FILES
-  etc/config/extension2content_type
-  DESTINATION "${CMAKE_INSTALL_PREFIX_ETC}/config")
+#install(FILES
+#  etc/config/extension2content_type
+#  DESTINATION "${CMAKE_INSTALL_PREFIX_ETC}/config")
 
 #install(FILES
 #  www/index.html

@@ -66,9 +66,9 @@ public:
            bool start);
 
   // Test if a closure is set.
-  bool IsSet();
+  bool IsSet() const;
   // Test if a closure is set and the alarm is started.
-  bool IsStarted();
+  bool IsStarted() const;
 
   //  Change the timeout. It will fire timeout milliseconds from now.
   //  If the alarm is not repeating and already fired then it won't fire again.

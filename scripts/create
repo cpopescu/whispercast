@@ -339,7 +339,6 @@ echo "--server_id=$NAME" >> "etc/ini/$NAME/whispercast.ini"
 echo "--stat_collection_interval_ms=5000" >> "etc/ini/$NAME/whispercast.ini"
 echo "--log_stats_dir=$BASE/var/stats/$NAME/" >> "etc/ini/$NAME/whispercast.ini"
 echo "--log_stats_file_base=stats" >> "etc/ini/$NAME/whispercast.ini"
-echo "--loglevel=3" >> "etc/ini/$NAME/whispercast.ini"
 
 # whispercast.config
 echo "$(date "$D") [$L] : Creating whispercast.config for \"$NAME\"..."
@@ -371,7 +370,6 @@ echo "--rpc_js_form_path=$BASE/var/www/js/rpc" >> "etc/ini/$NAME/transmaster.ini
 echo "--http_auth_user=admin" >> "etc/ini/$NAME/whispercmd.ini"
 echo "--http_auth_pswd=$FLAGS_server_password" >> "etc/ini/$NAME/whispercmd.ini"
 echo "--http_auth_realm=$FLAGS_server_realm" >> "etc/ini/$NAME/whispercmd.ini"
-echo "--loglevel=3" >> "etc/ini/$NAME/transmaster.ini"
 
 echo "transmaster" >> "etc/services/$NAME.ini"
 fi
@@ -394,7 +392,6 @@ echo "--scp_username=$FLAGS_scp_user" >> "etc/ini/$NAME/transmaster.ini"
 echo "--state_dir=$BASE/var/state/$NAME/transslave" >> "etc/ini/$NAME/transslave.ini"
 echo "--state_name=transslave" >> "etc/ini/$NAME/transslave.ini"
 echo "--rpc_js_form_path=$BASE/var/www/js/rpc" >> "etc/ini/$NAME/transslave.ini"
-echo "--loglevel=3" >> "etc/ini/$NAME/transslave.ini"
 
 # transcoder.ini
 echo "$(date "$D") [$L] : Creating transcoder.ini for \"$NAME\"..."
@@ -408,7 +405,6 @@ echo "--format=default.flv:encoder=flv,audio_samplerate=44100,audio_bitrate=1310
 echo "--enable_flv_postprocess=true" >> "etc/ini/$NAME/transcoder.ini"
 echo "--enable_flv_thumbnail=false" >> "etc/ini/$NAME/transcoder.ini"
 echo "--enable_multipass=true" >> "etc/ini/$NAME/transcoder.ini"
-echo "--loglevel=3" >> "etc/ini/$NAME/transcoder.ini"
 
 echo "transslave" >> "etc/services/$NAME.ini"
 echo "transcoder" >> "etc/services/$NAME.ini"
@@ -418,12 +414,12 @@ if [ $FLAGS_server_rpc_port -ne 0 ]; then
 # whisperproc.ini
 echo "$(date "$D") [$L] : Creating whisperproc.ini for \"$NAME\"..."
 
-echo "--base_media_dir=$BASE/var/media/$NAME/0/private/live" >> "etc/ini/$NAME/whisperproc.ini"
+echo "--media_dir=$BASE/var/media/$NAME/0/private/live" >> "etc/ini/$NAME/whisperproc.ini"
 echo "--default_buildup_period_min=5" >> "etc/ini/$NAME/whisperproc.ini"
 echo "--default_buildup_delay_min=2" >> "etc/ini/$NAME/whisperproc.ini"
 echo "--min_buildup_delay_min=1" >> "etc/ini/$NAME/whisperproc.ini"
 echo "--autogenerate_thumbnails=false" >> "etc/ini/$NAME/whisperproc.ini"
-echo "--loglevel=3" >> "etc/ini/$NAME/whisperproc.ini"
+echo "--output_format=flv" >> "etc/ini/$NAME/whisperproc.ini"
 
 echo "whisperproc" >> "etc/services/$NAME.ini"
 fi
@@ -438,7 +434,6 @@ echo "--rpc_js_form_path=$BASE/var/www/js/rpc" >> "etc/ini/$NAME/whispercmd.ini"
 echo "--http_auth_user=admin" >> "etc/ini/$NAME/whispercmd.ini"
 echo "--http_auth_pswd=$FLAGS_server_password" >> "etc/ini/$NAME/whispercmd.ini"
 echo "--http_auth_realm=$FLAGS_server_realm" >> "etc/ini/$NAME/whispercmd.ini"
-echo "--loglevel=3" >> "etc/ini/$NAME/whispercmd.ini"
 
 
 echo "whispercmd" >> "etc/services/$NAME.ini"
@@ -462,7 +457,6 @@ echo "--transaction_records=10" >> "etc/ini/$NAME/stats_post_processor.ini"
 echo "--num_input_files_to_keep=3" >> "etc/ini/$NAME/stats_post_processor.ini"
 echo "--stats_post_processor_name=$NAME" >> "etc/ini/$NAME/stats_post_processor.ini"
 echo "--print_all=false" >> "etc/ini/$NAME/stats_post_processor.ini"
-echo "--loglevel=3" >> "etc/ini/$NAME/stats_post_processor.ini"
 
 echo "stats_post_processor" >> "etc/services/$NAME.ini"
 fi

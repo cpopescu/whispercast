@@ -1,0 +1,37 @@
+
+#include "f4v/atoms/movie/load_atom.h"
+
+namespace streaming {
+namespace f4v {
+
+LoadAtom::LoadAtom()
+  : BaseAtom(kType),
+    raw_data_() {
+}
+LoadAtom::~LoadAtom() {
+}
+
+AtomDecodeStatus LoadAtom::DecodeBody(uint64 size, io::InputStream& in,
+                                         Decoder& decoder) {
+  if ( in.Readable() < size ) {
+    DATOMLOG << "Not enough data in stream: " << in.Readable()
+             << " is less than expected: " << size;
+    return ATOM_DECODE_NO_DATA;
+  }
+  raw_data_.Write(in, size);
+  return ATOM_DECODE_SUCCESS;
+}
+void LoadAtom::EncodeBody(io::OutputStream& out, Encoder& encoder) const {
+  io::IOMemoryStream& raw_data = const_cast<io::IOMemoryStream&>(raw_data_);
+  raw_data.MarkerSet();
+  out.Write(raw_data);
+  raw_data.MarkerRestore();
+}
+string LoadAtom::ToStringBody(uint32 indent) const {
+  ostringstream oss;
+  oss << "raw_data_: " << raw_data_.Size() << " bytes";
+  return oss.str();
+}
+
+}
+}

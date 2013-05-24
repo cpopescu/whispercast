@@ -65,8 +65,6 @@ typedef map<string, AuthorizerSpecs*> AuthorizerSpecMap;
 class ElementFactory :
       public ServiceInvokerElementConfigService {
  public:
-  typedef map<string, string>  Host2IpMap;
-
   // We take control on the specification..
   ElementFactory(streaming::FactoryBasedElementMapper* mapper,
                  net::Selector* selector,
@@ -74,12 +72,11 @@ class ElementFactory :
                  rpc::HttpServer* rpc_server,
                  map<string, io::AioManager*>* aio_managers,
                  io::BufferManager* buffer_manager,
-                 const Host2IpMap* host_aliases,
                  const char* base_media_dir,
                  io::StateKeeper* state_keeper,
                  io::StateKeeper* local_state_keeper);
 
-  ~ElementFactory();
+  virtual ~ElementFactory();
 
   // Initializes the element libraries, returns the success status and
   // paths for the library specific rpc-s that got registered
@@ -107,7 +104,7 @@ class ElementFactory :
     return NULL;
   }
 
-  const string& base_media_dir() {
+  const string& base_media_dir() const {
     return base_media_dir_;
   }
 
@@ -118,31 +115,6 @@ class ElementFactory :
       rpc::CallContext<ElementExportSpec>* call,
       const string& protocol,
       const string& path);
-
-  //////////////////////////////////////////////////////////////////////
-
-  // We use this structure to hold information about the errors encountered
-  struct ErrorData {
-    string description_;
-    ErrorData() {
-    }
-    explicit ErrorData(const string& description)
-      : description_(description) {
-    }
-    explicit ErrorData(const char* description)
-      : description_(description) {
-    }
-    ErrorData(const ErrorData& e)
-      : description_(e.description_) {
-    }
-    const ErrorData& operator=(const ErrorData& e) {
-      description_ = e.description_;
-      return *this;
-    }
-    string ToString() const {
-      return string("Error: ") + description_;
-    }
-  };
 
   //////////////////////////////////////////////////////////////////////
 
@@ -173,6 +145,7 @@ class ElementFactory :
                                     const ElementSpecMap* extra_elements_map,
                                     const PolicySpecMap* extra_policies_map,
                                     const streaming::Request* request,
+                                    bool is_temporary_template,
                                     PolicyMap* new_policies) const;
 
   // Creates a policy for the given element, and associated elements
@@ -195,14 +168,15 @@ class ElementFactory :
   bool ElementExists(const string& name);
 
   bool IsValidAuthorizerSpecToAdd(const AuthorizerSpecs& spec,
-                                  ErrorData* error);
+                                  string* out_error);
 
   bool IsValidPolicySpecToAdd(const PolicySpecs& spec,
-                              ErrorData* error);
+                              string* out_error);
+
   // If registered_names is set, it checks
   // for dependencies here, insetead of elements_map_
   bool IsValidElementSpecToAdd(const MediaElementSpecs& spec,
-                               ErrorData* error);
+                               string* out_error);
 
   //////////////////////////////////////////////////////////////////////
 
@@ -210,23 +184,22 @@ class ElementFactory :
   // specifications.
   // Return value is the success status (true - done OK, false - errors)
 
-  // The actual configuration modifier dunctions  -
-  // NOTE: we OWN the spec-s after these calls return true !
-  bool AddElementSpec(MediaElementSpecs* spec, ErrorData* error);
-  bool AddPolicySpec(PolicySpecs* spec, ErrorData* error);
-  bool AddAuthorizerSpec(AuthorizerSpecs* spec, ErrorData* error);
+  // The actual configuration modifier functions  -
+  bool AddElementSpec(const MediaElementSpecs& spec, string* out_error);
+  bool AddPolicySpec(const PolicySpecs& spec, string* out_error);
+  bool AddAuthorizerSpec(const AuthorizerSpecs& spec, string* out_error);
 
   // Delete a policy / element from our specifications
-  bool DeleteElementSpec(const string& name, ErrorData* error);
-  bool DeletePolicySpec(const string& name, ErrorData* error);
-  bool DeleteAuthorizerSpec(const string& name, ErrorData* error);
+  void DeleteElementSpec(const string& name);
+  void DeletePolicySpec(const string& name);
+  void DeleteAuthorizerSpec(const string& name);
 
   //////////////////////////////////////////////////////////////////////
 
   // Main initialization function - "loads" a configuration in the
-  // creation functions and structs tha we have around
+  // creation functions and structs that we have around
   bool AddSpecs(const ElementConfigurationSpecs& spec,
-                vector<ErrorData>* errors);
+                vector<string>* errors);
 
   //////////////////////////////////////////////////////////////////////
 
@@ -260,7 +233,6 @@ class ElementFactory :
   rpc::HttpServer* const   rpc_server_;
   map<string, io::AioManager*>* const aio_managers_;
   io::BufferManager* const buffer_manager_;
-  const Host2IpMap* const host_aliases_;
   const string base_media_dir_;
   io::StateKeeper* const state_keeper_;
   io::StateKeeper* const local_state_keeper_;

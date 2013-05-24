@@ -239,10 +239,10 @@ bool Date::Set(int year, int month, int day,
 }
 
 // date: the milliseconds since January 1, 1970, 00:00:00 GMT.
-void Date::SetTime(int64 time) {
-  time_ = time;
-  broken_down_milisecond_ = static_cast<int>((time % static_cast<int64>(1000)));
-  time_t tt = time_t(time / static_cast<int64>(1000));
+void Date::SetTime(int64 epoch_ms) {
+  time_ = epoch_ms;
+  broken_down_milisecond_ = static_cast<int>(epoch_ms % 1000);
+  time_t tt = time_t(epoch_ms / 1000);
   struct tm * result = IsUTC() ? ::gmtime_r(&tt, &broken_down_time_) :
                                  ::localtime_r(&tt, &broken_down_time_);
   if ( result == NULL ) {
@@ -252,17 +252,17 @@ void Date::SetTime(int64 time) {
   } else {
     has_errors_ = false;
   }
+
+  // check time_
+  CHECK(has_errors_ || GetTime() == epoch_ms)
+    << " has_errors_: " << has_errors_
+    << " GetTime(): " << GetTime()
+    << " epoch_ms: " << epoch_ms;
 }
 
 void Date::SetNow() {
   const int64 milis_since_epoch = Now();
   SetTime(milis_since_epoch);
-
-  // check time_
-  CHECK(has_errors_ || GetTime() == milis_since_epoch)
-    << " has_errors_: " << has_errors_
-    << " GetTime(): " << GetTime()
-    << " milis_since_epoch: " << milis_since_epoch;
 }
 
 void Date::SetUTC(bool use_utc) {
@@ -282,35 +282,55 @@ bool Date::operator==(const Date& dt) const {
   return time_ == dt.time_;
 }
 
-bool Date::SetFromShortString(const string& s, bool is_utc) {
-  if ( s.size() != 19 ) {
+bool Date::FromShortString(const string& s, bool is_utc) {
+  if ( s.size() != 15 && s.size() != 19 ) {
+    LOG_ERROR << "Illegal size: [" << s << "]";
     return false;
   }
-  int num_dash = 0;
-  for ( int i = 0; i < s.size(); ++i ) {
-    const char c = s[i];
-    if ( c < '0' || c > '9' ) {
-      if ( c == '-' ) {
-        ++num_dash;
-      } else {
+  for ( uint32 i = 0; i < 8; i++ ) {
+    if ( s[i] < '0' || s[i] > '9' ) {
+      LOG_ERROR << "Illegal character: " << s[i] << ", expected digit"
+                   ", at index: " << i << " in: [" << s << "]";
+      return false;
+    }
+  }
+  if ( s[8] != '-' ) {
+    LOG_ERROR << "Illegal character: " << s[8] << ", expected '-'"
+                 ", at index 8 in: [" << s << "]";
+    return false;
+  }
+  for ( uint32 i = 9; i < 15; i++ ) {
+    if ( s[i] < '0' || s[i] > '9' ) {
+      LOG_ERROR << "Illegal character: " << s[i] << ", expected digit"
+                   ", at index: " << i << " in: [" << s << "]";
+      return false;
+    }
+  }
+  int ms = 0;
+  if ( s.size() == 19 ) {
+    if ( s[15] != '-' ) {
+      LOG_ERROR << "Illegal character: " << s[15] << ", expected '-'"
+                   ", at index 15 in: [" << s << "]";
+      return false;
+    }
+    for ( uint32 i = 16; i < 19; i++ ) {
+      if ( s[i] < '0' || s[i] > '9' ) {
+        LOG_ERROR << "Illegal character: " << s[i] << ", expected digit"
+                     ", at index: " << i << " in: [" << s << "]";
         return false;
       }
     }
+    ms = (s[16]-'0') * 100 + (s[17]-'0') * 10 + (s[18]-'0');
   }
-  if ( num_dash != 2 ) {
-    return false;
-  }
-  if ( s[8] != '-' || s[15] != '-' ) {
-    return false;
-  }
-  return Set(atoi(s.substr(0, 4).c_str()),  // year
-             atoi(s.substr(4, 2).c_str()) - 1,  // month,
-             atoi(s.substr(6, 2).c_str()),  // day,
-             atoi(s.substr(9, 2).c_str()),  // hour
-             atoi(s.substr(11, 2).c_str()),  // min
-             atoi(s.substr(13, 2).c_str()),  // sec
-             atoi(s.substr(16, 3).c_str()),  // milisecond
-             is_utc);
+  Set((s[0]-'0') * 1000 + (s[1]-'0')*100 + (s[2]-'0')*10 + (s[3]-'0'),
+      (s[4]-'0') * 10 + (s[5]-'0') - 1,
+      (s[6]-'0') * 10 + (s[7]-'0'),
+      (s[9]-'0') * 10 + (s[10]-'0'),
+      (s[11]-'0') * 10 + (s[12]-'0'),
+      (s[13]-'0') * 10 + (s[14]-'0'),
+      ms,
+      is_utc);
+  return true;
 }
 
 string Date::ToShortString() const {

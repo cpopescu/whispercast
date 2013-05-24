@@ -57,9 +57,10 @@ class ElementMapper {
   }
   virtual ~ElementMapper() {
   }
+  net::Selector* selector() { return selector_; }
   // If this call succeeds we own the "req" and the "callback".
   // If it fails, the "req" and "callback" are still yours.
-  virtual bool AddRequest(const char* media_name,
+  virtual bool AddRequest(const string& media_name,
                           streaming::Request* req,
                           streaming::ProcessingCallback* callback) = 0;
 
@@ -73,19 +74,20 @@ class ElementMapper {
                                Callback1<bool>* completion_callback) = 0;
   virtual Authorizer* GetAuthorizer(const string& name) = 0;
 
-  virtual bool HasMedia(const char* media_name, Capabilities* out) = 0;
-  virtual void ListMedia(const char* media_dir,
-                         streaming::ElementDescriptions* medias) = 0;
+  virtual bool HasMedia(const string& media_name) = 0;
+  virtual void ListMedia(const string& media_dir,
+                         vector<string>* medias) = 0;
 
   typedef hash_set<streaming::Element*> ElementSet;
   typedef hash_map<streaming::Element*, vector<streaming::Policy*>*> PolicyMap;
   virtual bool GetElementByName(const string& name,
                                 streaming::Element** element,
                                 vector<streaming::Policy*>** policies) = 0;
+  virtual void GetAllElements(vector<string>* out_elements) const = 0;
   virtual bool IsKnownElementName(const string& name) = 0;
   virtual bool GetMediaAlias(const string& alias_name,
                              string* media_name) const = 0;
-  virtual string TranslateMedia(const char* media_name) const = 0;
+  virtual string TranslateMedia(const string& media_name) const = 0;
 
   // asynchronous method.
   // returns: true => MediaInfo will be delivered through the given 'callback'.

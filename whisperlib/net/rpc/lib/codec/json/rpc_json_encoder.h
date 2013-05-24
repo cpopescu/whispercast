@@ -37,93 +37,101 @@
 
 namespace rpc {
 
-class JsonEncoder : public rpc::Encoder {
+class JsonEncoder : public Encoder {
  public:
-  explicit JsonEncoder(io::MemoryStream& out)
-      : rpc::Encoder(out),
-        encoding_map_key_(false) {
-  }
-  virtual ~JsonEncoder() {
-  }
+  JsonEncoder() : Encoder(kCodecIdJson), encoding_map_key_(false) {}
+  virtual ~JsonEncoder() {}
 
   template<class C>
-  static void EncodeToString(const C& obj, string* s) {
-    io::MemoryStream mos;
-    rpc::JsonEncoder encoder(mos);
-    encoder.Encode(obj);
-    mos.ReadString(s);
+  static void EncodeToString(const C& obj, string* out) {
+    io::MemoryStream tmp;
+    rpc::JsonEncoder encoder;
+    encoder.Encode(obj, &tmp);
+    tmp.ReadString(out);
   }
 
   template<class C>
   static string EncodeObject(const C& obj) {
-    io::MemoryStream iostream;
-    JsonEncoder encoder(iostream);
-    encoder.Encode(obj);
-    return iostream.ToString();
+    string s;
+    EncodeToString(obj, &s);
+    return s;
   }
 
   //////////////////////////////////////////////////////////////////////
   //
   //                   rpc::Encoder interface methods
   //
-  void EncodeStructStart(uint32)          { out_->Write("{");   }
-  void EncodeStructContinue()             { out_->Write(", ");  }
-  void EncodeStructEnd()                  { out_->Write("}");   }
-  void EncodeStructAttribStart()          {  }
-  void EncodeStructAttribMiddle()         { out_->Write(": ");  }
-  void EncodeStructAttribEnd()            {  }
-  void EncodeArrayStart(uint32)           { out_->Write("[");   }
-  void EncodeArrayContinue()              { out_->Write(", ");  }
-  void EncodeArrayEnd()                   { out_->Write("]");   }
-  void EncodeArrayElementStart()          {  }
-  void EncodeArrayElementEnd()            {  }
-  void EncodeMapStart(uint32)             { out_->Write("{");   }
-  void EncodeMapContinue()                { out_->Write(", ");  }
-  void EncodeMapEnd()                     { out_->Write("}");   }
-  void EncodeMapPairStart()               { encoding_map_key_ = true;    }
-  void EncodeMapPairMiddle()              { out_->Write(": ");
-                                            encoding_map_key_ = false;   }
-  void EncodeMapPairEnd()                 {  }
+  void EncodeStructStart(uint32, io::MemoryStream* out) { out->Write("{"); }
+  void EncodeStructContinue(io::MemoryStream* out)      { out->Write(", "); }
+  void EncodeStructEnd(io::MemoryStream* out)           { out->Write("}"); }
+  void EncodeStructAttribStart(io::MemoryStream* out)   {  }
+  void EncodeStructAttribMiddle(io::MemoryStream* out)  { out->Write(": "); }
+  void EncodeStructAttribEnd(io::MemoryStream* out)     {  }
+  void EncodeArrayStart(uint32, io::MemoryStream* out)  { out->Write("["); }
+  void EncodeArrayContinue(io::MemoryStream* out)       { out->Write(", "); }
+  void EncodeArrayEnd(io::MemoryStream* out)            { out->Write("]"); }
+  void EncodeMapStart(uint32, io::MemoryStream* out)    { out->Write("{"); }
+  void EncodeMapContinue(io::MemoryStream* out)         { out->Write(", "); }
+  void EncodeMapEnd(io::MemoryStream* out)              { out->Write("}"); }
+  void EncodeMapPairStart(io::MemoryStream* out)        { encoding_map_key_ = true; }
+  void EncodeMapPairMiddle(io::MemoryStream* out)       { out->Write(": ");
+                                                          encoding_map_key_ = false; }
+  void EncodeMapPairEnd(io::MemoryStream* out)          {  }
 
- private:
-
-#define PrintBody(format, object)                                       \
+#define PrintBody(format, object, out_ms)                               \
   do {                                                                  \
       if ( !encoding_map_key_ ) {                                       \
-        out_->Write(strutil::StringPrintf(                              \
+        out_ms->Write(strutil::StringPrintf(                            \
                         format" ", object));                            \
       } else {                                                          \
-        out_->Write(strutil::StringPrintf(                              \
+        out_ms->Write(strutil::StringPrintf(                            \
                         "\""format"\"", object));                       \
       }                                                                 \
     } while(false)
 
- protected:
-  void EncodeBody(const rpc::Void&);
-  void EncodeBody(const bool& obj);
-  void EncodeBody(const int32& obj) {
-    PrintBody("%d", obj);
+  virtual void Encode(const rpc::Void&, io::MemoryStream* out) {
+    out->Write("null");
   }
-  void EncodeBody(const uint32& obj) {
-    PrintBody("%u", obj);
+  virtual void Encode(const bool v, io::MemoryStream* out) {
+    out->Write(v ? "true" : "false");
   }
-  void EncodeBody(const int64& obj) {
-    PrintBody("%"PRId64"", obj);
+  virtual void Encode(const int32 v, io::MemoryStream* out) {
+    PrintBody("%d", v, out);
   }
-  void EncodeBody(const uint64& obj) {
-    PrintBody("%"PRIu64"", obj);
+  virtual void Encode(const uint32 v, io::MemoryStream* out) {
+    PrintBody("%u", v, out);
   }
-  void EncodeBody(const double& obj) {
-    PrintBody("%.60e", obj);
+  virtual void Encode(const int64 v, io::MemoryStream* out) {
+    PrintBody("%"PRId64, v, out);
   }
-  void EncodeBody(const string& obj);
-  void EncodeBody(const char* obj);
+  virtual void Encode(const uint64 v, io::MemoryStream* out) {
+    PrintBody("%"PRIu64, v, out);
+  }
+  virtual void Encode(const double v, io::MemoryStream* out) {
+    PrintBody("%.60e", v, out);
+  }
+  virtual void Encode(const string& str, io::MemoryStream* out) {
+    out->Write("\"");
+    out->Write(strutil::JsonStrEscape(str));
+    out->Write("\"");
+  }
 
-  void EncodePacket(const rpc::Message& msg);
+  // these methods are public in the base class, but because of some compiler
+  // issue they need to be re-declared here.
+  template <typename T>
+  void Encode(const vector<T>& v, io::MemoryStream* out)    { Encoder::Encode(v, out); }
+  template <typename K, typename V>
+  void Encode(const map<K,V>& m, io::MemoryStream* out)     { Encoder::Encode(m, out); }
+  void Encode(const rpc::Custom& c, io::MemoryStream* out)  { Encoder::Encode(c, out); }
+  void Encode(const rpc::Message& m, io::MemoryStream* out) { Encoder::Encode(m, out); }
+
+  virtual void WriteRawObject(const io::MemoryStream& obj, io::MemoryStream* out) {
+    out->AppendStreamNonDestructive(&obj);
+  }
 
  private:
-  // if true we're encoding the key of a map
-  // usefull in encoding map<int, ... > as map<string, ... >
+  // if true we're encoding the key of a map.
+  // useful in encoding map<int, ... > as map<string, ... >
   // because javascript does not support map<int..>
   bool encoding_map_key_;
   DISALLOW_EVIL_CONSTRUCTORS(JsonEncoder);

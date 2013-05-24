@@ -38,7 +38,6 @@
 #include <string>
 #include <whisperlib/net/base/address.h>
 #include <whisperlib/common/base/system.h>
-#include <whisperstreamlib/base/tag.h>
 
 namespace streaming {
 
@@ -48,37 +47,50 @@ namespace streaming {
 //   READ_NO_DATA - tag unreadable because not enough data available.
 //                  NULL tag returned.
 //   READ_SKIP - we got an ok tag, but we decided to skip. NULL tag returned.
-//   READ_CORRUPTED_CONT - the in input is corrupted but we passed over
-//         the corrupted portion. NULL tag returned.
-//   READ_CORRUPTED_FAIL - the in input is corrupted and we cannot recover
+//   READ_CORRUPTED - the in input is corrupted and we cannot recover
 //         from the error. NULL tag returned.
-//   READ_UNKNOWN - we don't know how to read this stuff. NULL tag returned.
 //   READ_EOF - basically we reached the end of the file (or what we
 //         were supposed to read). NULL tag returned.
 enum TagReadStatus {
   READ_NO_DATA,
   READ_OK,
   READ_SKIP,
-  READ_CORRUPTED_CONT,
-  READ_CORRUPTED_FAIL,
-  READ_OVERSIZED_TAG,
-  READ_UNKNOWN,
+  READ_CORRUPTED,
   READ_EOF,
 };
 const char* TagReadStatusName(TagReadStatus status);
 
-inline bool CanContProcessing(TagReadStatus status) {
-  return (status >= READ_OK && status <= READ_CORRUPTED_CONT);
-}
-
 //////////
 
-bool GetStreamType(const string& str, Tag::Type* out);
-Tag::Type GetStreamTypeFromContentType(const string& content_type);
+// TagSplitters and TagSerializers are associated with these types.
+enum MediaFormat {
+  MFORMAT_F4V,      // F4V file (or MP4 file)
+  MFORMAT_FLV,      // FLV file
+  MFORMAT_MP3,      // MP3 file
+  MFORMAT_AAC,      // AAC file
+  MFORMAT_MTS,      // MPEG TS, file
+  MFORMAT_RAW,      // raw data, no structure
+  MFORMAT_INTERNAL, // TODO(cosmin): remove this format if possible
+};
+// This is not a valid MediaFormat. Used in Requests that
+// advertise they accept any incoming format.
+extern const MediaFormat kAnyMediaFormat;
+const char* MediaFormatName(MediaFormat format);
 
-const char* GetContentTypeFromStreamType(Tag::Type tag_type);
-const char* GetSmallTypeFromStreamType(Tag::Type tag_type);
-const char* GetSmallTypeFromContentType(const string& content_type);
+// file extension correspondence
+const char* MediaFormatToExtension(MediaFormat format);
+bool MediaFormatFromExtension(const string& ext, MediaFormat* out_format);
+
+// http content type correspondence
+const char* MediaFormatToContentType(MediaFormat format);
+bool MediaFormatFromContentType(const string& content_type, MediaFormat* out_format);
+
+// small type correspondence
+const char* MediaFormatToSmallType(MediaFormat format);
+bool MediaFormatFromSmallType(const string& small_type, MediaFormat* out_format);
+
+// utility functions: uses a combination of the above conversion
+bool ExtensionToContentType(const string& ext, string* content_type);
 
 //////////
 

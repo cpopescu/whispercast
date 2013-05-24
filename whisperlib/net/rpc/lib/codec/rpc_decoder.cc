@@ -29,89 +29,27 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/base/errno.h"
-#include "common/base/log.h"
-#include "net/rpc/lib/codec/rpc_decoder.h"
-#include "net/rpc/lib/codec/rpc_typename_codec.h"
-#include "net/rpc/lib/types/rpc_message.h"
+#include <whisperlib/common/base/errno.h>
+#include <whisperlib/common/base/log.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_decoder.h>
+#include <whisperlib/net/rpc/lib/types/rpc_message.h>
+#include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
 
 namespace rpc {
-
-DECODE_RESULT Decoder::DecodePacket(Message& out) {
-  // Decode  message header
-  char mark[sizeof(kMessageMark)] = { 0, };
-  if ( in_.Read(mark, sizeof(mark)) < sizeof(mark) ) {
-    return DECODE_RESULT_NOT_ENOUGH_DATA;
+const char* DecodeResultName(DECODE_RESULT result) {
+  switch ( result ) {
+    CONSIDER(DECODE_RESULT_SUCCESS);
+    CONSIDER(DECODE_RESULT_NOT_ENOUGH_DATA);
+    CONSIDER(DECODE_RESULT_ERROR);
   }
-  if ( memcmp(mark, kMessageMark, sizeof(mark)) ) {
-    LOG_ERROR << "RPC bad header marker. Found: "
-              << strutil::PrintableDataBuffer((const uint8*)mark, sizeof(mark));
-    return DECODE_RESULT_ERROR;
-  }
+  LOG_FATAL << "Illegal DECODE_RESULT " << (int)result;
+  return "Unknown";
+}
 
-  Message::Header& header = out.header_;
-  DECODE_RESULT result = Decode(header.xid_);
-  if ( result != DECODE_RESULT_SUCCESS ) {
-    return result;     // error on Decode or not enough data
-  }
-
-  result = Decode(header.msgType_);
-  if ( result != DECODE_RESULT_SUCCESS ) {
-    return result;     // error on Decode or not enough data
-  }
-
-  int32 body_size = 0;
-  result = Decode(body_size);
-  if ( result != DECODE_RESULT_SUCCESS ) {
-    return result;     // error on Decode or not enough data
-  }
-
-  if ( in_.Size() < body_size ) {
-    return DECODE_RESULT_NOT_ENOUGH_DATA;
-  }
-
-  // Decode RPC message body
-  if ( header.msgType_ == RPC_CALL ) {
-    const uint32 r1 = in_.Size();       // bytes at body begin
-    Message::CallBody& call = out.cbody_;
-    result = Decode(call.service_);
-    if ( result != DECODE_RESULT_SUCCESS ) {
-      return result;
-    }
-    result = Decode(call.method_);
-    if ( result != DECODE_RESULT_SUCCESS ) {
-      return result;
-    }
-    const uint32 r2 = in_.Size();       // bytes at params begin
-
-    DCHECK_LT(r2, r1);
-    // r1 - r2 = service + method length
-    const uint32 params_size = body_size - (r1 - r2);
-    DCHECK_LE(params_size, r2);
-
-    call.params_.Clear();
-    call.params_.AppendStream(&in_, params_size);
-  } else if ( header.msgType_ == RPC_REPLY ) {
-    const uint32 r1 = in_.Size();                   // bytes at body begin
-    Message::ReplyBody & reply = out.rbody_;
-
-    result = Decode(reply.replyStatus_);
-    if ( result != DECODE_RESULT_SUCCESS ) {
-      return result;
-    }
-    const uint32 r2 = in_.Size();                   // bytes at result begin
-
-    DCHECK_LT(r2, r1);
-    // r1 - r2 = replyStatus length
-    uint32 result_size = body_size - (r1 - r2);
-    DCHECK_LE(result_size, r2);
-
-    reply.result_.Clear();
-    reply.result_.AppendStream(&in_, result_size);
-  } else {
-    LOG_ERROR << "RPC Bad message type: " << header.msgType_;
-    return DECODE_RESULT_ERROR;
-  }
-  return DECODE_RESULT_SUCCESS;
+DECODE_RESULT Decoder::Decode(io::MemoryStream& in, rpc::Custom* out) {
+  return out->SerializeLoad(*this, in);
+}
+DECODE_RESULT Decoder::Decode(io::MemoryStream& in, rpc::Message* out) {
+  return out->SerializeLoad(*this, in);
 }
 }

@@ -29,136 +29,150 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/base/log.h"
-#include "net/rpc/lib/codec/binary/rpc_binary_decoder.h"
+#include <whisperlib/common/base/log.h>
+#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_decoder.h>
 
 namespace rpc {
 
-DECODE_RESULT BinaryDecoder::DecodeItemsCount(uint32& count) {
+DECODE_RESULT BinaryDecoder::DecodeItemCount(io::MemoryStream& in) {
   uint32 n = 0;
-  const DECODE_RESULT result = Decode(n);
-  if ( result == DECODE_RESULT_SUCCESS ) {
-    count = n;
-    items_stack_.push_back(count);
+  const DECODE_RESULT err = Decode(in, &n);
+  if ( err != DECODE_RESULT_SUCCESS ) {
+    LOG_ERROR << "DecodeItemCount failed, err: " << DecodeResultName(err);
+    return err;
   }
-  return result;
+  items_stack_.push_back(n);
+  return DECODE_RESULT_SUCCESS;
 }
 
-DECODE_RESULT BinaryDecoder::DecodeStructStart(uint32& num_attributes) {
-  return DecodeItemsCount(num_attributes);
+DECODE_RESULT BinaryDecoder::DecodeStructStart(io::MemoryStream& in) {
+  return DecodeItemCount(in);
 }
 
-DECODE_RESULT BinaryDecoder::DecodeStructContinue(bool& more_attributes) {
+DECODE_RESULT BinaryDecoder::DecodeStructContinue(io::MemoryStream& in, bool* more_attributes) {
   DCHECK(!items_stack_.empty());
-  more_attributes = (items_stack_.back() != 0);
-  // TODO(cpopescu): clarify w/ cosmin the logic here
-  if ( !more_attributes ) {
+  *more_attributes = (items_stack_.back() > 0);
+  if ( !(*more_attributes) ) {
     items_stack_.pop_back();
   }
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeStructAttribStart() {
+DECODE_RESULT BinaryDecoder::DecodeStructAttribStart(io::MemoryStream& in) {
   DCHECK(!items_stack_.empty());
   DCHECK_GT(items_stack_.back(), 0);
   items_stack_.back()--;
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeStructAttribMiddle() {
+DECODE_RESULT BinaryDecoder::DecodeStructAttribMiddle(io::MemoryStream& in) {
   DCHECK(!items_stack_.empty());
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeStructAttribEnd() {
+DECODE_RESULT BinaryDecoder::DecodeStructAttribEnd(io::MemoryStream& in) {
   DCHECK(!items_stack_.empty());
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeArrayStart(uint32& num_elements) {
-  return DecodeItemsCount(num_elements);
+DECODE_RESULT BinaryDecoder::DecodeArrayStart(io::MemoryStream& in) {
+  return DecodeItemCount(in);
 }
-DECODE_RESULT BinaryDecoder::DecodeArrayContinue(bool& more_elements) {
+DECODE_RESULT BinaryDecoder::DecodeArrayContinue(io::MemoryStream& in, bool* more_elements) {
   CHECK(!items_stack_.empty());
-  more_elements = (items_stack_.back() != 0);
-  if ( more_elements ) {
+  *more_elements = (items_stack_.back() > 0);
+  if ( *more_elements ) {
     items_stack_.back()--;
   } else {
     items_stack_.pop_back();
   }
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeMapStart(uint32& num_pairs) {
-  return DecodeItemsCount(num_pairs);
+DECODE_RESULT BinaryDecoder::DecodeMapStart(io::MemoryStream& in) {
+  return DecodeItemCount(in);
 }
-DECODE_RESULT BinaryDecoder::DecodeMapContinue(bool& more_pairs) {
+DECODE_RESULT BinaryDecoder::DecodeMapContinue(io::MemoryStream& in, bool* more_pairs) {
   DCHECK(!items_stack_.empty());
-  more_pairs = (items_stack_.back() != 0);
-  // TODO(cpopescu): clarify w/ cosmin the logic here
-  if ( !more_pairs ) {
+  *more_pairs = (items_stack_.back() > 0);
+  if ( !(*more_pairs) ) {
     items_stack_.pop_back();
   }
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeMapPairStart() {
+DECODE_RESULT BinaryDecoder::DecodeMapPairStart(io::MemoryStream& in) {
   DCHECK(!items_stack_.empty());
   DCHECK_GT(items_stack_.back(), 0);
   items_stack_.back()--;
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeMapPairMiddle() {
+DECODE_RESULT BinaryDecoder::DecodeMapPairMiddle(io::MemoryStream& in) {
   DCHECK(!items_stack_.empty());
   return DECODE_RESULT_SUCCESS;
 }
-DECODE_RESULT BinaryDecoder::DecodeMapPairEnd() {
+DECODE_RESULT BinaryDecoder::DecodeMapPairEnd(io::MemoryStream& in) {
   DCHECK(!items_stack_.empty());
   return DECODE_RESULT_SUCCESS;
 }
 
-DECODE_RESULT BinaryDecoder::DecodeBody(rpc::Void& out) {
-  uint8 byte;
-  const uint32 read = in_.Read(&byte, 1);
+DECODE_RESULT BinaryDecoder::Decode(io::MemoryStream& in, rpc::Void* out) {
+  uint8 byte = 0;
+  const uint32 read = in.Read(&byte, 1);
   if ( read < 1 ) {
-    return DECODE_RESULT_NOT_ENOUGH_DATA;         // not enough data
+    return DECODE_RESULT_NOT_ENOUGH_DATA;
   }
   if ( byte != 0xff ) {
-    return DECODE_RESULT_ERROR;        // not a rpc::Void object
+    LOG_ERROR << "Failed to read rpc::Void, expected 0xff, got: "
+              << strutil::StringPrintf("0x%02x", byte);
+    return DECODE_RESULT_ERROR;
   }
   return DECODE_RESULT_SUCCESS;
 }
 
-DECODE_RESULT BinaryDecoder::DecodeBody(bool& out) {
-  uint8 bValue;
-  const uint32 read = in_.Read(&bValue, 1);
+DECODE_RESULT BinaryDecoder::Decode(io::MemoryStream& in, bool* out) {
+  uint8 bValue = 0;
+  const uint32 read = in.Read(&bValue, 1);
   if ( read < 1 ) {
-    return DECODE_RESULT_NOT_ENOUGH_DATA;         // not enough data
+    return DECODE_RESULT_NOT_ENOUGH_DATA;
   }
   switch ( bValue ) {
     case 0:
-      out = false;
+      *out = false;
       return DECODE_RESULT_SUCCESS;
     case 1:
-      out = true;
+      *out = true;
       return DECODE_RESULT_SUCCESS;
     default:
-      return DECODE_RESULT_ERROR;      // not a bool object
+      LOG_ERROR << "Failed to read rpc::Bool, expected 1/0, got: "
+                << strutil::StringPrintf("0x%02x", bValue);
+      return DECODE_RESULT_ERROR;
   }
 }
 
-DECODE_RESULT BinaryDecoder::DecodeBody(string& out) {
+DECODE_RESULT BinaryDecoder::Decode(io::MemoryStream& in, string* out) {
   int32 length = 0;
-  if ( in_.Size() < sizeof(length) ) {
+  if ( in.Size() < sizeof(length) ) {
     return DECODE_RESULT_NOT_ENOUGH_DATA;     // not enough data
   }
   // decode lenght
-  length = io::NumStreamer::ReadInt32(&in_, rpc::kBinaryByteOrder);
+  length = io::NumStreamer::ReadInt32(&in, rpc::kBinaryByteOrder);
   // TODO(cpopescu): some checks on upper size should be in place here, probably
   if ( length < 0 ) {
     return DECODE_RESULT_ERROR;
   }
-  if ( in_.Size() < length ) {
+  if ( in.Size() < length ) {
     return DECODE_RESULT_NOT_ENOUGH_DATA;                 // not enough data
   }
   if ( length > 0 ) {
-    in_.ReadString(&out, length);
-    CHECK_EQ(length, out.size());
+    in.ReadString(out, length);
+    CHECK_EQ(length, out->size());
   }
   return DECODE_RESULT_SUCCESS;
 }
+
+DECODE_RESULT BinaryDecoder::ReadRawObject(io::MemoryStream& in, io::MemoryStream* out) {
+  uint32 size = 0;
+  DECODE_VERIFY(DecodeNumeric(in, &size));
+  if ( in.Size() < size ) {
+    return DECODE_RESULT_NOT_ENOUGH_DATA;
+  }
+  out->AppendStream(&in, size);
+  return DECODE_RESULT_SUCCESS;
+}
+
 }

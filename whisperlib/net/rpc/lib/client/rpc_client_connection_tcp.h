@@ -39,7 +39,6 @@
 #include <whisperlib/net/base/connection.h>
 #include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
 #include <whisperlib/net/rpc/lib/types/rpc_message.h>
-#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
 #include <whisperlib/net/rpc/lib/rpc_version.h>
 #include <whisperlib/net/rpc/lib/client/irpc_client_connection.h>
 
@@ -71,7 +70,7 @@ class ClientConnectionTCP
                       net::NetFactory& net_factory,
                       net::PROTOCOL net_protocol,
                       const net::HostPort& remote_addr,
-                      rpc::CODEC_ID codec_id,
+                      rpc::CodecId codec,
                       int64 open_timeout_ms = 20000,
                       uint32 max_paralel_queries = 100);
   virtual ~ClientConnectionTCP();

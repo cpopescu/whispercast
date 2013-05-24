@@ -65,7 +65,7 @@ class SystemStream : public Stream {
     LOG_FATAL << "SystemStream has no outbuf";
   }
 
-  virtual bool ProcessEvent(Event* event, int64 timestamp_ms) {
+  virtual bool ProcessEvent(const Event* event, int64 timestamp_ms) {
     LOG_FATAL << "SystemStream can only send events";
     return false;
   }
@@ -89,19 +89,6 @@ const char* ServerConnection::StateName(State state) {
   return "Unknown";
 }
 
-synch::Mutex g_sync_server_connection_count;
-int64 g_server_connection_count = 0;
-void IncServerConnectionCount() {
-  synch::MutexLocker lock(&g_sync_server_connection_count);
-  g_server_connection_count++;
-  LOG_WARNING << "++rtmp::ServerConnection " << g_server_connection_count;
-}
-void DecServerConnectionCount() {
-  synch::MutexLocker lock(&g_sync_server_connection_count);
-  g_server_connection_count--;
-  LOG_WARNING << "--rtmp::ServerConnection " << g_server_connection_count;
-}
-
 // Constructor for serving connection
 ServerConnection::ServerConnection(
     net::Selector* net_selector,
@@ -112,7 +99,8 @@ ServerConnection::ServerConnection(
     streaming::StatsCollector* stats_collector,
     Closure* delete_callback,
     const vector<const net::IpClassifier*>* classifiers,
-    const ProtocolFlags* flags)
+    const ProtocolFlags* flags,
+    MissingStreamCache* missing_stream_cache)
   : net_selector_(net_selector),
     media_selector_(media_selector),
     element_mapper_(element_mapper),
@@ -124,10 +112,10 @@ ServerConnection::ServerConnection(
                                 local_address().ToString().c_str())),
     state_(HANDSHAKE_WAIT_INIT),
     flags_(flags),
-    protocol_data_(),
-    coder_(&protocol_data_, flags_->decoder_mem_limit_),
+    missing_stream_cache_(missing_stream_cache),
+    coder_(flags_->decoder_mem_limit_),
     next_stream_params_(),
-    pending_stream_id_(-1),
+    invoke_create_stream_called_(false),
     system_stream_(NULL),
     streams_(),
     bytes_read_(0),
@@ -139,7 +127,6 @@ ServerConnection::ServerConnection(
     timeouter_(net_selector, NewPermanentCallback(this,
         &ServerConnection::TimeoutHandler)),
     ref_count_(0) {
-  IncServerConnectionCount();
   CHECK(net_selector_->IsInSelectThread());
   connection_->SetReadHandler(NewPermanentCallback(
       this, &ServerConnection::ConnectionReadHandler), true);
@@ -177,24 +164,22 @@ ServerConnection::ServerConnection(
   stats_collector_->StartStats(&connection_begin_stats_,
       &connection_end_stats_);
 
-  next_stream_params_.stream_id_ = 1;
+  next_stream_params_.stream_id_ = 0;
   pause_timeout_alarm_.Set(NewPermanentCallback(this,
       &ServerConnection::CloseConnection), true, flags_->pause_timeout_ms_,
       false, false);
-
 
   // NOTE: SystemStream must be created after ref_count_ is initialized to 0!
   //       If you want to use initialization list, then move ref_count_ up.
   system_stream_ = new SystemStream(StreamParams(), this);
   system_stream_->IncRef(); // will DecRef on TCP disconnect
   // Bug trap: we should be at 1 because SystemStream has IncRef()ed us
-  CHECK(ref_count_ == 1);
+  CHECK_EQ(ref_count_, 1);
 
   MayBeReregisterPauseTimeout(true);    // force
 }
 
 ServerConnection::~ServerConnection() {
-  DecServerConnectionCount();
   CHECK(net_selector_->IsInSelectThread());
   CHECK(state_ == CLOSED);
   CHECK(connection_->state() == net::NetConnection::DISCONNECTED);
@@ -216,63 +201,49 @@ ServerConnection::~ServerConnection() {
 
 void ServerConnection::CloseConnection() {
   RTMP_LOG_DEBUG << "CloseConnection";
+  CHECK(net_selector_->IsInSelectThread());
   connection_->FlushAndClose();
 }
 
 scoped_ref<Event> ServerConnection::CreateInvokeResultEvent(
     const string& method, int stream_id, int channel_id, int invoke_id) {
-  EventInvoke* reply = new EventInvoke(
-      &protocol_data_, channel_id, stream_id);
-  reply->set_invoke_id(invoke_id);
-  reply->set_call(new PendingCall("", method, invoke_id,
-      Call::CALL_STATUS_PENDING, NULL, new CNull()));
-  return reply;
+  return new EventInvoke(
+      Header(channel_id, stream_id, rtmp::EVENT_INVOKE, 0, false),
+      new PendingCall("", method, invoke_id,
+            Call::STATUS_PENDING, NULL, new CNull()));
 }
 
 scoped_ref<Event> ServerConnection::CreateStatusEvent(
     int stream_id, int channel_id, int invoke_id, const string& code,
     const string& description, const string& detail, const char* method,
     const char* level) {
-  EventInvoke* reply = new EventInvoke(
-      &protocol_data_, channel_id, stream_id);
-
-  PendingCall* const on_status =
-      new PendingCall("", method != NULL ? method : "onStatus",
-                            invoke_id, Call::CALL_STATUS_PENDING, NULL,
-                            NULL);
-
   CStringMap* const arg = new  CStringMap();
   arg->Set("level", (level != NULL) ? new CString(level):new CString("status"));
   arg->Set("code", new CString(code));
   arg->Set("description", new  CString(description));
   arg->Set("details", new CString(detail));
-  on_status->AddArgument(arg);
 
-  reply->set_call(on_status);
-  reply->set_invoke_id(invoke_id);
-
-  return reply;
+  return new EventInvoke(
+      Header(channel_id, stream_id, rtmp::EVENT_INVOKE, 0, false),
+      new PendingCall("", method != NULL ? method : "onStatus",
+          invoke_id, Call::STATUS_PENDING, NULL, arg));
 }
 
-void ServerConnection::SendEvent(Event* event,
+void ServerConnection::SendEvent(const Event& event,
     const io::MemoryStream* data, bool force_write) {
   CHECK(net_selector_->IsInSelectThread());
 
-  if ( event->event_type() == EVENT_CHUNK_SIZE ) {
-    protocol_data_.set_write_chunk_size(
-        static_cast<EventChunkSize*>(event)->chunk_size());
-  }
-
-  //if ( event->event_type() != EVENT_VIDEO_DATA &&
-  //     event->event_type() != EVENT_AUDIO_DATA &&
-  //     event->event_type() != EVENT_MEDIA_DATA ) {
-  //  LOG(-1) << this << " SendEvent: " << event->ToString();
+  //if ( event.event_type() != EVENT_VIDEO_DATA &&
+  //     event.event_type() != EVENT_AUDIO_DATA &&
+  //     event.event_type() != EVENT_MEDIA_DATA ) {
+  //  LOG(-1) << this << " SendEvent: " << event.ToString();
   //}
 
   if ( data == NULL ) {
-    coder_.Encode(connection_->outbuf(), AmfUtil::AMF0_VERSION, event);
+    coder_.Encode(event, AmfUtil::AMF0_VERSION, connection_->outbuf());
   } else {
-    coder_.EncodeWithAuxBuffer(connection_->outbuf(), AmfUtil::AMF0_VERSION, event, data);
+    coder_.EncodeWithAuxBuffer(event, data, AmfUtil::AMF0_VERSION,
+        connection_->outbuf());
   }
 
   if ( force_write || (outbuf_size() > flags_->min_outbuf_size_to_send_) ) {
@@ -433,15 +404,14 @@ ServerConnection::Result ServerConnection::ProcessData(io::MemoryStream* in) {
     int32 initial_size = in->Size();
     scoped_ref<Event> event = NULL;
     AmfUtil::ReadStatus err = coder_.Decode(
-        in, protocol_data_.amf_version(), &event);
+        in, AmfUtil::AMF0_VERSION, &event);
     bytes_read_ += (initial_size - in->Size());
     if ( bytes_read_ - bytes_read_reported_ > ( 1 << 20 ) ) {  // 1 MB
       bytes_read_reported_ = bytes_read_;
       // Stupid enough, this event contains an uint32 .. suckers..
       system_stream_->SendEvent(scoped_ref<EventBytesRead>(new EventBytesRead(
-                                static_cast<uint32>(bytes_read_),
-                                &protocol_data_, kChannelPing, 0)).get(),
-                                -1, NULL, true);
+          Header(kChannelPing, 0, rtmp::EVENT_BYTES_READ, 0, false),
+          static_cast<uint32>(bytes_read_))).get(), -1, NULL, true);
     }
 
     if ( err == AmfUtil::READ_NO_DATA ) {
@@ -457,22 +427,9 @@ ServerConnection::Result ServerConnection::ProcessData(io::MemoryStream* in) {
     CHECK_NOT_NULL(event.get()) << " on ReadStatus: "
         << AmfUtil::ReadStatusName(err);
 
-    //LOG(-1) << this << " ReceivedEvent: " << event->ToString();
+    //LOG(-1) << this << " ReceivedEvent: " << event.ToString();
 
     MayBeReregisterPauseTimeout(false); // no force
-
-    // Handle EVENT_CHUNK_SIZE here, for performance
-    if ( event->event_type() == EVENT_CHUNK_SIZE ) {
-      int chunk_size = static_cast<EventChunkSize*>(
-          event.get())->chunk_size();
-      if ( chunk_size > kMaxChunkSize ) {
-        RTMP_LOG_ERROR << "Refusing to set chunk size: " << chunk_size;
-        continue;
-      }
-      RTMP_LOG_INFO << "Setting chunk size to: " << chunk_size;
-      protocol_data_.set_read_chunk_size(chunk_size);
-      continue;
-    }
 
     // On CONNECT event -> stop connect timeout
     if ( event->event_type() == EVENT_INVOKE ) {
@@ -483,48 +440,91 @@ ServerConnection::Result ServerConnection::ProcessData(io::MemoryStream* in) {
     }
 
     if ( !ProcessEvent(event.get()) ) {
-      RTMP_LOG_ERROR << "Error processing event: " << event->ToString();
+      RTMP_LOG_ERROR << "Error processing event: " << event.ToString();
       return RESULT_ERROR;
     }
   }
   return RESULT_SUCCESS;
 }
 
-bool ServerConnection::ProcessEvent(Event* event) {
+bool ServerConnection::ProcessEvent(const Event* event) {
   CHECK(!is_closed());
 
   if ( event->event_type() == EVENT_INVOKE ) {
-    EventInvoke* invoke = static_cast<EventInvoke *>(event);
+    const EventInvoke* invoke = static_cast<const EventInvoke *>(event);
     const string& method = invoke->call()->method_name();
     if ( method == kMethodConnect )      { return InvokeConnect(invoke); }
-    if ( method == kMethodCreateStream ) { return InvokeCreateStream(invoke); }
-    if ( method == kMethodDeleteStream ) { return InvokeDeleteStream(invoke); }
-    if ( method == kMethodPublish )      { return InvokePublish(invoke); }
-    if ( method == kMethodPlay )         { return InvokePlay(invoke); }
+    if ( method == kMethodCreateStream ) {
+      return InvokeCreateStream(event, invoke->invoke_id());
+    }
+    if ( method == kMethodDeleteStream ) {
+      return InvokeDeleteStream(event, invoke->invoke_id());
+    }
+    if ( method == kMethodPublish ) {
+      return InvokePublish(event, invoke->invoke_id());
+    }
+    if ( method == kMethodPlay ) {
+      return InvokePlay(event, invoke->invoke_id());
+    }
+  } else
+  if ( event->event_type() == EVENT_FLEX_MESSAGE ) {
+    const EventFlexMessage* efm = static_cast<const EventFlexMessage *>(event);
+    if (efm->data().size() >= 2 &&
+        efm->data()[0]->object_type() == CObject::CORE_STRING &&
+        efm->data()[1]->object_type() == CObject::CORE_NUMBER) {
+      const string& method = static_cast<const CString*>(
+          efm->data()[0])->value();
+      const int invoke_id = static_cast<const CNumber*>(
+          efm->data()[1])->int_value();
+
+      if ( method == kMethodCreateStream ) {
+        return InvokeCreateStream(event, invoke_id);
+      }
+      if ( method == kMethodDeleteStream ) {
+        return InvokeDeleteStream(event, invoke_id);
+      }
+      if ( method == kMethodPublish ) {
+        return InvokePublish(event, invoke_id);
+      }
+      if ( method == kMethodPlay ) {
+        return InvokePlay(event, invoke_id);
+      }
+    }
   }
+
   if (event->event_type() == EVENT_BYTES_READ ) {
     RTMP_LOG_DEBUG << "Ignoring event: " << *event;
     return true;
   }
 
-  StreamMap::const_iterator it = streams_.find(event->header()->stream_id());
+  StreamMap::const_iterator it = streams_.find(event->header().stream_id());
   if ( it != streams_.end() ) {
     return it->second->ReceiveEvent(event);
   }
 
   if ( event->event_type() == EVENT_INVOKE ) {
-    return InvokeUnhandled(static_cast<EventInvoke *>(event));
+    return Unhandled(event, static_cast<const EventInvoke *>(event)->invoke_id());
+  }
+  if ( event->event_type() == EVENT_FLEX_MESSAGE ) {
+    const EventFlexMessage* efm = static_cast<const EventFlexMessage *>(event);
+    if (efm->data().size() >= 2 &&
+        efm->data()[0]->object_type() == CObject::CORE_STRING &&
+        efm->data()[1]->object_type() == CObject::CORE_NUMBER) {
+      const int invoke_id = static_cast<const CNumber*>(
+          efm->data()[1])->int_value();
+      return Unhandled(event, invoke_id);
+    }
   }
 
   RTMP_LOG_ERROR << "Unhandled event: " << event->ToString();
   return true;
 }
 
-bool ServerConnection::InvokeConnect(EventInvoke* invoke) {
+bool ServerConnection::InvokeConnect(const EventInvoke* invoke) {
   //LOG(-1) << this << " InvokeConnect: " << invoke->ToString();
 
-  const uint32 stream_id = invoke->header()->stream_id();
-  const uint32 channel_id = invoke->header()->channel_id();
+  const uint32 stream_id = invoke->header().stream_id();
+  const uint32 channel_id = invoke->header().channel_id();
   const int invoke_id = invoke->invoke_id();
 
   int32 object_encoding = -1;
@@ -550,8 +550,8 @@ bool ServerConnection::InvokeConnect(EventInvoke* invoke) {
     it = params->data().find("tcUrl");
     if ( it != params->data().end() && it->second != NULL &&
          it->second->object_type() == CObject::CORE_STRING ) {
-      const string app_url(
-          static_cast<const CString*>(it->second)->value());
+      const string& app_url =
+          static_cast<const CString*>(it->second)->value();
       URL tc_url(app_url);
       if ( tc_url.path().empty() ) {
         RTMP_LOG_ERROR << "Invalid tcUrl: [ " << app_url
@@ -562,20 +562,16 @@ bool ServerConnection::InvokeConnect(EventInvoke* invoke) {
       next_stream_params_.application_url_ = app_url;
     }
   }
+  if ( next_stream_params_.application_url_ == "" ) {
+    next_stream_params_.application_url_ = "rtmp://internal/";
+  }
 
   system_stream_->SendEvent(CreateClearPing(0, stream_id).get());
-
-  // Send Invoke result
-  scoped_ref<EventInvoke> reply = new EventInvoke(
-      &protocol_data_, channel_id, stream_id);
 
   CStringMap* const connection_params = new CStringMap();
   connection_params->Set("capabilities", new CNumber(252));
   connection_params->Set("fmsVer", new CString("whispercast/0,3,0,0"));
   connection_params->Set("mode", new CNumber(1));
-
-  reply->set_call(new PendingCall("", kMethodResult, invoke_id,
-      Call::CALL_STATUS_PENDING, connection_params, NULL));
 
   CStringMap* const arg0 = new CStringMap();
   arg0->Set("level", new CString("status"));
@@ -590,7 +586,10 @@ bool ServerConnection::InvokeConnect(EventInvoke* invoke) {
   data_map->Set("version", new CString("0,3,0,0"));
   arg0->Set("data", data_map);
 
-  reply->mutable_call()->AddArgument(arg0);
+  scoped_ref<EventInvoke> reply = new EventInvoke(
+      Header(channel_id, stream_id, EVENT_INVOKE, 0, false),
+      new PendingCall("", kMethodResult, invoke_id,
+          Call::STATUS_PENDING, connection_params, arg0));
 
   system_stream_->SendEvent(reply.get(), -1, NULL, true);
 
@@ -598,149 +597,161 @@ bool ServerConnection::InvokeConnect(EventInvoke* invoke) {
   return true;
 }
 
-bool ServerConnection::InvokeCreateStream(EventInvoke* invoke) {
+namespace {
+scoped_ref<EventInvoke> ReplyError(const Event* event, int invoke_id,
+                                         const string& reason) {
+  CStringMap* const arg = new CStringMap();
+  arg->Set("level", new CString("error"));
+  arg->Set("code", new CString("NetConnection.Call.Failed"));
+  arg->Set("description", new CString(reason));
+  return new EventInvoke(
+                Header(event->header().channel_id(),
+                       event->header().stream_id(),
+                       EVENT_INVOKE, 0, false),
+                new PendingCall("", kMethodError,
+                       invoke_id, Call::STATUS_PENDING, NULL, arg));
+}
+}
+bool ServerConnection::InvokeCreateStream(const Event* event, int invoke_id) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_LOG_ERROR << "Not connected, event: " << event->ToString();
     return false;
   }
 
-  const char* reason = "";
-
-  bool succeeded = true;
   if ( next_stream_params_.stream_id_ >= flags_->max_num_connection_streams_ ) {
-    reason = "Too many streams";
-    succeeded = false;
+    system_stream_->SendEvent(
+        ReplyError(event, invoke_id, "Too many streams").get(), -1, NULL, true);
+    return false;
   }
-  if ( pending_stream_id_ != -1 ) {
-    reason = "Duplicate call";
-    succeeded = false;
+  if ( invoke_create_stream_called_ ) {
+    system_stream_->SendEvent(
+        ReplyError(event, invoke_id, "Duplicate Call").get(), -1, NULL, true);
+    return false;
   }
+  invoke_create_stream_called_ = true;
+  next_stream_params_.stream_id_++;
 
   scoped_ref<EventInvoke> reply = new EventInvoke(
-      &protocol_data_,
-      invoke->header()->channel_id(),
-      invoke->header()->stream_id());
-
-  if (succeeded) {
-    pending_stream_id_ = next_stream_params_.stream_id_;
-
-    reply->set_call(new PendingCall("", kMethodResult,
-        invoke->invoke_id(), Call::CALL_STATUS_PENDING, NULL, NULL ));
-
-    reply->mutable_call()->AddArgument(new CNumber(pending_stream_id_));
-  } else {
-    RTMP_LOG_ERROR << reason << ", event: " << invoke->ToString();
-
-    reply->set_call(new PendingCall("", kMethodError,
-        invoke->invoke_id(), Call::CALL_STATUS_PENDING, NULL, NULL));
-
-    CStringMap* const arg = new CStringMap();
-    arg->Set("level", new CString("error"));
-    arg->Set("code", new CString("NetConnection.Call.Failed"));
-    arg->Set("description", new CString(reason));
-
-    reply->mutable_call()->AddArgument(arg);
-  }
-
+      Header(event->header().channel_id(),
+             event->header().stream_id(),
+             EVENT_INVOKE, 0, false),
+      new PendingCall("", kMethodResult,
+              invoke_id, Call::STATUS_PENDING, NULL, new CNumber(
+              next_stream_params_.stream_id_)));
   system_stream_->SendEvent(reply.get(), -1, NULL, true);
   return true;
 }
 
-bool ServerConnection::InvokeDeleteStream(EventInvoke* invoke) {
+bool ServerConnection::InvokeDeleteStream(const Event* event, int invoke_id) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_LOG_ERROR << "Not connected, event: " << event->ToString();
     return false;
   }
 
-  if ( invoke->call()->arguments().empty() ||
-       invoke->call()->arguments()[0]->object_type() != CObject::CORE_NUMBER ) {
-    RTMP_LOG_ERROR << "Bad arguments, event: " << invoke->ToString();
+  int stream_id;
+
+  if ( event->event_type() == EVENT_INVOKE ) {
+    const EventInvoke* invoke = static_cast<const EventInvoke *>(event);
+    if ( invoke->call()->arguments().empty() ||
+         invoke->call()->arguments()[0]->object_type() != CObject::CORE_NUMBER ) {
+      RTMP_LOG_ERROR << "Bad arguments, event: " << invoke->ToString();
+      return false;
+    }
+    stream_id = static_cast<const CNumber*>(
+      invoke->call()->arguments()[0])->int_value();
+  } else
+  if ( event->event_type() == EVENT_FLEX_MESSAGE ) {
+    const EventFlexMessage* efm = static_cast<const EventFlexMessage *>(event);
+    if (efm->data().size() < 3 ||
+        efm->data()[2]->object_type() == CObject::CORE_NUMBER) {
+      RTMP_LOG_ERROR << "Cannot determine stream, event: " << event->ToString();
+      return false;
+    }
+    stream_id = static_cast<const CNumber*>(
+        efm->data()[2])->int_value();
+  } else {
+    RTMP_LOG_ERROR << "Cannot determine stream, event: " << event->ToString();
     return false;
   }
-
-  int stream_id = static_cast<const CNumber*>(
-          invoke->call()->arguments()[0])->int_value();
 
   StreamMap::const_iterator it = streams_.find(stream_id);
   if ( it != streams_.end() ) {
     it->second->Close();
     return true;
   }
-  RTMP_LOG_ERROR << "Stream not found, event: " << invoke->ToString();
+  RTMP_LOG_ERROR << "Stream not found, event: " << event->ToString();
   return false;
 }
 
-bool ServerConnection::InvokePublish(EventInvoke* invoke) {
+bool ServerConnection::InvokePublish(const Event* event, int invoke_id) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_LOG_ERROR << "Not connected, event: " << event->ToString();
     return false;
   }
 
-  if ( pending_stream_id_ == -1 ) {
-    RTMP_LOG_ERROR << "No stream was created, event: " << invoke->ToString();
+  if ( !invoke_create_stream_called_ ) {
+    RTMP_LOG_ERROR << "No stream was created, event: " << event->ToString();
     return false;
   }
+  invoke_create_stream_called_ = false;
 
   Stream* stream = new PublishStream(next_stream_params_, this,
       element_mapper_);
   stream->IncRef();
-  bool success = streams_.insert(make_pair(pending_stream_id_, stream)).second;
-  CHECK(success) << "Duplicate stream id: " << pending_stream_id_;
+  bool success = streams_.insert(make_pair(stream->stream_id(), stream)).second;
+  CHECK(success) << "Duplicate stream id: " << stream->stream_id();
 
-  next_stream_params_.stream_id_++;
-  pending_stream_id_ = -1;
-
-  return stream->ReceiveEvent(invoke);
+  return stream->ReceiveEvent(event);
 }
 
-bool ServerConnection::InvokePlay(EventInvoke* invoke) {
+bool ServerConnection::InvokePlay(const Event* event, int invoke_id) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_LOG_ERROR << "Not connected, event: " << event->ToString();
     return false;
   }
 
-  if ( pending_stream_id_ == -1 ) {
-    RTMP_LOG_ERROR << "No stream was created, event: " << invoke->ToString();
+  if ( !invoke_create_stream_called_ ) {
+    RTMP_LOG_ERROR << "No stream was created, event: " << event->ToString();
     return false;
   }
+  invoke_create_stream_called_ = false;
 
   Stream* const stream = new PlayStream(next_stream_params_, this,
       element_mapper_, stats_collector_);
   stream->IncRef();
-  bool success = streams_.insert(make_pair(pending_stream_id_, stream)).second;
-  CHECK(success) << "Duplicate stream id: " << pending_stream_id_;
+  bool success = streams_.insert(make_pair(stream->stream_id(), stream)).second;
+  CHECK(success) << "Duplicate stream id: " << stream->stream_id();
 
-  next_stream_params_.stream_id_++;
-  pending_stream_id_ = -1;
-
-  return stream->ReceiveEvent(invoke);
+  return stream->ReceiveEvent(event);
 }
 
-bool ServerConnection::InvokeUnhandled(EventInvoke* invoke) {
+bool ServerConnection::Unhandled(const Event* event, int invoke_id) {
   if ( state() != CONNECTED ) {
-    RTMP_LOG_ERROR << "Not connected, event: " << invoke->ToString();
+    RTMP_LOG_ERROR << "Not connected, event: " << event->ToString();
     return false;
   }
 
-  RTMP_LOG_ERROR << "Unhandled event: " << invoke->ToString();
+  RTMP_LOG_ERROR << "Unhandled event: " << event->ToString();
+  // TODO: disable this for now...
+  return true;
 
-  scoped_ref<EventInvoke> reply = new EventInvoke(
-      &protocol_data_, invoke->header()->channel_id(),
-      invoke->header()->stream_id());
-
-  reply->set_call(new PendingCall("", kMethodError, invoke->invoke_id(),
-      Call::CALL_STATUS_PENDING, NULL, NULL));
-
+  /*
   CStringMap* const arg = new CStringMap();
   arg->Set("level", new CString("error"));
   arg->Set("code", new CString("NetConnection.Call.Failed"));
   arg->Set("description", new CString(invoke->call()->method_name() +
       " not found"));
 
-  reply->mutable_call()->AddArgument(arg);
+  scoped_ref<EventInvoke> reply = new EventInvoke(
+      Header(invoke->header().channel_id(),
+             invoke->header().stream_id(),
+             EVENT_INVOKE, 0, false),
+      new PendingCall("", kMethodError, invoke->invoke_id(),
+             Call::STATUS_PENDING, NULL, arg));
 
   system_stream_->SendEvent(reply.get(), -1, NULL, true);
   return true;
+  */
 }
 
 void ServerConnection::TimeoutHandler(int64 timeout_id) {

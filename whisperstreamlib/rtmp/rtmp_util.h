@@ -34,6 +34,7 @@
 
 #include <whisperlib/common/base/types.h>
 #include <whisperlib/common/base/log.h>
+#include <whisperlib/common/base/cache.h>
 #include <whisperlib/common/io/buffer/memory_stream.h>
 #include <whisperstreamlib/rtmp/objects/rtmp_objects.h>
 #include <whisperstreamlib/rtmp/events/rtmp_event.h>
@@ -41,6 +42,8 @@
 #include <whisperstreamlib/flv/flv_tag.h>
 
 namespace rtmp {
+
+typedef util::Cache<string, bool> MissingStreamCache;
 
 //  Extract the Flv Tags from a rtmp event.
 // params:

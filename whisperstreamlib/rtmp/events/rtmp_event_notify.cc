@@ -36,36 +36,28 @@
 
 namespace rtmp {
 
-AmfUtil::ReadStatus EventNotify::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
+AmfUtil::ReadStatus EventNotify::DecodeBody(io::MemoryStream* in,
+    AmfUtil::Version v) {
   Clear();
-  if ( in->Size() < header()->event_size() )
-    return AmfUtil::READ_NO_DATA;
-  in->MarkerSet();
-  AmfUtil::ReadStatus err = name_.ReadFromMemoryStream(
-    in, rtmp::AmfUtil::AMF0_VERSION);
+  const AmfUtil::ReadStatus err = name_.Decode(in, rtmp::AmfUtil::AMF0_VERSION);
   if ( err != rtmp::AmfUtil::READ_OK ) {
-    in->MarkerRestore();
     return err;
   }
   while ( !in->IsEmpty() ) {
     CObject* obj = NULL;
-    err = Amf0Util::ReadNextObject(in, &obj);
-    if ( err != rtmp::AmfUtil::READ_OK ) {
-      in->MarkerRestore();
+    const AmfUtil::ReadStatus err = Amf0Util::ReadNextObject(in, &obj);
+    if ( err != AmfUtil::READ_OK ) {
       return err;
     }
     values_.push_back(obj);
   }
-  in->MarkerClear();
-  return err;
+  return AmfUtil::READ_OK;
 }
 
-void EventNotify::WriteToMemoryStream(
-  io::MemoryStream* out, AmfUtil::Version version) const {
-  name_.WriteToMemoryStream(out, version);
+void EventNotify::EncodeBody(io::MemoryStream* out, AmfUtil::Version v) const {
+  name_.Encode(out, v);
   for ( int i = 0; i < values_.size(); ++i ) {
-    values_[i]->WriteToMemoryStream(out, version);
+    values_[i]->Encode(out, v);
   }
 }
 }

@@ -35,7 +35,7 @@
 #include <whisperstreamlib/rtmp/objects/rtmp_objects.h>
 #include <whisperstreamlib/rtmp/objects/amf/amf_util.h>
 
-#define ILOG(level)  LOG(level) << name() << " " << this << ": "
+#define ILOG(level)  LOG(level) << name() << ": "
 #ifdef _DEBUG
 #define ILOG_DEBUG   ILOG(INFO)
 #else
@@ -64,19 +64,19 @@ const char SwitchingElement::kElementClassName[] = "switching";
 //
 // SwitchingElement implementation
 //
-SwitchingElement::SwitchingElement(const char* _name,
-                                   const char* id,
+SwitchingElement::SwitchingElement(const string& _name,
                                    ElementMapper* mapper,
                                    net::Selector* selector,
-                                   const char* rpc_path,
+                                   const string& rpc_path,
                                    rpc::HttpServer* rpc_server,
                                    const streaming::Capabilities& caps,
                                    int default_flavour_id,
                                    int32 tag_timeout_ms,
                                    int32 write_ahead_ms,
                                    bool media_only_when_used,
-                                   bool save_media_bootstrap)
-    : PolicyDrivenElement(kElementClassName, _name, id, mapper),
+                                   bool is_global,
+                                   bool is_temporary_template)
+    : PolicyDrivenElement(kElementClassName, _name, mapper),
       ServiceInvokerSwitchingElementService(
           ServiceInvokerSwitchingElementService::GetClassName()),
       caps_(caps),
@@ -88,6 +88,8 @@ SwitchingElement::SwitchingElement(const char* _name,
       rpc_path_(rpc_path),
       rpc_server_(rpc_server),
       media_only_when_used_(media_only_when_used),
+      is_global_(is_global),
+      is_temporary_template_(is_temporary_template),
       normalizer_(selector, FLAGS_switching_max_write_ahead_ms),
       process_tag_callback_(
           NewPermanentCallback(this, &SwitchingElement::ProcessTag)),
@@ -148,6 +150,9 @@ uint32 SwitchingElement::CountClients() const {
 
 // DOES: AddRequest upstream
 void SwitchingElement::Register(string media_name) {
+  if ( is_temporary_template_ ) {
+    return;
+  }
   if ( close_completed_ != NULL ) {
     LOG_WARNING << "Refusing Register() to: " << media_name
                 << " because closing is in progress.";
@@ -161,8 +166,8 @@ void SwitchingElement::Register(string media_name) {
   if ( req_info_ != NULL ) {
     *req_->mutable_info() = *req_info_;
   }
-  req_->mutable_info()->internal_id_ = id();
   *req_->mutable_caps() = caps_;
+  req_->mutable_info()->is_temporary_requestor_ = !is_global_;
 
   if (req_->info().write_ahead_ms_ <= 0 ) {
     req_->mutable_info()->write_ahead_ms_ =
@@ -171,9 +176,16 @@ void SwitchingElement::Register(string media_name) {
 
   normalizer_.Reset(req_);
 
-  if ( !mapper_->AddRequest(req_->info().path_.c_str(),
+  if ( !mapper_->AddRequest(req_->info().path_,
                             req_, process_tag_callback_) ) {
     ILOG_ERROR << "Failed to register to: [" << media_name << "]";
+    // Clear internals, so we end up in a valid state
+    current_media_ = "";
+    normalizer_.Reset(NULL);
+    delete req_;
+    req_ = NULL;
+    delete req_info_;
+    req_info_ = NULL;
     return;
   }
   ILOG_DEBUG << "Registered to media: [" << media_name << "], req: "
@@ -185,7 +197,7 @@ void SwitchingElement::Register(string media_name) {
 }
 
 // DOES: RemoveRequest upstream, maybe send SourceEnded downstream
-void SwitchingElement::Unregister(bool send_source_ended, bool send_flush) {
+void SwitchingElement::Unregister(bool send_source_ended) {
   tag_timeout_alarm_.Stop();
   register_alarm_.Stop();
   if ( !is_registered() ) {
@@ -209,12 +221,6 @@ void SwitchingElement::Unregister(bool send_source_ended, bool send_flush) {
   while ( flavour_mask ) {
     const int id = RightmostFlavourId(flavour_mask);
 
-    if ( send_flush ) {
-      scoped_ref<Tag> flush_tag(new FlushTag(0, 1 << id));
-      distributors_[id]->DistributeTag(
-        flush_tag.get(), distributors_[id]->last_tag_ts());
-    }
-
     if (send_source_ended) {
       distributors_[id]->Reset();
     } else {
@@ -235,7 +241,7 @@ bool SwitchingElement::SwitchCurrentMedia(const string& target_media_name,
   ILOG_INFO << "Switching from [" << current_media() << "] to ["
             << target_media_name << "]";
 
-  Unregister(false, true);
+  Unregister(false);
   if ( target_media_name.empty() ) {
     // Basically it says - wait man ...
     return true;
@@ -294,7 +300,6 @@ void SwitchingElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   normalizer_.ProcessTag(tag, timestamp_ms);
 
   if ( tag->type() == streaming::Tag::TYPE_EOS ) {
-    ILOG_INFO << "EOS received";
     stream_ended_alarm_.Start();
     return;
   }
@@ -330,7 +335,7 @@ void SwitchingElement::StreamEnded() {
     return;
   }
   ILOG_INFO << "StreamEnded on media: [" << current_media_ << "]";
-  Unregister(false, false);
+  Unregister(false);
 
   // If it returns:
   //  true => we maintain this element (and the implicit added callbacks).
@@ -354,12 +359,10 @@ bool SwitchingElement::Initialize() {
 }
 
 // DOES: AddRequest upstream
-bool SwitchingElement::AddRequest(const char* media_name,
-                                  streaming::Request* req,
-                                  streaming::ProcessingCallback* callback) {
-  if ( name() != media_name ) {
-    ILOG_ERROR << "Cannot AddRequest media_name: [" << media_name
-               << "] is not the same with our name: [" << name() << "]";
+bool SwitchingElement::AddRequest(const string& media, Request* req,
+                                  ProcessingCallback* callback) {
+  if ( media != "" ) {
+    ILOG_ERROR << "Cannot AddRequest on submedia: [" << media << "]";
     return false;
   }
   if ( !req->caps().IsCompatible(caps_) ) {
@@ -405,7 +408,7 @@ void SwitchingElement::RemoveRequest(streaming::Request* req) {
     ILOG_INFO << "Unregistering from: " << current_media_
               << " per empty request set.";
     media_name_to_register_ = current_media_;
-    Unregister(true, false);
+    Unregister(true);
     if ( policy_ != NULL && !selector_->IsExiting() ) {
       policy_->Reset();
     }
@@ -417,17 +420,13 @@ void SwitchingElement::RemoveRequest(streaming::Request* req) {
   }
 }
 
-bool SwitchingElement::HasMedia(const char* media, Capabilities* out) {
-  if ( name() != media ) {
-    return false;
-  }
-  *out = caps_;
-  return true;
+bool SwitchingElement::HasMedia(const string& media) {
+  return media == "";
 }
 
-void SwitchingElement::ListMedia(const char* media_dir,
-                                 ElementDescriptions* media) {
-  media->push_back(make_pair(name_, caps_));
+void SwitchingElement::ListMedia(const string& media_dir,
+                                 vector<string>* media) {
+  media->push_back("");
 }
 bool SwitchingElement::DescribeMedia(const string& media,
                                      MediaInfoCallback* callback) {
@@ -445,7 +444,7 @@ void SwitchingElement::Close(Closure* call_on_close) {
 
 // DOES: send SourceEnded + EOS downstream, RemoveRequest upstream
 void SwitchingElement::InternalClose() {
-  Unregister(true, false);
+  Unregister(true);
   CloseAllClients(true);
 }
 

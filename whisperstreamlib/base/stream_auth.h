@@ -37,91 +37,157 @@
 
 #include <whisperlib/common/base/types.h>
 #include <whisperlib/common/base/callback.h>
-#include <whisperstreamlib/base/request.h>
+#include <whisperlib/common/base/alarm.h>
+#include <whisperlib/net/url/url.h>
+//#include <whisperstreamlib/base/request.h>
+
+class MediaAuthorizerRequestSpec;
 
 namespace streaming {
 
+struct AuthorizerRequest {
+  // Identifies who needs to be authorized (any of these can be empty)
+  string user_;
+  string passwd_;
+  string token_;
+  string net_address_;   // normally the ip
+
+  // Identifies on which resource it needs authorization
+  string resource_;
+
+  // Identifies what user wants to do on the resource
+  string action_;
+
+  // How long (ms) the action was performed so far (for reauthorizations)
+  int64 action_performed_ms_;
+
+  AuthorizerRequest() : action_performed_ms_(0) {}
+  AuthorizerRequest(const string& user,
+                    const string& passwd,
+                    const string& token,
+                    const string& net_address,
+                    const string& resource,
+                    const string& action,
+                    int64 action_performed_ms)
+      : user_(user),
+        passwd_(passwd),
+        token_(token),
+        net_address_(net_address),
+        resource_(resource),
+        action_(action),
+        action_performed_ms_(action_performed_ms) {
+  }
+
+  void ReadFromUrl(const URL& url);
+  void ReadQueryComponents(const vector< pair<string, string> >& comp);
+  string GetUrlQuery() const;
+
+  void ToSpec(MediaAuthorizerRequestSpec* spec) const;
+  void FromSpec(const MediaAuthorizerRequestSpec& spec);
+
+  string ToString() const;
+};
+
+struct AuthorizerReply {
+  // true = allowed, false = denied
+  bool allowed_;
+  // if non zero the *thing* was authorized for this long after which should
+  // be dumped unless reauthorized.
+  int32 time_limit_ms_;
+
+  AuthorizerReply(bool allowed,
+                  int32 time_limit_ms)
+      : allowed_(allowed),
+        time_limit_ms_(time_limit_ms) {
+  }
+  string ToString() const;
+};
+
 class Authorizer {
  public:
-  explicit Authorizer(const char* type,
-                      const char* name)
-      : type_(type),
-        name_(name),
+  Authorizer(const string& name)
+      : name_(name),
         ref_count_(0) {
-    LOG_INFO << "Creating authorizer: " << name_ << " of type: " << type_;
   }
   virtual ~Authorizer() {
     CHECK_EQ(ref_count_, 0);
-    LOG_INFO << "Deleting authorizer: " << name_ << " of type: " << type_;
   }
+
+  typedef Callback1<const AuthorizerReply&> CompletionCallback;
+
   virtual bool Initialize() = 0;
   virtual void Authorize(const AuthorizerRequest& req,
-                         AuthorizerReply* reply,
-                         Closure* completion) = 0;
+                         CompletionCallback* completion) = 0;
+  virtual void Cancel(CompletionCallback* completion) = 0;
+
   // Because of the nature of the work (async requests that can be completed
   // at different times then the point of deletion), we use a ref-count based
   // management for these
   void IncRef() { ++ref_count_; }
-  void DecRef() { --ref_count_; if ( ref_count_ <= 0 ) delete this; }
+  void DecRef() {
+    CHECK_GT(ref_count_, 0);
+    --ref_count_;
+    if ( ref_count_ <= 0 ) delete this;
+  }
 
-  const string& type() const { return type_; }
   const string& name() const { return name_; }
 
  private:
-  const string type_;
   const string name_;
   int32 ref_count_;
   DISALLOW_EVIL_CONSTRUCTORS(Authorizer);
 };
 
-class AuthorizeHelper {
+class AsyncAuthorize {
  public:
-  AuthorizeHelper(Authorizer* auth)
-      : req_(),
-        reply_(false),
-        auth_(auth),
-        canceled_(false),
-        completion_callback_(NULL) {
-    auth_->IncRef();
-  }
-  ~AuthorizeHelper() {
-    CHECK(completion_callback_ == NULL);
-    auth_->DecRef();
-  }
-  void Start(Closure* completion_callback) {
-    CHECK(completion_callback_ == NULL);
-    completion_callback_ = completion_callback;
-    canceled_ = false;
-    auth_->Authorize(req_, &reply_,
-                     NewCallback(this, &AuthorizeHelper::Completion));
+  AsyncAuthorize(net::Selector& selector);
+  ~AsyncAuthorize();
 
-  }
-  void Cancel() {
-    canceled_ = true;
-  }
+  // Params:
+  // auth: the authorizer which does the actual authentication
+  // req: contains the user name, password, token, user ip address, ...
+  // completion: non permanent callback,
+  //             called on first authentication completed.
+  // reauthorization_failed: non permanent callback,
+  //                         called when reauthorization fails (if ever)
+  //                         If NULL reauthorization is disabled.
+  // start: If true, start authorization now.
+  //        If false, it doesn't start now; you can start it later by Start().
+  void Start(Authorizer* auth,
+             const AuthorizerRequest& req,
+             Callback1<bool>* completion,
+             Closure* reauthorization_failed);
 
-  const AuthorizerRequest& req() const        { return req_;    }
-  const AuthorizerReply& reply() const        { return reply_;  }
-  AuthorizerRequest* mutable_req()            { return &req_;   }
-  bool is_started() const  { return completion_callback_ != NULL; }
+  // Stop/Cancel current authorization process (if in progress).
+  // Also stops reauthorization.
+  void Stop();
 
  private:
-  void Completion() {
-    if ( canceled_ ) {
-      delete completion_callback_;
-      completion_callback_ = NULL;
-      delete this;
-    } else {
-      Closure* completion_callback = completion_callback_;
-      completion_callback_ = NULL;
-      completion_callback->Run();
-    }
-  }
-  AuthorizerRequest req_;
-  AuthorizerReply reply_;
+  // Restart authorization
+  void Reauthorize();
+
+  // Every authorization (first + reauthorizations) ends up here.
+  void AuthorizationCompleted(const AuthorizerReply& reply);
+
+ private:
   Authorizer* auth_;
-  bool canceled_;
-  Closure* completion_callback_;
+  AuthorizerRequest req_;
+
+  // permanent callback to AuthorizationCompleted
+  // Used for first authorization + subsequent reauthorizations
+  Authorizer::CompletionCallback* authorization_completed_;
+
+  // called on first authorization completion
+  Callback1<bool>* first_auth_completion_;
+  // called on reauthorization failed (if ever)
+  Closure* reauthorization_failed_;
+
+  // just calls Reauthorize() after a while
+  ::util::Alarm reauthorization_alarm_;
+
+  // timestamp of the first authorization. Used to calculate
+  // action_performed_ms_ for reauthorization.
+  int64 first_auth_ts_;
 };
 
 }

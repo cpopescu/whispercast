@@ -36,6 +36,7 @@
 
 namespace rpc {
 static const common::ByteOrder kBinaryByteOrder = common::LILENDIAN;
+static const char kMessageMark[4] = {'r', 'p', 'c', 0 };
 }
 
 #endif  //  __NET_RPC_LIB_CODEC_BINARY_RPC_BINARY_COMMON_H__

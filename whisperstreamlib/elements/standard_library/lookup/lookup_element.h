@@ -54,10 +54,7 @@ namespace streaming {
 //  ${AUTH_QUERY} the authorization request query part (e.g. wuname and so on)
 class LookupElement : public Element {
  public:
-  typedef map<string, string>  Host2IpMap;
-
-  LookupElement(const char* name,
-                const char* id,
+  LookupElement(const string& name,
                 ElementMapper* mapper,
                 net::Selector* selector,
                 HttpClientElement* http_client_element,
@@ -74,11 +71,11 @@ class LookupElement : public Element {
 
   // streaming::Element interface methods
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir, ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 

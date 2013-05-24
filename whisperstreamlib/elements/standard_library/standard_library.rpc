@@ -60,7 +60,6 @@ Type HttpClientElementDataSpec {
   optional bool fetch_only_on_request_;
                                 // maintain the remote connection open only when
                                 // there is a request going on. (default false)
-  string media_type_;           // Expected media type to be received.
 
   // In order to authenticate to the remote server you can specify
   // a user and a password for connection (Not the most secure thing,
@@ -84,7 +83,8 @@ Type HttpPosterElementSpec {
   string host_ip_;              // ip to download from (or a host alias)
   int port_;                    // port to connect to
   string path_escaped_;         // URL escaped path to the remote media
-  string media_type_;           // Media type to send received.
+  string post_media_format_;    // The stream is serialized into this media form
+                                // (becomes the Content-Type of the HTTP Post).
 
   // In order to authenticate to the remote server you can specify
   // a user and a password for connection (Not the most secure thing,
@@ -124,67 +124,31 @@ Type RemoteResolverElementSpec {
   optional string lookup_auth_user_;             // default ""
   optional string lookup_auth_pass_;             // default ""
 
-  string media_type_;            // Expected media type to be received.
   optional int flavour_mask_;    // Mask for flavours we receive
 }
 
 /////////
 
-// Structure that describes a media name for an http server element (below)
-Type HttpServerElementDataSpec {
-  string name_;                 // name of the media
-  string media_type_;           // Expected media type to be received.
-
-  optional string save_dir_;    // if this is on we accept 'save' and
-                                // 'append' commands and we put saved files
-                                // here, under server's media directory
-  optional bool append_only_;
-  optional bool disable_preemption_;
-  optional int buildup_interval_sec_;
-  optional int buildup_delay_sec_;
-  optional int prefill_buffer_ms_;   // set this to 0  for real-time stuff
-  optional int advance_media_ms_;     // set this to 0  for real-time stuff
-}
-
 // Element that produces the media by receiving it from a remote http client.
 Type HttpServerElementSpec {
-  string path_escaped_;         // under which path we should receive this
-                                // particular media
-  array<HttpServerElementDataSpec> http_data_;
-  optional string authorizer_name_;  // if this is specifed we use it to
-                                     // authorize publishing
+  // listen on each: base_listen_path_/import_[i]
+  string base_listen_path_;
+  array<string> imports_;
+  string authorizer_name_;  // Used to authorize publishing, can be ""
 }
 
 //////////
 
-// Structure that describes a media name for an http server element (below)
-Type RtmpPublishingElementDataSpec {
-  string name_;                   // name of the media
-  string media_type_;             // Expected media type to be received.
-
-  optional string save_dir_;    // if this is on we accept 'save' and
-                                // 'append' commands and we put saved files
-                                // here, under server's media directory
-  optional bool append_only_;
-  optional bool disable_preemption_;
-  optional int buildup_interval_sec_;
-  optional int buildup_delay_sec_;
-  optional int prefill_buffer_ms_;   // set this to 0  for real-time stuff
-  optional int advance_media_ms_;     // set this to 0  for real-time stuff
-}
-
 // Structure that describes an entry point for an rtmp client
 Type RtmpPublishingElementSpec {
-  array<RtmpPublishingElementDataSpec> rtmp_data_;
-  optional string authorizer_name_;  // if this is specifed we use it to
-                                     // authorize publishing
+  array<string> imports_;
+  string authorizer_name_;  // Used to authorize publishing, can be ""
 }
 
 //////////
 
 // Element that exports files from a directory
 Type AioFileElementSpec {
-  string media_type_;           // Expected media type to be received.
   string home_dir_;             // Directory to be exported (under the server's
                                 // media storage directory)
   string file_pattern_;         // Export only files that match this regular
@@ -224,7 +188,6 @@ Type AioFileElementSpec {
 Type SwitchingElementSpec {
   string policy_name_;          // determines how we can swictch through the
                                 // media.
-  string media_type_;           // Expected media type to be received.
   optional int flavour_mask_;   // Max or of mask for flavours we receive
   optional int default_flavour_id_;  // if not null, we pass tags that come
                                // with this flavours to all callbacks that
@@ -272,16 +235,6 @@ Type SavingElementSpec {
 
 //////////
 
-// An element that expects raw data and produces tagged data
-Type SplittingElementSpec {
-  string splitter_media_type_;  // Expected media type to be received.
-  // If underneath source starts sending crap, we drop the current request.
-  // Default: 1 << 18
-  optional int max_tag_size_;
-}
-
-//////////
-
 // An element that can normilize the timestams for the downstream client
 Type NormalizingElementSpec {
   // If you want the normalizer to do flow control also, set this to
@@ -325,21 +278,10 @@ Type DroppingElementSpec {
 
 //////////
 
-Type DebuggerElementSpec {
-}
-
-//////////
-
 // An element that extracts *just* the key frames from a driven element name
 Type KeyFrameExtractorElementSpec {
-  string media_filtered_;        // name of the media to filter.
-  bigint ms_between_video_frames_;   // accept one key frame every so often
-  bool drop_headers_;            // if this is true, we drop all tags regarded
-                                 // as headers.
-  bool drop_control_;            // if this is true, we drop all tags regarded
-                                 // as control tags.
-  bool drop_audio_;              // if this is true, we drop all tags regarded
-                                 // as audio tags.
+  bigint ms_between_video_frames_; // accept one key frame every so often
+  bool drop_audio_;                // true = drop audio tags; false = forward
 }
 
 //////////
@@ -439,7 +381,6 @@ Type OnCommandPolicySpec {
 //////////////////////////////////////////////////////////////////////
 
 Type SimpleAuthorizerSpec {
-  optional int reauthorize_interval_ms_;
   optional int time_limit_ms_;
 }
 
@@ -454,97 +395,87 @@ Service StandardLibraryService {
   //
   // Functions for adding specifications for different element types
   //
-  MediaOperationErrorData AddAioFileElementSpec(
+  MediaOpResult AddAioFileElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       AioFileElementSpec spec);
-  MediaOperationErrorData AddDroppingElementSpec(
+  MediaOpResult AddDroppingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       DroppingElementSpec spec);
-  MediaOperationErrorData AddDebuggerElementSpec(
-      string name,
-      bool is_global,
-      bool disable_rpc,
-      DebuggerElementSpec spec);
-  MediaOperationErrorData AddHttpClientElementSpec(
+  MediaOpResult AddHttpClientElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       HttpClientElementSpec spec);
-  MediaOperationErrorData AddHttpPosterElementSpec(
+  MediaOpResult AddHttpPosterElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       HttpPosterElementSpec spec);
-  MediaOperationErrorData AddRemoteResolverElementSpec(
+  MediaOpResult AddRemoteResolverElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       RemoteResolverElementSpec spec);
-  MediaOperationErrorData AddHttpServerElementSpec(
+  MediaOpResult AddHttpServerElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       HttpServerElementSpec spec);
-  MediaOperationErrorData AddRtmpPublishingElementSpec(
+  MediaOpResult AddRtmpPublishingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       RtmpPublishingElementSpec spec);
-  MediaOperationErrorData AddKeyFrameExtractorElementSpec(
+  MediaOpResult AddKeyFrameExtractorElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       KeyFrameExtractorElementSpec spec);
-  MediaOperationErrorData AddStreamRenamerElementSpec(
+  MediaOpResult AddStreamRenamerElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       StreamRenamerElementSpec spec);
-  MediaOperationErrorData AddNormalizingElementSpec(
+  MediaOpResult AddNormalizingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       NormalizingElementSpec spec);
-  MediaOperationErrorData AddLoadBalancingElementSpec(
+  MediaOpResult AddLoadBalancingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       LoadBalancingElementSpec spec);
-  MediaOperationErrorData AddSavingElementSpec(
+  MediaOpResult AddSavingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       SavingElementSpec spec);
-  MediaOperationErrorData AddSplittingElementSpec(
-      string name,
-      bool is_global,
-      bool disable_rpc,
-      SplittingElementSpec spec);
-  MediaOperationErrorData AddSwitchingElementSpec(
+  MediaOpResult AddSwitchingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       SwitchingElementSpec spec);
-  MediaOperationErrorData AddTimeSavingElementSpec(
+  MediaOpResult AddTimeSavingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       TimeSavingElementSpec spec);
-  MediaOperationErrorData AddLookupElementSpec(
+  MediaOpResult AddLookupElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       LookupElementSpec spec);
-  MediaOperationErrorData AddF4vToFlvConverterElementSpec(
+  MediaOpResult AddF4vToFlvConverterElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
       F4vToFlvConverterElementSpec spec);
-  MediaOperationErrorData AddRedirectingElementSpec(
+  MediaOpResult AddRedirectingElementSpec(
       string name,
       bool is_global,
       bool disable_rpc,
@@ -553,26 +484,26 @@ Service StandardLibraryService {
   //
   // Functions for adding specifications for different policy types
   //
-  MediaOperationErrorData AddRandomPolicySpec(
+  MediaOpResult AddRandomPolicySpec(
       string name,
       RandomPolicySpec spec);
-  MediaOperationErrorData AddPlaylistPolicySpec(
+  MediaOpResult AddPlaylistPolicySpec(
       string name,
       PlaylistPolicySpec spec);
-  MediaOperationErrorData AddTimedPlaylistPolicySpec(
+  MediaOpResult AddTimedPlaylistPolicySpec(
       string name,
       TimedPlaylistPolicySpec spec);
-  MediaOperationErrorData AddFailoverPolicySpec(
+  MediaOpResult AddFailoverPolicySpec(
       string name,
       FailoverPolicySpec spec);
-  MediaOperationErrorData AddOnCommandPolicySpec(
+  MediaOpResult AddOnCommandPolicySpec(
       string name,
       OnCommandPolicySpec spec);
 
   //
   // Functions for adding specifications for different authorizers types
   //
-  MediaOperationErrorData AddSimpleAuthorizerSpec(
+  MediaOpResult AddSimpleAuthorizerSpec(
       string name,
       SimpleAuthorizerSpec spec);
   // Returns the current media for a switching element. On error is the empty
@@ -590,7 +521,7 @@ Service StandardLibraryService {
 Service SwitchPolicyService {
   // Funtions that action upon active elements
   string GetDefaultMedia();
-  MediaOperationErrorData SwitchPolicy(string media,
+  MediaOpResult SwitchPolicy(string media,
                                        bool set_as_default,
                                        bool also_switch);
   PolicyPlayInfo GetPlayInfo();
@@ -615,31 +546,25 @@ Type PolicyPlayInfo {
 }
 
 Service PlaylistPolicyService {
-  MediaOperationErrorData SetPlaylist(SetPlaylistPolicySpec playlist);
+  MediaOpResult SetPlaylist(SetPlaylistPolicySpec playlist);
   PlaylistPolicySpec GetPlaylist();
   PolicyPlayInfo GetPlayInfo();
 }
 
 Service HttpServerElementService {
-  MediaOperationErrorData AddImport(HttpServerElementDataSpec data);
-  MediaOperationErrorData DeleteImport(string name);
+  MediaOpResult AddImport(string import_name);
+  void          DeleteImport(string import_name);
   array<string> GetImports();
-}
-
-Type ImportDetail {
-  string media_type_;
-  optional string save_dir_;
 }
 
 Service RtmpPublishingElementService {
-  MediaOperationErrorData AddImport(RtmpPublishingElementDataSpec data);
-  MediaOperationErrorData DeleteImport(string name);
+  MediaOpResult AddImport(string import_name);
+  void          DeleteImport(string import_name);
   array<string> GetImports();
-  ImportDetail GetImportDetail(string name);
 }
 
 Service SimpleAuthorizerService {
-  MediaOperationErrorData SetUserPassword(string user, string passwd);
-  MediaOperationErrorData DeleteUser(string user);
+  MediaOpResult SetUserPassword(string user, string passwd);
+  MediaOpResult DeleteUser(string user);
   map<string, string> GetUsers();
 }

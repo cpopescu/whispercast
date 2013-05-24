@@ -84,25 +84,25 @@ class SwitchingElement :
   //    Original comment: bootstrap also media tags ? (normal just for global
   //                      else costs too much and does not make sense)
   //    Currently: not used.
-  SwitchingElement(const char* name,
-                   const char* id,
+  SwitchingElement(const string& name,
                    ElementMapper* mapper,
                    net::Selector* selector,
-                   const char* rpc_path,
+                   const string& rpc_path,
                    rpc::HttpServer* rpc_server,
                    const streaming::Capabilities& caps,
                    int default_flavour_id,
                    int32 tag_timeout_ms,
                    int32 write_ahead_ms,
                    bool media_only_when_used,
-                   bool save_media_bootstrap);
+                   bool is_global,
+                   bool is_temporary_template);
   virtual ~SwitchingElement();
 
   net::Selector* selector() const {
     return selector_;
   }
   bool is_registered() const {
-    return current_media_ != "";
+    return req_ != NULL;
   }
 
   // returns the number of downstream clients
@@ -112,7 +112,7 @@ class SwitchingElement :
   void Register(string media_name);
   // Removes the upstream link. We stop receiving tags.
   // If not registered, unregistering has no effect.
-  void Unregister(bool send_source_ended, bool send_flush);
+  void Unregister(bool send_source_ended);
 
   ///////////////////////////////////////////////////////////////////
   // PolicyDrivenElement interface methods
@@ -149,11 +149,11 @@ class SwitchingElement :
   ///////////////////////////////////////////////////////////////////////
   // The Element interface methods
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir, ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 
@@ -184,6 +184,11 @@ class SwitchingElement :
   // true => Auto Unregister() when there are no clients.
   // false => Keep registered always.
   const bool media_only_when_used_;
+
+  // is this element global, or temporary
+  const bool is_global_;
+
+  const bool is_temporary_template_;
 
   // Name of the upstream media stream.
   // The element is unique but it can serve multiple streams.

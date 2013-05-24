@@ -32,141 +32,110 @@
 #ifndef __NET_RPC_LIB_CODEC_RPC_ENCODER_H__
 #define __NET_RPC_LIB_CODEC_RPC_ENCODER_H__
 
+#include <whisperlib/common/io/buffer/memory_stream.h>
 #include <whisperlib/common/io/output_stream.h>
 #include <whisperlib/common/io/num_streaming.h>
-#include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
-#include <whisperlib/net/rpc/lib/types/rpc_message.h>
-
-#include <whisperlib/net/rpc/lib/codec/rpc_typename_codec.h>
+#include <whisperlib/net/rpc/lib/rpc_constants.h>
 
 namespace rpc {
 
+class Void;
+class Custom;
+class Message;
+
 class Encoder {
  public:
-  // Construct an encoder that writes data to the given output stream.
-  explicit Encoder(io::MemoryStream& out)
-      : out_(&out),
-        tmp_() {
+  Encoder(CodecId type) : type_(type) {
   }
   virtual ~Encoder() {
   }
 
- public:
-  //////////////////////////////////////////////////////////////////////
-  //
-  //                    Encoding methods
-  //
+  CodecId type() const { return type_; }
+  const string& type_name() const { return CodecName(type()); }
 
   // Methods for serializing complex types: structure, array, map.
-  virtual void EncodeStructStart(uint32 nAttribs) = 0;
-  virtual void EncodeStructContinue() = 0;
-  virtual void EncodeStructEnd() = 0;
-  virtual void EncodeStructAttribStart() = 0;
-  virtual void EncodeStructAttribMiddle() = 0;
-  virtual void EncodeStructAttribEnd() = 0;
-  virtual void EncodeArrayStart(uint32 nElements) = 0;
-  virtual void EncodeArrayContinue() = 0;
-  virtual void EncodeArrayEnd() = 0;
-  virtual void EncodeArrayElementStart() = 0;
-  virtual void EncodeArrayElementEnd() = 0;
-  virtual void EncodeMapStart(uint32 nPairs) = 0;
-  virtual void EncodeMapContinue() = 0;
-  virtual void EncodeMapEnd() = 0;
-  virtual void EncodeMapPairStart() = 0;
-  virtual void EncodeMapPairMiddle() = 0;
-  virtual void EncodeMapPairEnd() = 0;
+  virtual void EncodeStructStart(uint32 nAttribs, io::MemoryStream* out) = 0;
+  virtual void EncodeStructContinue(io::MemoryStream* out) = 0;
+  virtual void EncodeStructEnd(io::MemoryStream* out) = 0;
+  virtual void EncodeStructAttribStart(io::MemoryStream* out) = 0;
+  virtual void EncodeStructAttribMiddle(io::MemoryStream* out) = 0;
+  virtual void EncodeStructAttribEnd(io::MemoryStream* out) = 0;
+  virtual void EncodeArrayStart(uint32 nElements, io::MemoryStream* out) = 0;
+  virtual void EncodeArrayContinue(io::MemoryStream* out) = 0;
+  virtual void EncodeArrayEnd(io::MemoryStream* out) = 0;
+  virtual void EncodeMapStart(uint32 nPairs, io::MemoryStream* out) = 0;
+  virtual void EncodeMapContinue(io::MemoryStream* out) = 0;
+  virtual void EncodeMapEnd(io::MemoryStream* out) = 0;
+  virtual void EncodeMapPairStart(io::MemoryStream* out) = 0;
+  virtual void EncodeMapPairMiddle(io::MemoryStream* out) = 0;
+  virtual void EncodeMapPairEnd(io::MemoryStream* out) = 0;
 
- protected:
+  template <typename T>
+  void EncodeStructAttrib(const string& name, T value, io::MemoryStream* out) {
+    EncodeStructAttribStart(out);
+    Encode(name, out);
+    EncodeStructAttribMiddle(out);
+    Encode(value, out);
+    EncodeStructAttribEnd(out);
+  }
+
   // Encode the value of a base type object in the output stream.
-  // The reverse of these methods is rpc::Decoder::DecodeBody(..).
-  virtual void EncodeBody(const rpc::Void& obj) = 0;
-  virtual void EncodeBody(const bool& obj) = 0;
-  virtual void EncodeBody(const int32& obj) = 0;
-  virtual void EncodeBody(const uint32& obj) = 0;
-  virtual void EncodeBody(const int64& obj) = 0;
-  virtual void EncodeBody(const uint64& obj) = 0;
-  virtual void EncodeBody(const double& obj) = 0;
-  virtual void EncodeBody(const char* obj) = 0;
-  virtual void EncodeBody(const string& obj) = 0;
+  // The reverse of these methods is rpc::Decoder::Decode(..).
+  virtual void Encode(const rpc::Void& obj, io::MemoryStream* out) = 0;
+  virtual void Encode(const bool v, io::MemoryStream* out) = 0;
+  virtual void Encode(const int32 v, io::MemoryStream* out) = 0;
+  virtual void Encode(const uint32 v, io::MemoryStream* out) = 0;
+  virtual void Encode(const int64 v, io::MemoryStream* out) = 0;
+  virtual void Encode(const uint64 v, io::MemoryStream* out) = 0;
+  virtual void Encode(const double v, io::MemoryStream* out) = 0;
+  virtual void Encode(const string& str, io::MemoryStream* out) = 0;
+
+  // Writes the given data directly to the output stream, without encoding.
+  virtual void WriteRawObject(const io::MemoryStream& obj, io::MemoryStream* out) = 0;
+
+  // NOTE! without this function, const char* is silently converted to bool !!
+  void Encode(const char* v, io::MemoryStream* out) { Encode(string(v), out); }
 
   template<typename T>
-  void EncodeBody(const vector<T>& obj) {
+  void Encode(const vector<T>& obj, io::MemoryStream* out) {
     uint32 count = obj.size();
-    EncodeArrayStart(count);            // encode the items count
+    EncodeArrayStart(count, out);           // encode the items count
     for ( uint32 i = 0; i < count; i++ ) {
-      EncodeArrayElementStart();
-      Encode(obj[i]);               // encode the items themselves
-      EncodeArrayElementEnd();
-      if ( i + 1 < count ) {
-        EncodeArrayContinue();
+      if ( i > 0 ) {
+        EncodeArrayContinue(out);
       }
+      Encode(obj[i], out);                  // encode the items themselves
     }
-    EncodeArrayEnd();
+    EncodeArrayEnd(out);
   }
 
   template<typename K, typename V>
-  void EncodeBody(const map<K, V>& obj) {
-    uint32 count = obj.size();          // count
-    EncodeMapStart(count);              // encode the items count
+  void Encode(const map<K, V>& obj, io::MemoryStream* out) {
+    uint32 count = obj.size();             // count
+    EncodeMapStart(count, out);            // encode the items count
     uint32 i = 0;
     for ( typename map<K, V>::const_iterator it = obj.begin();
           it != obj.end(); ++it, ++i ) {
-      EncodeMapPairStart();
-      Encode(it->first);                // encode the key for an item
-      EncodeMapPairMiddle();
-      Encode(it->second);               // encode the value for an item
-      EncodeMapPairEnd();
+      EncodeMapPairStart(out);
+      Encode(it->first, out);              // encode the key for an item
+      EncodeMapPairMiddle(out);
+      Encode(it->second, out);             // encode the value for an item
+      EncodeMapPairEnd(out);
       if ( i + 1 < count ) {
-        EncodeMapContinue();
+        EncodeMapContinue(out);
       }
     }
-    EncodeMapEnd();
+    EncodeMapEnd(out);
   }
 
   // Encode a custom type object.
-  void EncodeBody(const rpc::Custom& obj) {
-    obj.SerializeSave(*this);
-  }
+  void Encode(const rpc::Custom& obj, io::MemoryStream* out);
 
- public:
-  // Generic method//
-  template <typename T>
-  void Encode(const T& obj) {
-    EncodeBody(obj);
-  }
-  // specialization for rpc::Message
-  void Encode(const rpc::Message& p) {
-    EncodePacket(p);
-  }
-
-  template <typename T>
-  uint32 EstimateEncodingSize(const T& obj) {
-    tmp_.Clear();
-
-    // switch to this output ..
-    io::MemoryStream* originalOut = out_;
-    out_ = &tmp_;
-
-    // encode the object (using the tmp buffer);
-    Encode(obj);
-
-    // switch back to original output
-    out_ = originalOut;
-
-    return tmp_.Size();
-  }
-
-  // Encode the given rpc::Message "p".
-  // This method has no reason to fail.
-  virtual void EncodePacket(const rpc::Message& p);
+  // Encode an rpc::Message.
+  void Encode(const rpc::Message& p, io::MemoryStream* out);
 
  protected:
-  // the original output stream (as given in constructor)
-  io::MemoryStream* out_;
-  // an additional buffer used to temporary encode
-  // an object for size measurement.
-  io::MemoryStream tmp_;
-
+  CodecId type_;
   DISALLOW_EVIL_CONSTRUCTORS(Encoder);
 };
 }

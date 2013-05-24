@@ -45,6 +45,7 @@ class Encoder;
 
 class Frame {
  public:
+  Frame();
   Frame(const FrameHeader& header);
   Frame(const Frame& other);
   virtual ~Frame();
@@ -52,6 +53,8 @@ class Frame {
   const FrameHeader& header() const;
   const io::MemoryStream& data() const;
   io::MemoryStream& mutable_data();
+
+  bool Equals(const Frame& other) const;
 
   TagDecodeStatus Decode(io::MemoryStream& in, Decoder& decoder);
   void Encode(io::MemoryStream& out, Encoder& encoder) const;

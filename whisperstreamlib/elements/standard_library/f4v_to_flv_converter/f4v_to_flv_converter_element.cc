@@ -140,10 +140,9 @@ const char F4vToFlvConverterElement::kElementClassName[] =
   "f4v_to_flv_converter";
 
 F4vToFlvConverterElement::F4vToFlvConverterElement(
-    const char* name, const char* id, ElementMapper* mapper,
+    const string& name, ElementMapper* mapper,
     net::Selector* selector)
-    : FilteringElement(kElementClassName, name, id, mapper, selector),
-      default_caps_(streaming::Tag::TYPE_FLV, kDefaultFlavourMask) {
+    : FilteringElement(kElementClassName, name, mapper, selector) {
 }
 F4vToFlvConverterElement::~F4vToFlvConverterElement() {
 }
@@ -152,50 +151,8 @@ bool F4vToFlvConverterElement::Initialize() {
   return true;
 }
 
-bool F4vToFlvConverterElement::HasMedia(const char* media_name,
-                                        Capabilities* out) {
-  if ( !FilteringElement::HasMedia(media_name, out) ) {
-    return true;
-  }
-  if (out->tag_type_ == streaming::Tag::TYPE_F4V) {
-    out->tag_type_ = default_caps_.tag_type_;
-  }
-  return true;
-}
-
-void F4vToFlvConverterElement::ListMedia(const char* media_dir,
-                                         ElementDescriptions* media) {
-  int initial_size = media->size();
-  FilteringElement::ListMedia(media_dir, media);
-  for ( int i = initial_size; i < media->size(); ++i ) {
-    if ( (*media)[i].second.tag_type_ == streaming::Tag::TYPE_F4V) {
-      (*media)[i].second.tag_type_ = default_caps_.tag_type_;
-    }
-  }
-}
-
-bool F4vToFlvConverterElement::AddRequest(const char* media,
-    streaming::Request* req, streaming::ProcessingCallback* callback) {
-  if ( !req->caps().IsCompatible(default_caps_) ) {
-    LOG_ERROR << name() << ": Incompatible caps"
-                 ", req: " << req->caps().ToString()
-              << ", ours: " << default_caps_.ToString();
-    return false;
-  }
-  Tag::Type original_tag_type = req->caps().tag_type_;
-  req->mutable_caps()->tag_type_ = streaming::Tag::TYPE_F4V;
-  if ( !FilteringElement::AddRequest(media, req, callback) ) {
-    req->mutable_caps()->tag_type_ = original_tag_type;
-    return false;
-  }
-  LOG_INFO << "Modifyined caps tag_type from ["
-           << original_tag_type << " to TYPE_F4V on request media: ["
-           << req->info().path_ << "]";
-  return true;
-}
-
 FilteringCallbackData* F4vToFlvConverterElement::CreateCallbackData(
-    const char* media_name, streaming::Request* req) {
+    const string& media_name, streaming::Request* req) {
   return new ClientCallbackData(media_name);
 }
 

@@ -278,7 +278,7 @@ bool Header::ParseHeader(io::MemoryStream* io,
 bool Header::ReadFirstLine(io::MemoryStream* io,
                            FirstLineType expected_first_line) {
   string line;
-  if ( !io->ReadCRLFLine(&line) ) {
+  if ( !io->ReadLine(&line) ) {
     set_parse_error(READ_NO_DATA);
     return false;
   }
@@ -286,11 +286,7 @@ bool Header::ReadFirstLine(io::MemoryStream* io,
              << strutil::JsonStrEscape(line.data(),
                                        min(static_cast<size_t>(line.size()),
                                            static_cast<size_t>(0x100U))) << "]";
-  DCHECK_GE(line.size(), 2);  // at least CRLF
-  bytes_parsed_ += line.size();
-
-  // Cut the last CRLF
-  line.resize(line.size() - 2);
+  bytes_parsed_ += line.size(); // without CRLF
 
   // We have three ' ' separated tokens. The meaning of each depend
   // on the type of line (status vs. request)
@@ -419,11 +415,8 @@ bool Header::AddCrtParsingData() {
 
 bool Header::ReadHeaderFields(io::MemoryStream* io) {
   string line;
-  while ( io->ReadCRLFLine(&line) ) {
-    DCHECK_GE(line.size(), 2);  // at least CRLF
-    bytes_parsed_ += line.size();
-    // Cut the last CRLF
-    line.resize(line.size() - 2);
+  while ( io->ReadLine(&line) ) {
+    bytes_parsed_ += line.size(); // without CRLF
 
     // Process the line:
     if ( line.empty() ) {
@@ -559,7 +552,7 @@ bool Header::SetAuthorizationField(const string& user,
 
 static const char kChunked[] = "chunked";
 bool Header::IsChunkedTransfer() const {
-  return strutil::StrCasePrefix(
+  return strutil::StrIStartsWith(
     strutil::StrTrim(FindField(kHeaderTransferEncoding)).c_str(),
     kChunked);
 }
@@ -574,12 +567,12 @@ void Header::SetChunkedTransfer(bool is_chunked) {
 static const char kGzip[] = "gzip";
 static const char kDeflate[] = "deflate";
 bool Header::IsGzipContentEncoding() const {
-  return strutil::StrCasePrefix(
+  return strutil::StrIStartsWith(
     strutil::StrTrim(FindField(kHeaderContentEncoding)).c_str(),
     kGzip);
 }
 bool Header::IsDeflateContentEncoding() const {
-  return strutil::StrCasePrefix(
+  return strutil::StrIStartsWith(
     strutil::StrTrim(FindField(kHeaderContentEncoding)).c_str(),
     kDeflate);
 }
@@ -592,7 +585,7 @@ void Header::SetContentEncoding(const char* encoding) {
 }
 
 bool Header::IsKeepAliveConnection() const {
-  return strutil::StrCasePrefix(
+  return strutil::StrIStartsWith(
     strutil::StrTrim(FindField(kHeaderConnection)).c_str(),
     "keep-alive");
 }
@@ -629,7 +622,7 @@ float Header::GetHeaderAcceptance(const string& field,
     strutil::SplitString(components[i], ";", &specs);
     float crt_quality = 1.0f;
     for ( int i = 1; i < specs.size(); i++ ) {
-      if ( strutil::StrPrefix(specs[i].c_str(), "q=") ) {
+      if ( strutil::StrStartsWith(specs[i].c_str(), "q=") ) {
         crt_quality = strtof(specs[i].c_str() + 2, NULL);
       }
     }
@@ -671,9 +664,9 @@ bool Header::IsZippableContentType() const {
   if ( !s ) {
     return false;
   }
-  if ( strutil::StrCasePrefix(s, "text/") )
+  if ( strutil::StrIStartsWith(s, "text/") )
     return true;
-  if ( strutil::StrCasePrefix(s, "application/") )
+  if ( strutil::StrIStartsWith(s, "application/") )
     return true;
   return false;
 }

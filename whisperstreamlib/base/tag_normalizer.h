@@ -86,7 +86,7 @@ class TagNormalizer {
   bool is_flow_control_first_tag_;
   int64 flow_control_first_tag_time_;
 
-  util::Alarm unpause_flow_control_alarm_;
+  ::util::Alarm unpause_flow_control_alarm_;
 
   DISALLOW_EVIL_CONSTRUCTORS(TagNormalizer);
 };

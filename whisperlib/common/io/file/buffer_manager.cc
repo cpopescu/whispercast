@@ -203,7 +203,7 @@ BufferManager::CreateNewBufferLocked(const string& data_key) {
 BufferManager::Buffer*
 BufferManager::ReDesignateOldestBufferLocked(const string& data_key) {
   if ( usage_set_.empty() ) {
-    return false;
+    return NULL;
   }
   // Get the first buffer from the front of the set
   Buffer* buf = usage_set_.begin()->second;

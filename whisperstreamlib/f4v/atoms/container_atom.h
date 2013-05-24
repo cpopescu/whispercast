@@ -66,14 +66,16 @@ class ContainerAtom : public BaseAtom {
   /////////////////////////////////////////////////////////////
   // AtomBase methods
   //
- protected:
+ public:
+  virtual bool EqualsBody(const BaseAtom& other) const;
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
   virtual BaseAtom* Clone() const = 0;
+  virtual uint64 MeasureBodySize() const;
+ protected:
   virtual TagDecodeStatus DecodeBody(uint64 size,
                                      io::MemoryStream& in,
                                      Decoder& decoder);
   virtual void EncodeBody(io::MemoryStream& out, Encoder& encoder) const;
-  virtual uint64 MeasureBodySize() const;
   virtual string ToStringBody(uint32 indent) const;
 
  private:

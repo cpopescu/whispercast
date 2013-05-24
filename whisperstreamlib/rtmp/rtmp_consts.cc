@@ -52,9 +52,27 @@ const char* EventTypeName(EventType ev) {
     CONSIDER(EVENT_SHARED_OBJECT);
     CONSIDER(EVENT_INVOKE);
     CONSIDER(EVENT_MEDIA_DATA);
-    CONSIDER(EVENT_INVALID);
   }
   return "EVENT_TYPE_UNKNOWN";
+}
+bool IsValidEventType(EventType ev) {
+  switch ( ev ) {
+    case EVENT_CHUNK_SIZE:
+    case EVENT_BYTES_READ:
+    case EVENT_PING:
+    case EVENT_SERVER_BANDWIDTH:
+    case EVENT_CLIENT_BANDWIDTH:
+    case EVENT_AUDIO_DATA:
+    case EVENT_VIDEO_DATA:
+    case EVENT_FLEX_SHARED_OBJECT:
+    case EVENT_FLEX_MESSAGE:
+    case EVENT_NOTIFY:
+    case EVENT_SHARED_OBJECT:
+    case EVENT_INVOKE:
+    case EVENT_MEDIA_DATA:
+      return true;
+  }
+  return false;
 }
 
 const char* EventSubTypeName(EventSubType st) {

@@ -215,6 +215,24 @@ void Avc1Atom::EncodeData(io::MemoryStream& out, Encoder& encoder) const {
 uint64 Avc1Atom::MeasureDataSize() const {
   return kDataSize;
 }
+bool Avc1Atom::EqualsData(const ContainerVersionedAtom& other) const {
+  const Avc1Atom& a = static_cast<const Avc1Atom&>(other);
+  return reserved_ == a.reserved_ &&
+         reference_index_ == a.reference_index_ &&
+         qt_video_encoding_version_ == a.qt_video_encoding_version_ &&
+         qt_video_encoding_revision_level_ == a.qt_video_encoding_revision_level_ &&
+         qt_v_encoding_vendor_ == a.qt_v_encoding_vendor_ &&
+         qt_video_temporal_quality_ == a.qt_video_temporal_quality_ &&
+         qt_video_spatial_quality_ == a.qt_video_spatial_quality_ &&
+         video_frame_pixel_size_ == a.video_frame_pixel_size_ &&
+         horizontal_dpi_ == a.horizontal_dpi_ &&
+         vertical_dpi_ == a.vertical_dpi_ &&
+         qt_video_data_size_ == a.qt_video_data_size_ &&
+         video_frame_count_ == a.video_frame_count_ &&
+         video_encoder_name_ == a.video_encoder_name_ &&
+         video_pixel_depth_ == a.video_pixel_depth_ &&
+         qt_video_color_table_id_ == a.qt_video_color_table_id_;
+}
 string Avc1Atom::ToStringData(uint32 indent) const {
   ostringstream oss;
   oss << "reserved_: " << reserved_

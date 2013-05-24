@@ -47,17 +47,12 @@ namespace streaming {
 class HttpClientElementData;
 class HttpClientElement : public Element {
  public:
-  typedef map<string, string>  Host2IpMap;
-
   // Creates a new http source. If splitter_creation_callback is NULL
   // we use a default creator based on the content type and standard
   // splitters.
-  HttpClientElement(const char* name,
-                    const char* id,
+  HttpClientElement(const string& name,
                     ElementMapper* mapper,
                     net::Selector* selector,
-                    const Host2IpMap* host_aliases,
-                    streaming::SplitterCreator* splitter_creator,
                     const int32 prefill_buffer_ms = 3000,
                     const int32 advance_media_ms = 2000,
                     int media_http_maximum_tag_size = 1 << 18);
@@ -68,27 +63,26 @@ class HttpClientElement : public Element {
   // IMPORTANT NOTE: upon creation and obtaining the http header
   //    we will check if we got a correct HTTP response code. If not,
   //    we retry to open the element.
-  bool AddElement(const char* name,
-                  const char* server_name,
+  bool AddElement(const string& name,
+                  const string& server_name,
                   const uint16 server_port,
-                  const char* url_escaped_query_path,
+                  const string& url_escaped_query_path,
                   bool should_reopen,
                   bool fetch_only_on_request,
-                  Tag::Type tag_type,
                   const http::ClientParams* client_params = NULL);
-  bool DeleteElement(const char* name);
+  bool DeleteElement(const string& name);
   // Sets the user and password for accessing a remote path
-  bool SetElementRemoteUser(const char* name,
-                            const char* user_name,
-                            const char* password);
+  bool SetElementRemoteUser(const string& name,
+                            const string& user_name,
+                            const string& password);
 
   // streaming::Element interface methods
   virtual bool Initialize() { return true; }
-  virtual bool AddRequest(const char* media, Request* req,
+  virtual bool AddRequest(const string& media, Request* req,
                           ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir, ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 
@@ -104,8 +98,6 @@ class HttpClientElement : public Element {
  private:
   net::Selector* const selector_;
   net::NetFactory net_factory_;
-  const Host2IpMap* const host_aliases_;
-  SplitterCreator* splitter_creator_;
 
   typedef map<string, HttpClientElementData*> ElementMap;
   typedef map<streaming::Request*, HttpClientElementData*> RequestMap;

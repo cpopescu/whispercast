@@ -47,8 +47,7 @@ namespace streaming {
 
 class StreamRenamerElement : public FilteringElement {
  public:
-   StreamRenamerElement(const char* name,
-                        const char* id,
+   StreamRenamerElement(const string& name,
                         ElementMapper* mapper,
                         net::Selector* selector,
                         const string& pattern,
@@ -62,14 +61,13 @@ class StreamRenamerElement : public FilteringElement {
  protected:
   //////////////////////////////////////////////////////////////////
   // FilteringElement methods
-  virtual FilteringCallbackData* CreateCallbackData(const char* media_name,
+  virtual FilteringCallbackData* CreateCallbackData(const string& media_name,
                                                     Request* req);
 
   //////////////////////////////////////////////////////////////////
   // Element methods
-  virtual bool AddRequest(const char* media,
-                          streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
 
  private:
   const string pattern_;

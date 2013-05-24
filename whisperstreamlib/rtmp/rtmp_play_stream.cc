@@ -30,6 +30,7 @@
 
 #include <whisperlib/net/url/url.h>
 #include <whisperlib/common/base/gflags.h>
+#include <whisperstreamlib/base/media_info_util.h>
 #include <whisperstreamlib/rtmp/rtmp_play_stream.h>
 
 #define RTMP_LOG(level) if ( connection_->flags().log_level_ < level ); \
@@ -60,19 +61,12 @@ PlayStream::PlayStream(const StreamParams& params,
           connection->flags().max_write_ahead_ms_),
       seeking_(false),
       seek_alarm_(*net_selector_),
+      handle_stream_not_found_alarm_(*net_selector_),
       f4v2flv_(),
       f4v_cue_point_number_(0),
-      video_codec_((streaming::FlvFlagVideoCodec)0),
-      video_frame_type_((streaming::FlvFlagVideoFrameType)0),
-      media_build_state_(WAITING_VIDEO),
-      composed_media_data_tag_delta_(0),
-      media_event_size_(0),
-      media_event_timestamp_ms_(0),
-      media_event_duration_ms_(0),
-      bootstrapping_(false),
-      send_reset_audio_(true),
-      send_reset_pings_(true),
-      send_switch_media_(false) {
+      dropping_interframes_(true),
+      first_tag_ts_(-1),
+      first_media_segment_(true) {
 }
 
 PlayStream::~PlayStream() {
@@ -84,12 +78,12 @@ void PlayStream::NotifyOutbufEmpty(int32 outbuf_size) {
   ProcessLocalizedTags();
 }
 
-bool PlayStream::ProcessEvent(Event* event, int64 timestamp_ms) {
+bool PlayStream::ProcessEvent(const Event* event, int64 timestamp_ms) {
   CHECK(net_selector_->IsInSelectThread());
 
   if ( event->event_type() == EVENT_INVOKE ) {
     RTMP_LOG_INFO << "INVOKE - " << event->ToString();
-    EventInvoke* invoke = static_cast<EventInvoke *>(event);
+    const EventInvoke* invoke = static_cast<const EventInvoke *>(event);
     const string& method = invoke->call()->method_name();
     if ( method == kMethodPlay )     { return InvokePlay(invoke); }
     if ( method == kMethodPause ||
@@ -100,7 +94,7 @@ bool PlayStream::ProcessEvent(Event* event, int64 timestamp_ms) {
   }
   if ( event->event_type() == EVENT_FLEX_MESSAGE ) {
     RTMP_LOG_INFO << "INVOKE - " << event->ToString();
-    EventFlexMessage* flex = static_cast<EventFlexMessage *>(event);
+    const EventFlexMessage* flex = static_cast<const EventFlexMessage *>(event);
     if ( flex->data().empty() ||
          flex->data()[0]->object_type() != CObject::CORE_STRING ) {
       RTMP_LOG_WARNING << "Invalid INVOKE: " << event->ToString();
@@ -131,7 +125,16 @@ bool PlayStream::InvokePlay(const EventInvoke* invoke) {
   const string stream_name = URL::UrlUnescape(
       static_cast<const CString*>(invoke->call()->arguments()[0])->value());
 
-  return ProcessPlay(stream_name, 0);
+  // reject missing stream without trying AddRequest()
+  if ( IsMissingStream(stream_name) ) {
+    stream_name_ = stream_name;
+    handle_stream_not_found_alarm_.Set(
+        NewPermanentCallback(this,&PlayStream::HandleStreamNotFound),
+        true, connection_->flags().reject_delay_ms_, false, true);
+    return true;
+  }
+
+  return ProcessPlay(stream_name);
 }
 bool PlayStream::FlexPlay(const EventFlexMessage* flex) {
   CHECK(net_selector_->IsInSelectThread());
@@ -144,7 +147,7 @@ bool PlayStream::FlexPlay(const EventFlexMessage* flex) {
   const string stream_name = URL::UrlUnescape(
            static_cast<const CString*>(flex->data()[3])->value());
 
-  return ProcessPlay(stream_name, 0);
+  return ProcessPlay(stream_name);
 }
 
 //////////
@@ -207,13 +210,13 @@ bool PlayStream::FlexSeek(const EventFlexMessage* flex) {
 
 //////////////////////////////////////////////////////////////////////
 
-bool PlayStream::ProcessPlay(const string& stream_name, int64 seek_time_ms) {
+bool PlayStream::ProcessPlay(const string& stream_name) {
   CHECK(net_selector_->IsInSelectThread());
   if ( state_ != STATE_CREATED ) {
     return false;
   }
 
-  HandlePlay(stream_name, seek_time_ms);
+  HandlePlay(stream_name);
   return true;
 }
 
@@ -251,32 +254,23 @@ bool PlayStream::ProcessSeek(int64 seek_time_ms) {
 
 //////////
 
-void PlayStream::HandlePlay(string stream_name, int64 seek_time_ms,
-    bool dec_ref) {
+void PlayStream::HandlePlay(string stream_name, bool dec_ref) {
   if ( !media_selector_->IsInSelectThread() ) {
     IncRef();
     media_selector_->RunInSelectLoop(NewCallback(this, &PlayStream::HandlePlay,
-        stream_name, seek_time_ms, true));
+        stream_name, true));
     return;
   }
   Stream::AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
-  DCHECK(request_ == NULL);
+  CHECK_NULL(request_);
 
   stream_name_ = stream_name;
 
-  if ( params_.application_url_.empty() ) {
-    params_.application_url_ = "rtmp://internal/";
-  }
-
-  URL full_url(params_.application_url_+
-      (params_.application_url_[params_.application_url_.length()-1] != '/' ?
-          "/" : "") + stream_name);
+  URL full_url(strutil::JoinPaths(params().application_url_, stream_name));
 
   request_ = new streaming::Request(full_url);
   request_->mutable_info()->remote_address_ = connection_->remote_address();
   request_->mutable_info()->local_address_ = connection_->local_address();
-  request_->mutable_info()->seek_pos_ms_ = seek_time_ms;
-  request_->mutable_caps()->tag_type_ = streaming::Tag::TYPE_FLV;
 
   request_->mutable_info()->auth_req_.net_address_ =
       connection_->remote_address().ToString();
@@ -314,13 +308,8 @@ void PlayStream::HandlePause(bool pause, bool dec_ref) {
   } else {
     RTMP_LOG_INFO << "Notifying UNPAUSE";
 
-    // the pings are going through stream 0 (system stream)...
-    connection_->system_stream()->SendEvent(
-        connection_->CreateClearBufferPing(0, stream_id()).get());
-    connection_->system_stream()->SendEvent(
-        connection_->CreateResetPing(0, stream_id()).get());
-    connection_->system_stream()->SendEvent(
-        connection_->CreateClearPing(0, stream_id()).get());
+    SendClearBuffer();
+    SendResetPings(-1);
 
     SendEvent(
       connection_->CreateStatusEvent(
@@ -362,30 +351,37 @@ void PlayStream::HandleSeek(int64 seek_time_ms, bool dec_ref) {
           stream_id(), kChannelReply, 0,
           "NetStream.Seek.Failed", "Seek failed",
           stream_name_.c_str()).get(), -1, NULL, true);
+    return;
   }
-  seeking_ = true;
 
+  seeking_ = true;
   RTMP_LOG_INFO << "Seeking to " << seek_time_ms;
   controller->Seek(seek_time_ms);
 
   const bool was_paused = (state_ == STATE_PAUSED);
   set_state(STATE_PLAYING);
 
-  if ( was_paused && controller != NULL && controller->SupportsPause() ) {
+  if ( was_paused ) {
     controller->Pause(false);
   }
 }
 
-//////////////////////////////////////////////////////////////////////
-
-void PlayStream::OnStreamNotFound() {
-  RTMP_LOG_DEBUG << "Notifying STREAM NOT FOUND";
-
+void PlayStream::HandleStreamNotFound() {
   SendEvent(
     connection_->CreateStatusEvent(
         stream_id(), kChannelReply, 0,
         "NetStream.Play.StreamNotFound", "Export not found",
         stream_name_.c_str()).get(), -1, NULL, true);
+  CloseInternal();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void PlayStream::OnStreamNotFound() {
+  RTMP_LOG_DEBUG << "Notifying STREAM NOT FOUND: [" << stream_name_ << "]";
+
+  AddMissingStream(stream_name_);
+  HandleStreamNotFound();
 }
 void PlayStream::OnTooManyClients() {
   RTMP_LOG_DEBUG << "Notifying TOO MANY CLIENTS";
@@ -393,26 +389,30 @@ void PlayStream::OnTooManyClients() {
   SendEvent(
     connection_->CreateStatusEvent(
         stream_id(), kChannelReply, 0,
-        "NetStream.Play.Failed", "Too many requests",
+        "NetStream.Play.StreamNotFound", "Too many requests",
         stream_name_.c_str()).get(), -1, NULL, true);
+  CloseInternal();
 }
-void PlayStream::OnAuthorizationFailed(bool is_reauthorization) {
+void PlayStream::OnAuthorizationFailed() {
   RTMP_LOG_DEBUG << "Notifying AUTHORIZATION FAILED";
 
   SendEvent(
     connection_->CreateStatusEvent(
         stream_id(), kChannelReply, 0,
-        "NetStream.Play.Failed", "Authorization failed",
+        "NetStream.Play.StreamNotFound", "Authorization failed",
         stream_name_.c_str()).get(), -1, NULL, true);
+  CloseInternal();
 }
 void PlayStream::OnAddRequestFailed() {
   RTMP_LOG_DEBUG << "Notifying ADD REQUEST FAILED";
 
+  AddMissingStream(stream_name_);
   SendEvent(
     connection_->CreateStatusEvent(
         stream_id(), kChannelReply, 0,
         "NetStream.Play.StreamNotFound", "Stream not found",
         stream_name_.c_str()).get(), -1, NULL, true);
+  CloseInternal();
 }
 
 void PlayStream::OnPlay() {
@@ -513,33 +513,18 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
   }
 
   if ( tag->type() == streaming::Tag::TYPE_SOURCE_STARTED ) {
-    send_reset_audio_ = true;
     return;
   }
   if ( tag->type() == streaming::Tag::TYPE_SOURCE_ENDED ) {
-    send_switch_media_ = true;
-    return;
-  }
-  if ( tag->type() == streaming::Tag::TYPE_FLUSH ) {
-    send_reset_audio_ = true;
-    send_reset_pings_ = true;
+    //SendSwitchMedia(tag_timestamp_ms);
     return;
   }
   if ( tag->type() == streaming::Tag::TYPE_SEEK_PERFORMED ) {
     if ( seeking_ ) {
       seeking_ = false;
       // the pings are going through stream 0 (system stream)...
-      connection_->system_stream()->SendEvent(
-          connection_->CreateClearBufferPing(0, stream_id()).get(),
-          -1, NULL, true);
-      connection_->system_stream()->SendEvent(
-          connection_->CreateResetPing(0, stream_id()).get(),
-          -1, NULL, true);
-      connection_->system_stream()->SendEvent(
-          connection_->CreateClearPing(0, stream_id()).get(),
-          tag_timestamp_ms,  NULL, true);
-
-      send_reset_pings_ = false;
+      SendClearBuffer();
+      SendResetPings(tag_timestamp_ms);
 
       SendEvent(
         connection_->CreateStatusEvent(
@@ -565,79 +550,28 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
     return;
   }
 
-  if ( tag->type() == streaming::Tag::TYPE_BOOTSTRAP_BEGIN ) {
-    bootstrapping_ = true;
-    // reset this, as we want it to be recomputed
-    video_codec_ = (streaming::FlvFlagVideoCodec)0;
-    return;
-  }
-  if ( tag->type() == streaming::Tag::TYPE_BOOTSTRAP_END ) {
-    bootstrapping_ = false;
-    // check if we need to send the bootstrap end FLV video stuff
-    if ( video_codec_ != (streaming::FlvFlagVideoCodec)0 ) {
-      /* TODO: Clarify why is this corrupting display
-      // send the bootstrap end signal
-      scoped_ref<streaming::FlvTag> video(
-          new streaming::FlvTag(
-              streaming::Tag::ATTR_VIDEO | streaming::Tag::ATTR_CAN_RESYNC,
-              streaming::kDefaultFlavourMask,
-              tag_timestamp_ms, streaming::FLV_FRAMETYPE_VIDEO));
-      char d[2];
-      d[0] = (video_frame_type_ << 4) | video_codec_;
-      d[1] = 0x01;
-      video.get()->mutable_video_body().append_data(d, 2);
-
-      SendFlvTag(
-          video.get(), tag_timestamp_ms);
-      */
+  if ( tag->type() == streaming::Tag::TYPE_MEDIA_INFO ) {
+    const streaming::MediaInfoTag* info_tag =
+        static_cast<const streaming::MediaInfoTag*>(tag);
+    scoped_ref<streaming::FlvTag> flv_tag;
+    if ( !streaming::util::ComposeFlv(info_tag->info(), &flv_tag) ) {
+      LOG_ERROR << "Failed to compose Metadata from MediaInfo: "
+                << info_tag->info().ToString()
+                << " . Closing connection.";
+      Close();
+      return;
     }
+    // send reset events before metadata! because these events reset
+    // all stream properties (set by any previous metadata).
+    if ( !first_media_segment_ ) {
+      SendSwitchMedia(tag_timestamp_ms);
+    }
+    first_media_segment_ = false;
+    SendResetAudio(tag_timestamp_ms);
+    SendResetPings(tag_timestamp_ms);
+    SendFlvTag(flv_tag.get(), tag_timestamp_ms);
     return;
   }
-
-  if ( send_switch_media_ ) {
-    SendEvent(
-        connection_->CreateStatusEvent(
-          stream_id(),
-          kChannelReply,
-          0,
-          "NetStream.Play.Complete", "SWITCH",
-          stream_name_.c_str()).get(),
-          tag_timestamp_ms,  NULL, true);
-    SendEvent(
-        connection_->CreateStatusEvent(
-          stream_id(),
-          kChannelReply,
-          0,
-          "NetStream.Play.Switch", "SWITCH",
-          stream_name_.c_str()).get(),
-          tag_timestamp_ms,  NULL, true);
-    send_switch_media_ = false;
-  }
-
-  if ( send_reset_pings_ ) {
-    // the pings are going through stream 0 (system stream)...
-    connection_->system_stream()->SendEvent(
-        connection_->CreateResetPing(0, stream_id()).get(),
-        -1, NULL, true);
-    connection_->system_stream()->SendEvent(
-        connection_->CreateClearPing(0, stream_id()).get(),
-        tag_timestamp_ms,  NULL, true);
-
-    send_reset_pings_ = false;
-  }
-
-  if ( send_reset_audio_ ) {
-    // send an empty audio tag
-    scoped_ref<streaming::FlvTag> audio(
-        new streaming::FlvTag(
-            streaming::Tag::ATTR_AUDIO | streaming::Tag::ATTR_CAN_RESYNC,
-            streaming::kDefaultFlavourMask,
-            tag_timestamp_ms, streaming::FLV_FRAMETYPE_AUDIO));
-    SendFlvTag(audio.get(), tag_timestamp_ms);
-
-    send_reset_audio_ = false;
-  }
-
   if ( tag->type() == streaming::Tag::TYPE_FLV ) {
     const streaming::FlvTag* flv_tag =
         static_cast<const streaming::FlvTag*>(tag);
@@ -672,90 +606,43 @@ void PlayStream::SendSimpleTag(const streaming::Tag* tag,
 //////////////////////////////////////////////////////////////////////
 
 void PlayStream::SendFlvTag(const streaming::FlvTag* flv_tag,
-                                       int64 tag_timestamp_ms) {
+                            int64 tag_timestamp_ms) {
   DCHECK(net_selector_->IsInSelectThread());
-
-  // check if we need to send the bootstrap begin FLV video stuff
-  if ( bootstrapping_ && (video_codec_ == (streaming::FlvFlagVideoCodec)0) ) {
-    if ( flv_tag->body().type() == streaming::FLV_FRAMETYPE_VIDEO ) {
-      // ignore H264 sequence headers
-      if ( flv_tag->video_body().video_codec() !=
-          streaming::FLV_FLAG_VIDEO_CODEC_AVC ||
-          flv_tag->video_body().video_avc_packet_type() !=
-              streaming::AVC_SEQUENCE_HEADER ) {
-        video_codec_ = flv_tag->video_body().video_codec();
-        video_frame_type_ = flv_tag->video_body().video_frame_type();
-
-        /* TODO: Clarify why is this corrupting display
-        // send the bootstrap begin signal
-        scoped_ref<streaming::FlvTag> video(
-            new streaming::FlvTag(
-                streaming::Tag::ATTR_VIDEO | streaming::Tag::ATTR_CAN_RESYNC,
-                streaming::kDefaultFlavourMask,
-                tag_timestamp_ms, streaming::FLV_FRAMETYPE_VIDEO));
-        char d[2];
-        d[0] = (video_frame_type_ << 4) | video_codec_;
-        d[1] = 0x00;
-        video.get()->mutable_video_body().append_data(d, 2);
-
-        SendFlvTag(
-            video.get(), tag_timestamp_ms);
-        */
-      }
-    }
-  }
 
   scoped_ref<BulkDataEvent> event;
 
   stats_keeper_.bytes_up_add(flv_tag->size());
 
-  const MediaBuildState initial_media_build_state = media_build_state_;
   const io::MemoryStream* flv_tag_data = NULL;
   switch ( flv_tag->body().type() ) {
     case streaming::FLV_FRAMETYPE_AUDIO: {
       const streaming::FlvTag::Audio& audio_body = flv_tag->audio_body();
       flv_tag_data = &audio_body.data();
-      event = new EventAudioData(connection_->mutable_protocol_data(),
-                                       kChannelAudio,
-                                       stream_id());
-      if ( media_build_state_ == WAITING_AUDIO ) {
-        if ( (tag_timestamp_ms - composed_media_data_tag_delta_) > 1000 ) {
-          media_build_state_ = BUILDING_MEDIA;
-        }
-      }
+      event = new EventAudioData(
+          Header(kChannelAudio, stream_id(), EVENT_AUDIO_DATA, 0, false));
       break;
     }
     case streaming::FLV_FRAMETYPE_VIDEO: {
       const streaming::FlvTag::Video& video_body = flv_tag->video_body();
       flv_tag_data = &video_body.data();
-      if ( media_build_state_ == WAITING_VIDEO ) {
-        if ( video_body.video_frame_type() !=
-             streaming::FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ) {
-          RTMP_LOG_INFO << "Dropping flv_tag waiting for first media keyframe: "
-                   << flv_tag->ToString();
-          return;
-        }
-        composed_media_data_tag_delta_ = tag_timestamp_ms;
+      if ( dropping_interframes_ && video_body.frame_type() !=
+               streaming::FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ) {
+        RTMP_LOG_INFO << "Dropping flv_tag waiting for first media keyframe: "
+                      << flv_tag->ToString();
+        return;
       }
-
-      event = new EventVideoData(connection_->mutable_protocol_data(),
-                                       kChannelVideo,
-                                       stream_id());
-      if ( media_build_state_ == WAITING_VIDEO &&
-           video_body.video_frame_type() ==
-               streaming::FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME &&
-           !(video_body.video_codec() ==
-               streaming::FLV_FLAG_VIDEO_CODEC_AVC &&
-             video_body.video_avc_packet_type() ==
-                 streaming::AVC_SEQUENCE_HEADER) ) {
-        media_build_state_ = WAITING_AUDIO;
+      dropping_interframes_ = false;
+      event = new EventVideoData(
+          Header(kChannelVideo, stream_id(), EVENT_VIDEO_DATA, 0, false));
+      if ( first_tag_ts_ == -1 && video_body.frame_type() ==
+               streaming::FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ) {
+        first_tag_ts_ = tag_timestamp_ms;
       }
       break;
     }
     case streaming::FLV_FRAMETYPE_METADATA: {
-      event = new EventStreamMetadata(connection_->mutable_protocol_data(),
-                                            kChannelMetadata,
-                                            stream_id());
+      event = new EventStreamMetadata(Header(kChannelMetadata, stream_id(),
+          EVENT_STREAM_METAEVENT, 0, false));
       flv_tag->metadata_body().Encode(event->mutable_data());
       break;
     }
@@ -769,26 +656,28 @@ void PlayStream::SendFlvTag(const streaming::FlvTag* flv_tag,
   }
 
   // Force a write on the media event before a metadata to some the messups
-  if ( media_event_.get() != NULL &&
-       flv_tag->body().type() == streaming::FLV_FRAMETYPE_METADATA ) {
-    RTMP_LOG_DEBUG << "Forcing a media event out: " << media_event_->ToString()
-                   << " To make way for a METADATA: " << flv_tag->ToString();
-    // Finalize it first ...
-    SendMediaTag();
+  if ( flv_tag->body().type() == streaming::FLV_FRAMETYPE_METADATA ) {
+    if ( media_event_.get() != NULL ) {
+      RTMP_LOG_DEBUG << "Forcing a media event out: " << media_event_->ToString()
+                     << " to make way for a METADATA: " << flv_tag->ToString();
+      // Finalize it first ...
+      SendMediaTag();
+    }
+    // send Metadata
+    SendEvent(event.get(), tag_timestamp_ms, flv_tag_data, true);
+    return;
   }
 
-  if ( flv_tag->body().type() != streaming::FLV_FRAMETYPE_METADATA &&
-       initial_media_build_state == BUILDING_MEDIA &&
-       (media_event_.get() != NULL ||
-           flv_tag->body().type() != streaming::FLV_FRAMETYPE_VIDEO) &&
-       connection_->flags().media_chunk_size_ms_ != 0 ) {
-    event = NULL;
+  if ( connection_->flags().media_chunk_size_ms_ > 0 &&
+       tag_timestamp_ms - first_tag_ts_ > 1000 ) {
+    // accumulate & send MediaDataEvent
     if ( AppendToMediaTag(flv_tag, tag_timestamp_ms) ) {
       SendMediaTag();
     }
     return;
   }
 
+  // send a simple event
   SendEvent(event.get(), tag_timestamp_ms, flv_tag_data, true);
 }
 
@@ -797,66 +686,70 @@ bool PlayStream::AppendToMediaTag(const streaming::FlvTag* flv_tag,
   DCHECK(net_selector_->IsInSelectThread());
 
   if ( media_event_.get() == NULL ) {
-    media_event_ = new MediaDataEvent(
-        new Header(connection_->mutable_protocol_data()));
-
-    media_event_->mutable_header()->set_channel_id(kChannelMetadata);
-    media_event_->mutable_header()->set_stream_id(stream_id());
-    media_event_->mutable_header()->set_event_type(EVENT_MEDIA_DATA);
-    media_event_->mutable_header()->set_event_size(0);
-
-    media_event_timestamp_ms_ = tag_timestamp_ms;
-    media_event_duration_ms_ = 0;
-  } else {
-    CHECK_GE(media_event_size_, 0);
-    io::NumStreamer::WriteInt32(media_event_->mutable_data(),
-                                media_event_size_, common::BIGENDIAN);
+    media_event_ = new MediaDataEvent(Header(kChannelMetadata, stream_id(),
+        EVENT_MEDIA_DATA, 0, false));
   }
+  media_event_->EncodeAddTag(*flv_tag, tag_timestamp_ms);
 
-  const int32 original_size = media_event_->data().Size();
-  io::NumStreamer::WriteByte(media_event_->mutable_data(),
-                             flv_tag->body().type());
-  io::NumStreamer::WriteUInt24(media_event_->mutable_data(),
-                               flv_tag->body().Size(), common::BIGENDIAN);
-  const int32 timestamp = tag_timestamp_ms
-                          - composed_media_data_tag_delta_;
-  io::NumStreamer::WriteUInt24(media_event_->mutable_data(),
-                               timestamp & 0xFFFFFF,
-                               common::BIGENDIAN);
-  io::NumStreamer::WriteByte(media_event_->mutable_data(),
-                             (timestamp >> 24) & 0xFF);
-  io::NumStreamer::WriteUInt24(media_event_->mutable_data(),
-                               flv_tag->stream_id(), common::BIGENDIAN);
-  flv_tag->body().Encode(media_event_->mutable_data());
-
-  media_event_duration_ms_ = tag_timestamp_ms - media_event_timestamp_ms_;
-  media_event_size_ = media_event_->data().Size() - original_size;
-
-  if ( media_event_duration_ms_ < 0 ||
-       media_event_duration_ms_ > connection_->flags().media_chunk_size_ms_ ||
-       (flv_tag->body().type() == streaming::FLV_FRAMETYPE_VIDEO &&
-        flv_tag->video_body().video_frame_type() ==
-          streaming::FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME) ) {
-    return true;
-  }
-  return false;
+  return media_event_->duration_ms() > connection_->flags().media_chunk_size_ms_ ||
+         (flv_tag->body().type() == streaming::FLV_FRAMETYPE_VIDEO &&
+          flv_tag->video_body().frame_type() ==
+            streaming::FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME) ;
 }
 
 void PlayStream::SendMediaTag() {
   DCHECK(net_selector_->IsInSelectThread());
   CHECK_NOT_NULL(media_event_.get());
 
-  // Finalize with a pure 0...
-  io::NumStreamer::WriteInt32(media_event_->mutable_data(), 0,
-                              common::BIGENDIAN);
-
-  media_event_->mutable_header()->set_event_size(media_event_->data().Size());
-  SendEvent(media_event_.get(), media_event_timestamp_ms_, NULL, true);
+  media_event_->EncodeFinalize();
+  SendEvent(media_event_.get(), media_event_->first_tag_ts(), NULL, true);
 
   media_event_ = NULL;
-  media_event_size_ = 0;
-  media_event_timestamp_ms_ = 0;
-  media_event_duration_ms_ = 0;
+}
+
+void PlayStream::SendResetAudio(int64 ts) {
+  // send an empty audio tag
+  scoped_ref<streaming::FlvTag> audio(
+      new streaming::FlvTag(
+          streaming::Tag::ATTR_AUDIO | streaming::Tag::ATTR_CAN_RESYNC,
+          streaming::kDefaultFlavourMask,
+          0, streaming::FLV_FRAMETYPE_AUDIO));
+  SendFlvTag(audio.get(), ts);
+}
+
+void PlayStream::SendResetPings(int64 ts) {
+  // the pings are going through stream 0 (system stream)...
+  SendEventOnSystemStream(
+      connection_->CreateResetPing(0, stream_id()).get(),
+      -1, NULL, true);
+  SendEventOnSystemStream(
+      connection_->CreateClearPing(0, stream_id()).get(),
+      -1,  NULL, true);
+}
+
+void PlayStream::SendClearBuffer() {
+  SendEventOnSystemStream(
+      connection_->CreateClearBufferPing(0, stream_id()).get(),
+      -1, NULL, true);
+}
+
+void PlayStream::SendSwitchMedia(int64 ts) {
+  SendEvent(
+      connection_->CreateStatusEvent(
+        stream_id(),
+        kChannelReply,
+        0,
+        "NetStream.Play.Complete", "SWITCH",
+        stream_name_).get(),
+        ts,  NULL, true);
+  SendEvent(
+      connection_->CreateStatusEvent(
+        stream_id(),
+        kChannelReply,
+        0,
+        "NetStream.Play.Switch", "SWITCH",
+        stream_name_).get(),
+        ts,  NULL, true);
 }
 
 void PlayStream::CloseInternal(bool dec_ref) {
@@ -868,13 +761,33 @@ void PlayStream::CloseInternal(bool dec_ref) {
   }
   Stream::AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
 
+  // close some things in media selector
   CloseRequest("CLOSED");
-
   seek_alarm_.Stop();
-
   media_event_ = NULL;
+
+  // close other things in net selector
+  CloseInternalNet();
+}
+
+void PlayStream::CloseInternalNet(bool dec_ref) {
+  if ( !net_selector_->IsInSelectThread() ) {
+    IncRef();
+    net_selector_->RunInSelectLoop(NewCallback(this,
+        &PlayStream::CloseInternalNet, true));
+    return;
+  }
+  Stream::AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
 
   connection_->CloseConnection();
 }
+void PlayStream::AddMissingStream(const string& stream_name) {
+  RTMP_LOG_WARNING << "Caching missing stream: [" << stream_name << "]";
+  connection_->missing_stream_cache()->Add(stream_name, true, false);
+}
+bool PlayStream::IsMissingStream(const string& stream_name) {
+  return connection_->missing_stream_cache()->Get(stream_name);
+}
+
 
 } // namespace rtmp

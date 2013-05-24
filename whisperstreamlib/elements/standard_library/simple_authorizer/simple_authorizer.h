@@ -50,40 +50,39 @@ class SimpleAuthorizer
     : public Authorizer,
       public ServiceInvokerSimpleAuthorizerService {
  public:
-  SimpleAuthorizer(const char* name,
-                   int32 reauthorize_interval_ms,
+  static const char kAuthorizerClassName[];
+  SimpleAuthorizer(const string& name,
                    int32 time_limit_ms,
                    io::StateKeepUser* state_keeper,
-                   const char* rpc_path,
+                   const string& rpc_path,
                    rpc::HttpServer* rpc_server);
   virtual ~SimpleAuthorizer();
 
+  /////////////////////////////////////////
+  // Authorizer methods
   virtual bool Initialize();
   virtual void Authorize(const AuthorizerRequest& req,
-                         AuthorizerReply* reply,
-                         Closure* completion);
-
-  static const char kAuthorizerClassName[];
+                         CompletionCallback* completion);
+  virtual void Cancel(CompletionCallback* completion);
 
  private:
+  /////////////////////////////////////////
   // RPC interface
   virtual void SetUserPassword(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& user, const string& passwd);
   virtual void DeleteUser(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& user);
   virtual void GetUsers(
       rpc::CallContext< map<string, string> >* call);
 
   bool LoadState();
 
-  const int32 reauthorize_interval_ms_;
-                                       // if non zero need to reauthorize again
-                                       // in these many ms.
-  const int32 time_limit_ms_;          // if non zero the user was authorized
-                                       // for this long after which is dumped
-                                       // automatically.
+ private:
+  // if non zero the user was authorized for this long after which is dumped
+  // automatically.
+  const int32 time_limit_ms_;
 
   net::SimpleUserAuthenticator authenticator_;
   io::StateKeepUser* const state_keeper_;

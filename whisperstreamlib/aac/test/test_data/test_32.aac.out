@@ -1,929 +1,925 @@
-@0 TAG : @0 @       0 - TYPE_AAC [----C] fl:1 ->  AACFRAME 0 smp. [44100 Hz, 0] len: 0
-@0 TAG : @0 @       0 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 0 smp. [44100 Hz, 2] len: 188
-@2048 TAG : @0 @       0 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@2048 TAG : @46 @      46 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@2048 TAG : @92 @      92 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@2048 TAG : @139 @     139 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@2048 TAG : @185 @     185 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 240
-@2048 TAG : @232 @     232 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@2560 TAG : @278 @     278 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@2560 TAG : @325 @     325 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@3072 TAG : @371 @     371 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@3072 TAG : @417 @     417 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@3072 TAG : @464 @     464 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@3584 TAG : @510 @     510 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@3584 TAG : @557 @     557 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@3584 TAG : @603 @     603 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@4096 TAG : @650 @     650 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@4096 TAG : @696 @     696 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@4096 TAG : @743 @     743 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@4608 TAG : @789 @     789 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@4608 TAG : @835 @     835 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@5120 TAG : @882 @     882 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@5120 TAG : @928 @     928 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
-@5120 TAG : @975 @     975 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 212
-@5632 TAG : @1021 @    1021 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@5632 TAG : @1068 @    1068 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@5632 TAG : @1114 @    1114 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@6144 TAG : @1160 @    1160 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@6144 TAG : @1207 @    1207 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@6656 TAG : @1253 @    1253 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@6656 TAG : @1300 @    1300 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@6656 TAG : @1346 @    1346 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@7168 TAG : @1393 @    1393 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@7168 TAG : @1439 @    1439 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@7168 TAG : @1486 @    1486 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@7680 TAG : @1532 @    1532 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@7680 TAG : @1578 @    1578 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 240
-@8192 TAG : @1625 @    1625 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@8192 TAG : @1671 @    1671 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@8192 TAG : @1718 @    1718 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@8704 TAG : @1764 @    1764 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@8704 TAG : @1811 @    1811 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@9216 TAG : @1857 @    1857 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@9216 TAG : @1904 @    1904 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@9216 TAG : @1950 @    1950 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@9728 TAG : @1996 @    1996 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@9728 TAG : @2043 @    2043 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@9728 TAG : @2089 @    2089 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@10240 TAG : @2136 @    2136 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@10240 TAG : @2182 @    2182 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 223
-@10240 TAG : @2229 @    2229 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@10752 TAG : @2275 @    2275 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@10752 TAG : @2321 @    2321 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@11264 TAG : @2368 @    2368 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@11264 TAG : @2414 @    2414 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@11264 TAG : @2461 @    2461 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@11776 TAG : @2507 @    2507 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@11776 TAG : @2554 @    2554 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@12288 TAG : @2600 @    2600 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@12288 TAG : @2647 @    2647 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@12288 TAG : @2693 @    2693 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@12800 TAG : @2739 @    2739 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 213
-@12800 TAG : @2786 @    2786 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@12800 TAG : @2832 @    2832 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@13312 TAG : @2879 @    2879 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@13312 TAG : @2925 @    2925 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 211
-@13824 TAG : @2972 @    2972 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@13824 TAG : @3018 @    3018 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@13824 TAG : @3065 @    3065 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@14336 TAG : @3111 @    3111 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@14336 TAG : @3157 @    3157 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@14336 TAG : @3204 @    3204 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@14848 TAG : @3250 @    3250 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@14848 TAG : @3297 @    3297 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@15360 TAG : @3343 @    3343 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@15360 TAG : @3390 @    3390 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 221
-@15360 TAG : @3436 @    3436 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@15872 TAG : @3482 @    3482 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@15872 TAG : @3529 @    3529 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@15872 TAG : @3575 @    3575 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@16384 TAG : @3622 @    3622 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@16384 TAG : @3668 @    3668 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 235
-@16896 TAG : @3715 @    3715 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@16896 TAG : @3761 @    3761 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@16896 TAG : @3808 @    3808 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@17408 TAG : @3854 @    3854 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@17408 TAG : @3900 @    3900 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@17920 TAG : @3947 @    3947 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@17920 TAG : @3993 @    3993 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@17920 TAG : @4040 @    4040 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@18432 TAG : @4086 @    4086 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@18432 TAG : @4133 @    4133 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
-@18432 TAG : @4179 @    4179 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@18944 TAG : @4226 @    4226 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@18944 TAG : @4272 @    4272 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@18944 TAG : @4318 @    4318 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@19456 TAG : @4365 @    4365 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@19456 TAG : @4411 @    4411 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@19968 TAG : @4458 @    4458 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@19968 TAG : @4504 @    4504 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 216
-@19968 TAG : @4551 @    4551 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
-@20480 TAG : @4597 @    4597 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@20480 TAG : @4643 @    4643 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@20992 TAG : @4690 @    4690 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 173
-@20992 TAG : @4736 @    4736 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@20992 TAG : @4783 @    4783 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@21504 TAG : @4829 @    4829 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@21504 TAG : @4876 @    4876 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@21504 TAG : @4922 @    4922 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@22016 TAG : @4969 @    4969 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 243
-@22016 TAG : @5015 @    5015 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@22528 TAG : @5061 @    5061 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@22528 TAG : @5108 @    5108 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@22528 TAG : @5154 @    5154 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
-@23040 TAG : @5201 @    5201 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@23040 TAG : @5247 @    5247 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@23040 TAG : @5294 @    5294 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@23552 TAG : @5340 @    5340 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@23552 TAG : @5387 @    5387 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@24064 TAG : @5433 @    5433 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@24064 TAG : @5479 @    5479 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
-@24064 TAG : @5526 @    5526 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@24576 TAG : @5572 @    5572 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@24576 TAG : @5619 @    5619 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@24576 TAG : @5665 @    5665 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@25088 TAG : @5712 @    5712 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@25088 TAG : @5758 @    5758 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@25600 TAG : @5804 @    5804 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@25600 TAG : @5851 @    5851 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@25600 TAG : @5897 @    5897 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@26112 TAG : @5944 @    5944 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@26112 TAG : @5990 @    5990 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@26112 TAG : @6037 @    6037 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@26624 TAG : @6083 @    6083 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@26624 TAG : @6130 @    6130 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@26624 TAG : @6176 @    6176 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@27136 TAG : @6222 @    6222 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@27136 TAG : @6269 @    6269 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@27648 TAG : @6315 @    6315 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@27648 TAG : @6362 @    6362 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@27648 TAG : @6408 @    6408 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@28160 TAG : @6455 @    6455 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@28160 TAG : @6501 @    6501 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@28672 TAG : @6548 @    6548 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@28672 TAG : @6594 @    6594 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@28672 TAG : @6640 @    6640 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@29184 TAG : @6687 @    6687 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@29184 TAG : @6733 @    6733 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@29184 TAG : @6780 @    6780 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@29696 TAG : @6826 @    6826 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@29696 TAG : @6873 @    6873 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@30208 TAG : @6919 @    6919 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
-@30208 TAG : @6965 @    6965 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@30208 TAG : @7012 @    7012 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@30720 TAG : @7058 @    7058 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@30720 TAG : @7105 @    7105 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@30720 TAG : @7151 @    7151 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@31232 TAG : @7198 @    7198 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@31232 TAG : @7244 @    7244 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 211
-@31744 TAG : @7291 @    7291 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@31744 TAG : @7337 @    7337 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@31744 TAG : @7383 @    7383 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@32256 TAG : @7430 @    7430 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@32256 TAG : @7476 @    7476 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@32256 TAG : @7523 @    7523 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@32768 TAG : @7569 @    7569 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@32768 TAG : @7616 @    7616 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@33280 TAG : @7662 @    7662 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@33280 TAG : @7709 @    7709 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@33280 TAG : @7755 @    7755 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@33792 TAG : @7801 @    7801 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@33792 TAG : @7848 @    7848 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@33792 TAG : @7894 @    7894 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@34304 TAG : @7941 @    7941 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@34304 TAG : @7987 @    7987 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@34816 TAG : @8034 @    8034 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@34816 TAG : @8080 @    8080 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@34816 TAG : @8126 @    8126 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@35328 TAG : @8173 @    8173 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@35328 TAG : @8219 @    8219 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
-@35328 TAG : @8266 @    8266 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@35840 TAG : @8312 @    8312 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@35840 TAG : @8359 @    8359 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@36352 TAG : @8405 @    8405 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@36352 TAG : @8452 @    8452 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@36352 TAG : @8498 @    8498 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@36864 TAG : @8544 @    8544 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
-@36864 TAG : @8591 @    8591 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@36864 TAG : @8637 @    8637 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@37376 TAG : @8684 @    8684 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@37376 TAG : @8730 @    8730 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@37888 TAG : @8777 @    8777 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@37888 TAG : @8823 @    8823 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@37888 TAG : @8870 @    8870 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@38400 TAG : @8916 @    8916 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@38400 TAG : @8962 @    8962 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@38400 TAG : @9009 @    9009 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@38912 TAG : @9055 @    9055 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@38912 TAG : @9102 @    9102 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@39424 TAG : @9148 @    9148 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@39424 TAG : @9195 @    9195 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@39424 TAG : @9241 @    9241 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@39936 TAG : @9287 @    9287 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@39936 TAG : @9334 @    9334 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@39936 TAG : @9380 @    9380 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@40448 TAG : @9427 @    9427 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@40448 TAG : @9473 @    9473 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@40960 TAG : @9520 @    9520 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@40960 TAG : @9566 @    9566 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@40960 TAG : @9613 @    9613 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@41472 TAG : @9659 @    9659 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@41472 TAG : @9705 @    9705 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@41472 TAG : @9752 @    9752 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 239
-@41984 TAG : @9798 @    9798 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
-@41984 TAG : @9845 @    9845 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@42496 TAG : @9891 @    9891 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@42496 TAG : @9938 @    9938 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@42496 TAG : @9984 @    9984 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@43008 TAG : @10031 @   10031 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@43008 TAG : @10077 @   10077 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@43520 TAG : @10123 @   10123 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@43520 TAG : @10170 @   10170 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@43520 TAG : @10216 @   10216 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@44032 TAG : @10263 @   10263 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@44032 TAG : @10309 @   10309 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@44032 TAG : @10356 @   10356 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@44544 TAG : @10402 @   10402 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@44544 TAG : @10448 @   10448 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@45056 TAG : @10495 @   10495 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@45056 TAG : @10541 @   10541 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
-@45056 TAG : @10588 @   10588 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@45568 TAG : @10634 @   10634 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@45568 TAG : @10681 @   10681 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@45568 TAG : @10727 @   10727 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@46080 TAG : @10774 @   10774 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@46080 TAG : @10820 @   10820 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@46592 TAG : @10866 @   10866 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@46592 TAG : @10913 @   10913 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@46592 TAG : @10959 @   10959 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@47104 TAG : @11006 @   11006 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@47104 TAG : @11052 @   11052 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 222
-@47104 TAG : @11099 @   11099 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@47616 TAG : @11145 @   11145 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@47616 TAG : @11192 @   11192 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@48128 TAG : @11238 @   11238 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@48128 TAG : @11284 @   11284 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@48128 TAG : @11331 @   11331 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@48640 TAG : @11377 @   11377 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@48640 TAG : @11424 @   11424 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@48640 TAG : @11470 @   11470 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@49152 TAG : @11517 @   11517 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@49152 TAG : @11563 @   11563 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@49664 TAG : @11609 @   11609 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@49664 TAG : @11656 @   11656 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@49664 TAG : @11702 @   11702 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@50176 TAG : @11749 @   11749 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 220
-@50176 TAG : @11795 @   11795 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@50688 TAG : @11842 @   11842 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@50688 TAG : @11888 @   11888 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@50688 TAG : @11935 @   11935 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@51200 TAG : @11981 @   11981 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
-@51200 TAG : @12027 @   12027 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@51200 TAG : @12074 @   12074 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@51712 TAG : @12120 @   12120 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@51712 TAG : @12167 @   12167 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@51712 TAG : @12213 @   12213 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@52224 TAG : @12260 @   12260 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@52224 TAG : @12306 @   12306 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@52736 TAG : @12353 @   12353 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 227
-@52736 TAG : @12399 @   12399 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
-@52736 TAG : @12445 @   12445 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@53248 TAG : @12492 @   12492 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@53248 TAG : @12538 @   12538 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@53760 TAG : @12585 @   12585 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@53760 TAG : @12631 @   12631 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@53760 TAG : @12678 @   12678 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@54272 TAG : @12724 @   12724 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@54272 TAG : @12770 @   12770 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@54272 TAG : @12817 @   12817 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@54784 TAG : @12863 @   12863 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@54784 TAG : @12910 @   12910 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@54784 TAG : @12956 @   12956 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@55296 TAG : @13003 @   13003 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 220
-@55296 TAG : @13049 @   13049 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@55808 TAG : @13096 @   13096 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@55808 TAG : @13142 @   13142 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@55808 TAG : @13188 @   13188 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@56320 TAG : @13235 @   13235 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@56320 TAG : @13281 @   13281 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@56832 TAG : @13328 @   13328 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@56832 TAG : @13374 @   13374 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@56832 TAG : @13421 @   13421 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@57344 TAG : @13467 @   13467 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 221
-@57344 TAG : @13514 @   13514 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@57856 TAG : @13560 @   13560 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@57856 TAG : @13606 @   13606 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@57856 TAG : @13653 @   13653 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@58368 TAG : @13699 @   13699 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 175
-@58368 TAG : @13746 @   13746 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@58368 TAG : @13792 @   13792 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@58880 TAG : @13839 @   13839 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@58880 TAG : @13885 @   13885 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@58880 TAG : @13931 @   13931 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@59392 TAG : @13978 @   13978 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@59392 TAG : @14024 @   14024 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@59904 TAG : @14071 @   14071 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@59904 TAG : @14117 @   14117 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@59904 TAG : @14164 @   14164 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 210
-@60416 TAG : @14210 @   14210 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@60416 TAG : @14257 @   14257 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@60416 TAG : @14303 @   14303 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@60928 TAG : @14349 @   14349 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@60928 TAG : @14396 @   14396 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@61440 TAG : @14442 @   14442 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@61440 TAG : @14489 @   14489 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@61440 TAG : @14535 @   14535 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@61952 TAG : @14582 @   14582 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@61952 TAG : @14628 @   14628 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@61952 TAG : @14675 @   14675 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@62464 TAG : @14721 @   14721 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@62464 TAG : @14767 @   14767 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 227
-@62976 TAG : @14814 @   14814 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@62976 TAG : @14860 @   14860 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@62976 TAG : @14907 @   14907 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@63488 TAG : @14953 @   14953 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@63488 TAG : @15000 @   15000 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@63488 TAG : @15046 @   15046 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@64000 TAG : @15092 @   15092 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@64000 TAG : @15139 @   15139 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@64512 TAG : @15185 @   15185 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@64512 TAG : @15232 @   15232 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@64512 TAG : @15278 @   15278 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 232
-@65024 TAG : @15325 @   15325 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@65024 TAG : @15371 @   15371 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@65536 TAG : @15418 @   15418 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@65536 TAG : @15464 @   15464 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 173
-@65536 TAG : @15510 @   15510 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@66048 TAG : @15557 @   15557 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@66048 TAG : @15603 @   15603 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@66048 TAG : @15650 @   15650 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@66560 TAG : @15696 @   15696 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@66560 TAG : @15743 @   15743 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@66560 TAG : @15789 @   15789 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@67072 TAG : @15836 @   15836 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@67072 TAG : @15882 @   15882 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@67584 TAG : @15928 @   15928 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@67584 TAG : @15975 @   15975 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@67584 TAG : @16021 @   16021 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
-@68096 TAG : @16068 @   16068 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@68096 TAG : @16114 @   16114 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@68608 TAG : @16161 @   16161 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@68608 TAG : @16207 @   16207 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@68608 TAG : @16253 @   16253 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@69120 TAG : @16300 @   16300 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
-@69120 TAG : @16346 @   16346 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@69120 TAG : @16393 @   16393 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@69632 TAG : @16439 @   16439 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@69632 TAG : @16486 @   16486 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 210
-@70144 TAG : @16532 @   16532 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@70144 TAG : @16579 @   16579 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@70144 TAG : @16625 @   16625 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@70656 TAG : @16671 @   16671 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@70656 TAG : @16718 @   16718 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@70656 TAG : @16764 @   16764 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@71168 TAG : @16811 @   16811 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@71168 TAG : @16857 @   16857 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@71168 TAG : @16904 @   16904 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@71680 TAG : @16950 @   16950 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@71680 TAG : @16997 @   16997 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@72192 TAG : @17043 @   17043 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
-@72192 TAG : @17089 @   17089 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@72192 TAG : @17136 @   17136 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 216
-@72704 TAG : @17182 @   17182 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@72704 TAG : @17229 @   17229 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@73216 TAG : @17275 @   17275 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@73216 TAG : @17322 @   17322 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@73216 TAG : @17368 @   17368 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@73728 TAG : @17414 @   17414 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@73728 TAG : @17461 @   17461 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@73728 TAG : @17507 @   17507 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@74240 TAG : @17554 @   17554 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@74240 TAG : @17600 @   17600 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@74752 TAG : @17647 @   17647 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@74752 TAG : @17693 @   17693 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@74752 TAG : @17740 @   17740 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@75264 TAG : @17786 @   17786 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 243
-@75264 TAG : @17832 @   17832 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@75264 TAG : @17879 @   17879 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@75776 TAG : @17925 @   17925 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@75776 TAG : @17972 @   17972 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@76288 TAG : @18018 @   18018 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@76288 TAG : @18065 @   18065 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@76288 TAG : @18111 @   18111 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@76800 TAG : @18158 @   18158 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@76800 TAG : @18204 @   18204 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@76800 TAG : @18250 @   18250 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@77312 TAG : @18297 @   18297 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@77312 TAG : @18343 @   18343 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 242
-@77824 TAG : @18390 @   18390 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
-@77824 TAG : @18436 @   18436 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@77824 TAG : @18483 @   18483 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@78336 TAG : @18529 @   18529 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@78336 TAG : @18575 @   18575 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@78848 TAG : @18622 @   18622 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@78848 TAG : @18668 @   18668 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@78848 TAG : @18715 @   18715 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@79360 TAG : @18761 @   18761 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@79360 TAG : @18808 @   18808 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@79360 TAG : @18854 @   18854 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@79872 TAG : @18901 @   18901 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@79872 TAG : @18947 @   18947 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@79872 TAG : @18993 @   18993 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@80384 TAG : @19040 @   19040 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@80384 TAG : @19086 @   19086 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@80896 TAG : @19133 @   19133 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
-@80896 TAG : @19179 @   19179 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
-@80896 TAG : @19226 @   19226 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@81408 TAG : @19272 @   19272 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@81408 TAG : @19319 @   19319 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@81920 TAG : @19365 @   19365 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
-@81920 TAG : @19411 @   19411 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
-@81920 TAG : @19458 @   19458 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@82432 TAG : @19504 @   19504 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@82432 TAG : @19551 @   19551 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 169
-@82432 TAG : @19597 @   19597 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@82944 TAG : @19644 @   19644 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@82944 TAG : @19690 @   19690 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@83456 TAG : @19736 @   19736 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@83456 TAG : @19783 @   19783 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@83456 TAG : @19829 @   19829 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@83968 TAG : @19876 @   19876 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@83968 TAG : @19922 @   19922 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@83968 TAG : @19969 @   19969 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@84480 TAG : @20015 @   20015 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 172
-@84480 TAG : @20062 @   20062 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@84992 TAG : @20108 @   20108 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@84992 TAG : @20154 @   20154 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@84992 TAG : @20201 @   20201 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@85504 TAG : @20247 @   20247 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@85504 TAG : @20294 @   20294 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@85504 TAG : @20340 @   20340 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
-@86016 TAG : @20387 @   20387 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@86016 TAG : @20433 @   20433 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@86528 TAG : @20480 @   20480 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@86528 TAG : @20526 @   20526 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@86528 TAG : @20572 @   20572 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@87040 TAG : @20619 @   20619 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@87040 TAG : @20665 @   20665 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@87040 TAG : @20712 @   20712 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@87552 TAG : @20758 @   20758 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@87552 TAG : @20805 @   20805 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@88064 TAG : @20851 @   20851 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@88064 TAG : @20897 @   20897 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@88064 TAG : @20944 @   20944 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@88576 TAG : @20990 @   20990 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@88576 TAG : @21037 @   21037 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@88576 TAG : @21083 @   21083 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@89088 TAG : @21130 @   21130 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@89088 TAG : @21176 @   21176 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@89600 TAG : @21223 @   21223 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@89600 TAG : @21269 @   21269 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@89600 TAG : @21315 @   21315 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@90112 TAG : @21362 @   21362 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@90112 TAG : @21408 @   21408 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@90112 TAG : @21455 @   21455 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@90624 TAG : @21501 @   21501 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@90624 TAG : @21548 @   21548 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@91136 TAG : @21594 @   21594 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@91136 TAG : @21640 @   21640 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 222
-@91136 TAG : @21687 @   21687 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@91648 TAG : @21733 @   21733 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@91648 TAG : @21780 @   21780 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@91648 TAG : @21826 @   21826 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@92160 TAG : @21873 @   21873 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@92160 TAG : @21919 @   21919 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@92672 TAG : @21966 @   21966 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@92672 TAG : @22012 @   22012 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@92672 TAG : @22058 @   22058 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
-@93184 TAG : @22105 @   22105 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@93184 TAG : @22151 @   22151 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@93184 TAG : @22198 @   22198 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@93696 TAG : @22244 @   22244 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@93696 TAG : @22291 @   22291 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 211
-@94208 TAG : @22337 @   22337 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@94208 TAG : @22384 @   22384 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@94208 TAG : @22430 @   22430 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@94720 TAG : @22476 @   22476 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@94720 TAG : @22523 @   22523 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@94720 TAG : @22569 @   22569 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@95232 TAG : @22616 @   22616 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@95232 TAG : @22662 @   22662 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@95744 TAG : @22709 @   22709 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@95744 TAG : @22755 @   22755 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@95744 TAG : @22801 @   22801 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@96256 TAG : @22848 @   22848 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
-@96256 TAG : @22894 @   22894 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@96256 TAG : @22941 @   22941 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@96768 TAG : @22987 @   22987 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@96768 TAG : @23034 @   23034 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@97280 TAG : @23080 @   23080 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@97280 TAG : @23127 @   23127 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@97280 TAG : @23173 @   23173 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@97792 TAG : @23219 @   23219 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@97792 TAG : @23266 @   23266 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@97792 TAG : @23312 @   23312 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@98304 TAG : @23359 @   23359 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@98304 TAG : @23405 @   23405 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
-@98816 TAG : @23452 @   23452 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@98816 TAG : @23498 @   23498 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
-@98816 TAG : @23545 @   23545 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@99328 TAG : @23591 @   23591 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@99328 TAG : @23637 @   23637 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@99328 TAG : @23684 @   23684 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 232
-@99840 TAG : @23730 @   23730 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@99840 TAG : @23777 @   23777 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@100352 TAG : @23823 @   23823 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@100352 TAG : @23870 @   23870 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@100352 TAG : @23916 @   23916 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@100864 TAG : @23962 @   23962 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@100864 TAG : @24009 @   24009 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
-@100864 TAG : @24055 @   24055 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
-@101376 TAG : @24102 @   24102 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@101376 TAG : @24148 @   24148 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@101888 TAG : @24195 @   24195 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
-@101888 TAG : @24241 @   24241 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@101888 TAG : @24288 @   24288 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@102400 TAG : @24334 @   24334 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 170
-@102400 TAG : @24380 @   24380 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
-@102912 TAG : @24427 @   24427 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@102912 TAG : @24473 @   24473 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@102912 TAG : @24520 @   24520 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@103424 TAG : @24566 @   24566 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@103424 TAG : @24613 @   24613 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@103424 TAG : @24659 @   24659 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 175
-@103936 TAG : @24706 @   24706 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@103936 TAG : @24752 @   24752 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 235
-@104448 TAG : @24798 @   24798 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@104448 TAG : @24845 @   24845 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@104448 TAG : @24891 @   24891 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@104960 TAG : @24938 @   24938 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@104960 TAG : @24984 @   24984 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@104960 TAG : @25031 @   25031 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@105472 TAG : @25077 @   25077 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@105472 TAG : @25123 @   25123 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@105984 TAG : @25170 @   25170 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@105984 TAG : @25216 @   25216 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@105984 TAG : @25263 @   25263 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@106496 TAG : @25309 @   25309 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@106496 TAG : @25356 @   25356 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@106496 TAG : @25402 @   25402 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@107008 TAG : @25449 @   25449 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@107008 TAG : @25495 @   25495 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@107008 TAG : @25541 @   25541 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@107520 TAG : @25588 @   25588 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 228
-@107520 TAG : @25634 @   25634 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@108032 TAG : @25681 @   25681 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@108032 TAG : @25727 @   25727 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@108032 TAG : @25774 @   25774 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@108544 TAG : @25820 @   25820 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@108544 TAG : @25867 @   25867 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@108544 TAG : @25913 @   25913 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@109056 TAG : @25959 @   25959 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@109056 TAG : @26006 @   26006 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@109568 TAG : @26052 @   26052 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
-@109568 TAG : @26099 @   26099 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@109568 TAG : @26145 @   26145 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@110080 TAG : @26192 @   26192 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
-@110080 TAG : @26238 @   26238 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@110592 TAG : @26284 @   26284 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@110592 TAG : @26331 @   26331 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@110592 TAG : @26377 @   26377 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@111104 TAG : @26424 @   26424 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
-@111104 TAG : @26470 @   26470 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@111616 TAG : @26517 @   26517 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@111616 TAG : @26563 @   26563 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@111616 TAG : @26610 @   26610 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 222
-@112128 TAG : @26656 @   26656 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@112128 TAG : @26702 @   26702 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@112128 TAG : @26749 @   26749 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@112640 TAG : @26795 @   26795 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@112640 TAG : @26842 @   26842 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@113152 TAG : @26888 @   26888 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@113152 TAG : @26935 @   26935 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@113152 TAG : @26981 @   26981 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@113664 TAG : @27028 @   27028 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@113664 TAG : @27074 @   27074 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@113664 TAG : @27120 @   27120 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@114176 TAG : @27167 @   27167 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@114176 TAG : @27213 @   27213 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 213
-@114176 TAG : @27260 @   27260 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@114688 TAG : @27306 @   27306 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@114688 TAG : @27353 @   27353 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@115200 TAG : @27399 @   27399 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@115200 TAG : @27445 @   27445 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@115200 TAG : @27492 @   27492 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@115712 TAG : @27538 @   27538 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@115712 TAG : @27585 @   27585 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@115712 TAG : @27631 @   27631 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@116224 TAG : @27678 @   27678 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@116224 TAG : @27724 @   27724 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@116736 TAG : @27771 @   27771 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@116736 TAG : @27817 @   27817 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@116736 TAG : @27863 @   27863 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@117248 TAG : @27910 @   27910 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@117248 TAG : @27956 @   27956 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@117248 TAG : @28003 @   28003 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@117760 TAG : @28049 @   28049 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
-@117760 TAG : @28096 @   28096 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@118272 TAG : @28142 @   28142 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@118272 TAG : @28189 @   28189 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
-@118272 TAG : @28235 @   28235 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@118784 TAG : @28281 @   28281 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@118784 TAG : @28328 @   28328 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@118784 TAG : @28374 @   28374 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@119296 TAG : @28421 @   28421 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@119296 TAG : @28467 @   28467 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@119808 TAG : @28514 @   28514 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@119808 TAG : @28560 @   28560 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@119808 TAG : @28606 @   28606 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@120320 TAG : @28653 @   28653 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@120320 TAG : @28699 @   28699 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@120320 TAG : @28746 @   28746 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@120832 TAG : @28792 @   28792 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@120832 TAG : @28839 @   28839 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@121344 TAG : @28885 @   28885 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@121344 TAG : @28932 @   28932 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@121344 TAG : @28978 @   28978 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@121856 TAG : @29024 @   29024 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@121856 TAG : @29071 @   29071 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@121856 TAG : @29117 @   29117 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@122368 TAG : @29164 @   29164 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
-@122368 TAG : @29210 @   29210 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@122880 TAG : @29257 @   29257 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@122880 TAG : @29303 @   29303 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@122880 TAG : @29350 @   29350 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@123392 TAG : @29396 @   29396 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@123392 TAG : @29442 @   29442 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@123904 TAG : @29489 @   29489 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@123904 TAG : @29535 @   29535 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@123904 TAG : @29582 @   29582 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@124416 TAG : @29628 @   29628 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@124416 TAG : @29675 @   29675 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 175
-@124416 TAG : @29721 @   29721 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@124928 TAG : @29767 @   29767 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
-@124928 TAG : @29814 @   29814 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@125440 TAG : @29860 @   29860 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@125440 TAG : @29907 @   29907 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@125440 TAG : @29953 @   29953 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@125952 TAG : @30000 @   30000 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@125952 TAG : @30046 @   30046 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@125952 TAG : @30093 @   30093 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@126464 TAG : @30139 @   30139 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@126464 TAG : @30185 @   30185 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@126976 TAG : @30232 @   30232 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@126976 TAG : @30278 @   30278 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@126976 TAG : @30325 @   30325 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@127488 TAG : @30371 @   30371 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
-@127488 TAG : @30418 @   30418 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@127488 TAG : @30464 @   30464 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@128000 TAG : @30511 @   30511 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@128000 TAG : @30557 @   30557 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@128512 TAG : @30603 @   30603 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@128512 TAG : @30650 @   30650 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@128512 TAG : @30696 @   30696 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@129024 TAG : @30743 @   30743 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@129024 TAG : @30789 @   30789 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@129024 TAG : @30836 @   30836 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 239
-@129536 TAG : @30882 @   30882 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@129536 TAG : @30928 @   30928 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@130048 TAG : @30975 @   30975 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@130048 TAG : @31021 @   31021 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@130048 TAG : @31068 @   31068 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@130560 TAG : @31114 @   31114 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@130560 TAG : @31161 @   31161 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
-@130560 TAG : @31207 @   31207 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@131072 TAG : @31254 @   31254 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@131072 TAG : @31300 @   31300 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@131584 TAG : @31346 @   31346 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@131584 TAG : @31393 @   31393 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@131584 TAG : @31439 @   31439 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@132096 TAG : @31486 @   31486 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@132096 TAG : @31532 @   31532 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@132608 TAG : @31579 @   31579 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@132608 TAG : @31625 @   31625 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@132608 TAG : @31672 @   31672 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@133120 TAG : @31718 @   31718 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@133120 TAG : @31764 @   31764 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
-@133120 TAG : @31811 @   31811 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@133632 TAG : @31857 @   31857 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@133632 TAG : @31904 @   31904 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@133632 TAG : @31950 @   31950 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@134144 TAG : @31997 @   31997 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@134144 TAG : @32043 @   32043 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@134656 TAG : @32089 @   32089 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@134656 TAG : @32136 @   32136 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@134656 TAG : @32182 @   32182 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 235
-@135168 TAG : @32229 @   32229 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@135168 TAG : @32275 @   32275 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@135680 TAG : @32322 @   32322 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@135680 TAG : @32368 @   32368 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@135680 TAG : @32415 @   32415 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@136192 TAG : @32461 @   32461 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@136192 TAG : @32507 @   32507 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@136192 TAG : @32554 @   32554 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@136704 TAG : @32600 @   32600 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@136704 TAG : @32647 @   32647 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@137216 TAG : @32693 @   32693 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@137216 TAG : @32740 @   32740 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@137216 TAG : @32786 @   32786 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@137728 TAG : @32833 @   32833 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@137728 TAG : @32879 @   32879 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@137728 TAG : @32925 @   32925 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@138240 TAG : @32972 @   32972 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@138240 TAG : @33018 @   33018 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@138240 TAG : @33065 @   33065 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@138752 TAG : @33111 @   33111 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@138752 TAG : @33158 @   33158 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
-@139264 TAG : @33204 @   33204 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@139264 TAG : @33250 @   33250 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@139264 TAG : @33297 @   33297 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@139776 TAG : @33343 @   33343 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@139776 TAG : @33390 @   33390 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@140288 TAG : @33436 @   33436 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@140288 TAG : @33483 @   33483 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@140288 TAG : @33529 @   33529 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 232
-@140800 TAG : @33576 @   33576 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@140800 TAG : @33622 @   33622 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@140800 TAG : @33668 @   33668 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@141312 TAG : @33715 @   33715 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@141312 TAG : @33761 @   33761 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@141824 TAG : @33808 @   33808 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@141824 TAG : @33854 @   33854 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@141824 TAG : @33901 @   33901 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@142336 TAG : @33947 @   33947 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@142336 TAG : @33994 @   33994 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@142336 TAG : @34040 @   34040 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@142848 TAG : @34086 @   34086 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@142848 TAG : @34133 @   34133 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@143360 TAG : @34179 @   34179 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@143360 TAG : @34226 @   34226 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@143360 TAG : @34272 @   34272 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@143872 TAG : @34319 @   34319 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@143872 TAG : @34365 @   34365 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@143872 TAG : @34411 @   34411 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@144384 TAG : @34458 @   34458 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
-@144384 TAG : @34504 @   34504 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@144896 TAG : @34551 @   34551 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@144896 TAG : @34597 @   34597 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@144896 TAG : @34644 @   34644 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 237
-@145408 TAG : @34690 @   34690 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@145408 TAG : @34737 @   34737 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@145920 TAG : @34783 @   34783 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@145920 TAG : @34829 @   34829 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@145920 TAG : @34876 @   34876 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@146432 TAG : @34922 @   34922 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@146432 TAG : @34969 @   34969 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@146432 TAG : @35015 @   35015 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@146944 TAG : @35062 @   35062 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@146944 TAG : @35108 @   35108 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@146944 TAG : @35155 @   35155 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
-@147456 TAG : @35201 @   35201 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@147456 TAG : @35247 @   35247 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@147968 TAG : @35294 @   35294 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@147968 TAG : @35340 @   35340 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@147968 TAG : @35387 @   35387 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@148480 TAG : @35433 @   35433 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 210
-@148480 TAG : @35480 @   35480 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@148992 TAG : @35526 @   35526 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@148992 TAG : @35572 @   35572 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@148992 TAG : @35619 @   35619 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@149504 TAG : @35665 @   35665 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
-@149504 TAG : @35712 @   35712 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@149504 TAG : @35758 @   35758 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@150016 TAG : @35805 @   35805 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@150016 TAG : @35851 @   35851 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@150528 TAG : @35898 @   35898 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@150528 TAG : @35944 @   35944 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@150528 TAG : @35990 @   35990 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@151040 TAG : @36037 @   36037 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 213
-@151040 TAG : @36083 @   36083 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 227
-@151040 TAG : @36130 @   36130 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
-@151552 TAG : @36176 @   36176 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
-@151552 TAG : @36223 @   36223 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@152064 TAG : @36269 @   36269 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@152064 TAG : @36316 @   36316 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@152064 TAG : @36362 @   36362 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@152576 TAG : @36408 @   36408 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
-@152576 TAG : @36455 @   36455 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@152576 TAG : @36501 @   36501 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@153088 TAG : @36548 @   36548 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@153088 TAG : @36594 @   36594 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@153600 TAG : @36641 @   36641 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@153600 TAG : @36687 @   36687 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@153600 TAG : @36733 @   36733 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@154112 TAG : @36780 @   36780 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@154112 TAG : @36826 @   36826 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@154112 TAG : @36873 @   36873 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@154624 TAG : @36919 @   36919 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
-@154624 TAG : @36966 @   36966 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@155136 TAG : @37012 @   37012 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@155136 TAG : @37059 @   37059 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@155136 TAG : @37105 @   37105 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@155648 TAG : @37151 @   37151 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@155648 TAG : @37198 @   37198 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@155648 TAG : @37244 @   37244 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@156160 TAG : @37291 @   37291 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@156160 TAG : @37337 @   37337 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@156160 TAG : @37384 @   37384 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@156672 TAG : @37430 @   37430 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@156672 TAG : @37477 @   37477 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@157184 TAG : @37523 @   37523 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@157184 TAG : @37569 @   37569 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@157184 TAG : @37616 @   37616 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
-@157696 TAG : @37662 @   37662 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@157696 TAG : @37709 @   37709 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@157696 TAG : @37755 @   37755 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
-@158208 TAG : @37802 @   37802 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@158208 TAG : @37848 @   37848 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@158720 TAG : @37894 @   37894 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@158720 TAG : @37941 @   37941 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@158720 TAG : @37987 @   37987 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@159232 TAG : @38034 @   38034 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@159232 TAG : @38080 @   38080 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@159744 TAG : @38127 @   38127 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
-@159744 TAG : @38173 @   38173 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
-@159744 TAG : @38220 @   38220 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@160256 TAG : @38266 @   38266 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@160256 TAG : @38312 @   38312 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
-@160256 TAG : @38359 @   38359 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 220
-@160768 TAG : @38405 @   38405 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@160768 TAG : @38452 @   38452 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@161280 TAG : @38498 @   38498 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@161280 TAG : @38545 @   38545 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@161280 TAG : @38591 @   38591 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@161792 TAG : @38638 @   38638 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@161792 TAG : @38684 @   38684 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@161792 TAG : @38730 @   38730 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@162304 TAG : @38777 @   38777 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
-@162304 TAG : @38823 @   38823 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
-@162816 TAG : @38870 @   38870 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@162816 TAG : @38916 @   38916 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@162816 TAG : @38963 @   38963 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 231
-@163328 TAG : @39009 @   39009 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 212
-@163328 TAG : @39055 @   39055 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@163840 TAG : @39102 @   39102 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 168
-@163840 TAG : @39148 @   39148 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@163840 TAG : @39195 @   39195 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@164352 TAG : @39241 @   39241 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@164352 TAG : @39288 @   39288 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@164352 TAG : @39334 @   39334 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@164864 TAG : @39381 @   39381 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
-@164864 TAG : @39427 @   39427 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@165376 TAG : @39473 @   39473 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@165376 TAG : @39520 @   39520 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@165376 TAG : @39566 @   39566 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@165888 TAG : @39613 @   39613 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@165888 TAG : @39659 @   39659 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@165888 TAG : @39706 @   39706 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@166400 TAG : @39752 @   39752 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@166400 TAG : @39799 @   39799 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@166912 TAG : @39845 @   39845 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@166912 TAG : @39891 @   39891 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@166912 TAG : @39938 @   39938 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@167424 TAG : @39984 @   39984 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@167424 TAG : @40031 @   40031 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
-@167424 TAG : @40077 @   40077 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
-@167936 TAG : @40124 @   40124 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@167936 TAG : @40170 @   40170 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@167936 TAG : @40216 @   40216 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
-@168448 TAG : @40263 @   40263 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@168448 TAG : @40309 @   40309 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
-@168960 TAG : @40356 @   40356 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
-@168960 TAG : @40402 @   40402 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@168960 TAG : @40449 @   40449 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@169472 TAG : @40495 @   40495 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@169472 TAG : @40542 @   40542 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
-@169984 TAG : @40588 @   40588 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
-@169984 TAG : @40634 @   40634 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@169984 TAG : @40681 @   40681 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@170496 TAG : @40727 @   40727 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@170496 TAG : @40774 @   40774 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
-@170496 TAG : @40820 @   40820 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
-@171008 TAG : @40867 @   40867 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@171008 TAG : @40913 @   40913 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
-@171520 TAG : @40959 @   40959 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@171520 TAG : @41006 @   41006 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
-@171520 TAG : @41052 @   41052 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@172032 TAG : @41099 @   41099 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
-@172032 TAG : @41145 @   41145 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
-@172032 TAG : @41192 @   41192 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
-@172544 TAG : @41238 @   41238 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@172544 TAG : @41285 @   41285 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 236
-@173056 TAG : @41331 @   41331 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@173056 TAG : @41377 @   41377 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@173568 TAG : @41424 @   41424 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@173568 TAG : @41470 @   41470 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@173568 TAG : @41517 @   41517 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@174080 TAG : @41563 @   41563 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@174080 TAG : @41610 @   41610 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@174080 TAG : @41656 @   41656 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
-@174592 TAG : @41703 @   41703 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
-@174592 TAG : @41749 @   41749 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@174592 TAG : @41795 @   41795 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 254
-@175104 TAG : @41842 @   41842 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@175104 TAG : @41888 @   41888 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-@175616 TAG : @41935 @   41935 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
-@175616 TAG : @41981 @   41981 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
-@175616 TAG : @42028 @   42028 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@176128 TAG : @42074 @   42074 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
-@176128 TAG : @42120 @   42120 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
-@176128 TAG : @42167 @   42167 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
-@176640 TAG : @42213 @   42213 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 173
-@176640 TAG : @42260 @   42260 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
-@176640 TAG : @42306 @   42306 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
-@177152 TAG : @42353 @   42353 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
-@177152 TAG : @42399 @   42399 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
-@177664 TAG : @42446 @   42446 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
-@177664 TAG : @42492 @   42492 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
-@177664 TAG : @42538 @   42538 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
-@178176 TAG : @42585 @   42585 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
-@178176 TAG : @42631 @   42631 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
-@178176 TAG : @42678 @   42678 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
-@178688 TAG : @42724 @   42724 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
-@178688 TAG : @42771 @   42771 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
-@179070 TAG : @42817 @   42817 - TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
-EOF @179070, useless bytes at file end: 0STATISTICS:
-total_tags =925 total_bytes =178111 maximum_tag_size=254
-video_tags =0 video_bytes =0 
-audio_tags =924 audio_bytes =178111
+# pos: 0, ts: 0, tag: TYPE_AAC [----C] fl:1 ->  AACFRAME 0 smp. [44100 Hz, 0] len: 0
+# pos: 2048, ts: 0, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 0 smp. [44100 Hz, 2] len: 188
+# pos: 2048, ts: 0, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 2048, ts: 46, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 2048, ts: 92, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 2048, ts: 139, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 2048, ts: 185, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 240
+# pos: 2560, ts: 232, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 2560, ts: 278, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 3072, ts: 325, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 3072, ts: 371, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 3072, ts: 417, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 3584, ts: 464, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 3584, ts: 510, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 3584, ts: 557, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 4096, ts: 603, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 4096, ts: 650, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 4096, ts: 696, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 4608, ts: 743, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 4608, ts: 789, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 5120, ts: 835, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 5120, ts: 882, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 5120, ts: 928, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
+# pos: 5632, ts: 975, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 212
+# pos: 5632, ts: 1021, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 5632, ts: 1068, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 6144, ts: 1114, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 6144, ts: 1160, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 6656, ts: 1207, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 6656, ts: 1253, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 6656, ts: 1300, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 7168, ts: 1346, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 7168, ts: 1393, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 7168, ts: 1439, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 7680, ts: 1486, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 7680, ts: 1532, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 8192, ts: 1578, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 240
+# pos: 8192, ts: 1625, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 8192, ts: 1671, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 8704, ts: 1718, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 8704, ts: 1764, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 9216, ts: 1811, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 9216, ts: 1857, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 9216, ts: 1904, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 9728, ts: 1950, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 9728, ts: 1996, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 9728, ts: 2043, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 10240, ts: 2089, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 10240, ts: 2136, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 10240, ts: 2182, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 223
+# pos: 10752, ts: 2229, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 10752, ts: 2275, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 11264, ts: 2321, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 11264, ts: 2368, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 11264, ts: 2414, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 11776, ts: 2461, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 11776, ts: 2507, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 12288, ts: 2554, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 12288, ts: 2600, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 12288, ts: 2647, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 12800, ts: 2693, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 12800, ts: 2739, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 213
+# pos: 12800, ts: 2786, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 13312, ts: 2832, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 13312, ts: 2879, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 13824, ts: 2925, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 211
+# pos: 13824, ts: 2972, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 13824, ts: 3018, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 14336, ts: 3065, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 14336, ts: 3111, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 14336, ts: 3157, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 14848, ts: 3204, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 14848, ts: 3250, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 15360, ts: 3297, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 15360, ts: 3343, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 15360, ts: 3390, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 221
+# pos: 15872, ts: 3436, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 15872, ts: 3482, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 15872, ts: 3529, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 16384, ts: 3575, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 16384, ts: 3622, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 16896, ts: 3668, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 235
+# pos: 16896, ts: 3715, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 16896, ts: 3761, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 17408, ts: 3808, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 17408, ts: 3854, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 17920, ts: 3900, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 17920, ts: 3947, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 17920, ts: 3993, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 18432, ts: 4040, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 18432, ts: 4086, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 18432, ts: 4133, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
+# pos: 18944, ts: 4179, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 18944, ts: 4226, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 18944, ts: 4272, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 19456, ts: 4318, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 19456, ts: 4365, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 19968, ts: 4411, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 19968, ts: 4458, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 19968, ts: 4504, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 216
+# pos: 20480, ts: 4551, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
+# pos: 20480, ts: 4597, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 20992, ts: 4643, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 20992, ts: 4690, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 173
+# pos: 20992, ts: 4736, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 21504, ts: 4783, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 21504, ts: 4829, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 21504, ts: 4876, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 22016, ts: 4922, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 22016, ts: 4969, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 243
+# pos: 22528, ts: 5015, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 22528, ts: 5061, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 22528, ts: 5108, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 23040, ts: 5154, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
+# pos: 23040, ts: 5201, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 23040, ts: 5247, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 23552, ts: 5294, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 23552, ts: 5340, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 24064, ts: 5387, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 24064, ts: 5433, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 24064, ts: 5479, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
+# pos: 24576, ts: 5526, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 24576, ts: 5572, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 24576, ts: 5619, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 25088, ts: 5665, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 25088, ts: 5712, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 25600, ts: 5758, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 25600, ts: 5804, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 25600, ts: 5851, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 26112, ts: 5897, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 26112, ts: 5944, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 26112, ts: 5990, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 26624, ts: 6037, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 26624, ts: 6083, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 26624, ts: 6130, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 27136, ts: 6176, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 27136, ts: 6222, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 27648, ts: 6269, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 27648, ts: 6315, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 27648, ts: 6362, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 28160, ts: 6408, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 28160, ts: 6455, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 28672, ts: 6501, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 28672, ts: 6548, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 28672, ts: 6594, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 29184, ts: 6640, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 29184, ts: 6687, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 29184, ts: 6733, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 29696, ts: 6780, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 29696, ts: 6826, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 30208, ts: 6873, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 30208, ts: 6919, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
+# pos: 30208, ts: 6965, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 30720, ts: 7012, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 30720, ts: 7058, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 30720, ts: 7105, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 31232, ts: 7151, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 31232, ts: 7198, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 31744, ts: 7244, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 211
+# pos: 31744, ts: 7291, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 31744, ts: 7337, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 32256, ts: 7383, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 32256, ts: 7430, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 32256, ts: 7476, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 32768, ts: 7523, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 32768, ts: 7569, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 33280, ts: 7616, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 33280, ts: 7662, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 33280, ts: 7709, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 33792, ts: 7755, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 33792, ts: 7801, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 33792, ts: 7848, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 34304, ts: 7894, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 34304, ts: 7941, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 34816, ts: 7987, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 34816, ts: 8034, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 34816, ts: 8080, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 35328, ts: 8126, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 35328, ts: 8173, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 35328, ts: 8219, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
+# pos: 35840, ts: 8266, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 35840, ts: 8312, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 36352, ts: 8359, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 36352, ts: 8405, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 36352, ts: 8452, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 36864, ts: 8498, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 36864, ts: 8544, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
+# pos: 36864, ts: 8591, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 37376, ts: 8637, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 37376, ts: 8684, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 37888, ts: 8730, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 37888, ts: 8777, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 37888, ts: 8823, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 38400, ts: 8870, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 38400, ts: 8916, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 38400, ts: 8962, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 38912, ts: 9009, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 38912, ts: 9055, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 39424, ts: 9102, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 39424, ts: 9148, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 39424, ts: 9195, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 39936, ts: 9241, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 39936, ts: 9287, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 39936, ts: 9334, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 40448, ts: 9380, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 40448, ts: 9427, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 40960, ts: 9473, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 40960, ts: 9520, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 40960, ts: 9566, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 41472, ts: 9613, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 41472, ts: 9659, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 41472, ts: 9705, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 41984, ts: 9752, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 239
+# pos: 41984, ts: 9798, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
+# pos: 42496, ts: 9845, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 42496, ts: 9891, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 42496, ts: 9938, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 43008, ts: 9984, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 43008, ts: 10031, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 43520, ts: 10077, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 43520, ts: 10123, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 43520, ts: 10170, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 44032, ts: 10216, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 44032, ts: 10263, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 44032, ts: 10309, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 44544, ts: 10356, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 44544, ts: 10402, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 45056, ts: 10448, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 45056, ts: 10495, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 45056, ts: 10541, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
+# pos: 45568, ts: 10588, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 45568, ts: 10634, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 45568, ts: 10681, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 46080, ts: 10727, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 46080, ts: 10774, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 46592, ts: 10820, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 46592, ts: 10866, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 46592, ts: 10913, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 47104, ts: 10959, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 47104, ts: 11006, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 47104, ts: 11052, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 222
+# pos: 47616, ts: 11099, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 47616, ts: 11145, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 48128, ts: 11192, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 48128, ts: 11238, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 48128, ts: 11284, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 48640, ts: 11331, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 48640, ts: 11377, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 48640, ts: 11424, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 49152, ts: 11470, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 49152, ts: 11517, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 49664, ts: 11563, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 49664, ts: 11609, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 49664, ts: 11656, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 50176, ts: 11702, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 50176, ts: 11749, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 220
+# pos: 50688, ts: 11795, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 50688, ts: 11842, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 50688, ts: 11888, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 51200, ts: 11935, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 51200, ts: 11981, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
+# pos: 51200, ts: 12027, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 51712, ts: 12074, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 51712, ts: 12120, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 51712, ts: 12167, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 52224, ts: 12213, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 52224, ts: 12260, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 52736, ts: 12306, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 52736, ts: 12353, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 227
+# pos: 52736, ts: 12399, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
+# pos: 53248, ts: 12445, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 53248, ts: 12492, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 53760, ts: 12538, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 53760, ts: 12585, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 53760, ts: 12631, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 54272, ts: 12678, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 54272, ts: 12724, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 54272, ts: 12770, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 54784, ts: 12817, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 54784, ts: 12863, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 54784, ts: 12910, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 55296, ts: 12956, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 55296, ts: 13003, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 220
+# pos: 55808, ts: 13049, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 55808, ts: 13096, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 55808, ts: 13142, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 56320, ts: 13188, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 56320, ts: 13235, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 56832, ts: 13281, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 56832, ts: 13328, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 56832, ts: 13374, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 57344, ts: 13421, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 57344, ts: 13467, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 221
+# pos: 57856, ts: 13514, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 57856, ts: 13560, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 57856, ts: 13606, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 58368, ts: 13653, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 58368, ts: 13699, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 175
+# pos: 58368, ts: 13746, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 58880, ts: 13792, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 58880, ts: 13839, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 58880, ts: 13885, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 59392, ts: 13931, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 59392, ts: 13978, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 59904, ts: 14024, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 59904, ts: 14071, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 59904, ts: 14117, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 60416, ts: 14164, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 210
+# pos: 60416, ts: 14210, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 60416, ts: 14257, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 60928, ts: 14303, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 60928, ts: 14349, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 61440, ts: 14396, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 61440, ts: 14442, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 61440, ts: 14489, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 61952, ts: 14535, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 61952, ts: 14582, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 61952, ts: 14628, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 62464, ts: 14675, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 62464, ts: 14721, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 62976, ts: 14767, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 227
+# pos: 62976, ts: 14814, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 62976, ts: 14860, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 63488, ts: 14907, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 63488, ts: 14953, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 63488, ts: 15000, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 64000, ts: 15046, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 64000, ts: 15092, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 64512, ts: 15139, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 64512, ts: 15185, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 64512, ts: 15232, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 65024, ts: 15278, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 232
+# pos: 65024, ts: 15325, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 65536, ts: 15371, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 65536, ts: 15418, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 65536, ts: 15464, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 173
+# pos: 66048, ts: 15510, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 66048, ts: 15557, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 66048, ts: 15603, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 66560, ts: 15650, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 66560, ts: 15696, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 66560, ts: 15743, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 67072, ts: 15789, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 67072, ts: 15836, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 67584, ts: 15882, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 67584, ts: 15928, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 67584, ts: 15975, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 68096, ts: 16021, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
+# pos: 68096, ts: 16068, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 68608, ts: 16114, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 68608, ts: 16161, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 68608, ts: 16207, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 69120, ts: 16253, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 69120, ts: 16300, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
+# pos: 69120, ts: 16346, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 69632, ts: 16393, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 69632, ts: 16439, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 70144, ts: 16486, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 210
+# pos: 70144, ts: 16532, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 70144, ts: 16579, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 70656, ts: 16625, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 70656, ts: 16671, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 70656, ts: 16718, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 71168, ts: 16764, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 71168, ts: 16811, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 71168, ts: 16857, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 71680, ts: 16904, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 71680, ts: 16950, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 72192, ts: 16997, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 72192, ts: 17043, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
+# pos: 72192, ts: 17089, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 72704, ts: 17136, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 216
+# pos: 72704, ts: 17182, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 73216, ts: 17229, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 73216, ts: 17275, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 73216, ts: 17322, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 73728, ts: 17368, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 73728, ts: 17414, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 73728, ts: 17461, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 74240, ts: 17507, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 74240, ts: 17554, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 74752, ts: 17600, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 74752, ts: 17647, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 74752, ts: 17693, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 75264, ts: 17740, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 75264, ts: 17786, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 243
+# pos: 75264, ts: 17832, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 75776, ts: 17879, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 75776, ts: 17925, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 76288, ts: 17972, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 76288, ts: 18018, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 76288, ts: 18065, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 76800, ts: 18111, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 76800, ts: 18158, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 76800, ts: 18204, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 77312, ts: 18250, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 77312, ts: 18297, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 77824, ts: 18343, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 242
+# pos: 77824, ts: 18390, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
+# pos: 77824, ts: 18436, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 78336, ts: 18483, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 78336, ts: 18529, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 78848, ts: 18575, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 78848, ts: 18622, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 78848, ts: 18668, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 79360, ts: 18715, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 79360, ts: 18761, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 79360, ts: 18808, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 79872, ts: 18854, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 79872, ts: 18901, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 79872, ts: 18947, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 80384, ts: 18993, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 80384, ts: 19040, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 80896, ts: 19086, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 80896, ts: 19133, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
+# pos: 80896, ts: 19179, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
+# pos: 81408, ts: 19226, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 81408, ts: 19272, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 81920, ts: 19319, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 81920, ts: 19365, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
+# pos: 81920, ts: 19411, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
+# pos: 82432, ts: 19458, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 82432, ts: 19504, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 82432, ts: 19551, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 169
+# pos: 82944, ts: 19597, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 82944, ts: 19644, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 83456, ts: 19690, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 83456, ts: 19736, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 83456, ts: 19783, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 83968, ts: 19829, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 83968, ts: 19876, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 83968, ts: 19922, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 84480, ts: 19969, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 84480, ts: 20015, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 172
+# pos: 84992, ts: 20062, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 84992, ts: 20108, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 84992, ts: 20154, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 85504, ts: 20201, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 85504, ts: 20247, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 85504, ts: 20294, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 86016, ts: 20340, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
+# pos: 86016, ts: 20387, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 86528, ts: 20433, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 86528, ts: 20480, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 86528, ts: 20526, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 87040, ts: 20572, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 87040, ts: 20619, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 87040, ts: 20665, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 87552, ts: 20712, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 87552, ts: 20758, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 88064, ts: 20805, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 88064, ts: 20851, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 88064, ts: 20897, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 88576, ts: 20944, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 88576, ts: 20990, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 88576, ts: 21037, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 89088, ts: 21083, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 89088, ts: 21130, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 89600, ts: 21176, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 89600, ts: 21223, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 89600, ts: 21269, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 90112, ts: 21315, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 90112, ts: 21362, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 90112, ts: 21408, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 90624, ts: 21455, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 90624, ts: 21501, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 91136, ts: 21548, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 91136, ts: 21594, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 91136, ts: 21640, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 222
+# pos: 91648, ts: 21687, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 91648, ts: 21733, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 91648, ts: 21780, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 92160, ts: 21826, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 92160, ts: 21873, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 92672, ts: 21919, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 92672, ts: 21966, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 92672, ts: 22012, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 93184, ts: 22058, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
+# pos: 93184, ts: 22105, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 93184, ts: 22151, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 93696, ts: 22198, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 93696, ts: 22244, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 94208, ts: 22291, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 211
+# pos: 94208, ts: 22337, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 94208, ts: 22384, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 94720, ts: 22430, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 94720, ts: 22476, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 94720, ts: 22523, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 95232, ts: 22569, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 95232, ts: 22616, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 95744, ts: 22662, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 95744, ts: 22709, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 95744, ts: 22755, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 96256, ts: 22801, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 96256, ts: 22848, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
+# pos: 96256, ts: 22894, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 96768, ts: 22941, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 96768, ts: 22987, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 97280, ts: 23034, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 97280, ts: 23080, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 97280, ts: 23127, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 97792, ts: 23173, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 97792, ts: 23219, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 97792, ts: 23266, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 98304, ts: 23312, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 98304, ts: 23359, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 98816, ts: 23405, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 224
+# pos: 98816, ts: 23452, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 98816, ts: 23498, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
+# pos: 99328, ts: 23545, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 99328, ts: 23591, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 99328, ts: 23637, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 99840, ts: 23684, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 232
+# pos: 99840, ts: 23730, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 100352, ts: 23777, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 100352, ts: 23823, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 100352, ts: 23870, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 100864, ts: 23916, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 100864, ts: 23962, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 100864, ts: 24009, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
+# pos: 101376, ts: 24055, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
+# pos: 101376, ts: 24102, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 101888, ts: 24148, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 101888, ts: 24195, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
+# pos: 101888, ts: 24241, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 102400, ts: 24288, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 102400, ts: 24334, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 170
+# pos: 102912, ts: 24380, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
+# pos: 102912, ts: 24427, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 102912, ts: 24473, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 103424, ts: 24520, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 103424, ts: 24566, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 103424, ts: 24613, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 103936, ts: 24659, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 175
+# pos: 103936, ts: 24706, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 104448, ts: 24752, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 235
+# pos: 104448, ts: 24798, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 104448, ts: 24845, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 104960, ts: 24891, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 104960, ts: 24938, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 104960, ts: 24984, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 105472, ts: 25031, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 105472, ts: 25077, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 105984, ts: 25123, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 105984, ts: 25170, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 105984, ts: 25216, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 106496, ts: 25263, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 106496, ts: 25309, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 106496, ts: 25356, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 107008, ts: 25402, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 107008, ts: 25449, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 107008, ts: 25495, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 107520, ts: 25541, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 107520, ts: 25588, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 228
+# pos: 108032, ts: 25634, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 108032, ts: 25681, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 108032, ts: 25727, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 108544, ts: 25774, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 108544, ts: 25820, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 108544, ts: 25867, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 109056, ts: 25913, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 109056, ts: 25959, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 109568, ts: 26006, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 109568, ts: 26052, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 219
+# pos: 109568, ts: 26099, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 110080, ts: 26145, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 110080, ts: 26192, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
+# pos: 110592, ts: 26238, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 110592, ts: 26284, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 110592, ts: 26331, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 111104, ts: 26377, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 111104, ts: 26424, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
+# pos: 111616, ts: 26470, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 111616, ts: 26517, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 111616, ts: 26563, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 112128, ts: 26610, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 222
+# pos: 112128, ts: 26656, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 112128, ts: 26702, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 112640, ts: 26749, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 112640, ts: 26795, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 113152, ts: 26842, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 113152, ts: 26888, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 113152, ts: 26935, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 113664, ts: 26981, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 113664, ts: 27028, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 113664, ts: 27074, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 114176, ts: 27120, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 114176, ts: 27167, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 114176, ts: 27213, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 213
+# pos: 114688, ts: 27260, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 114688, ts: 27306, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 115200, ts: 27353, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 115200, ts: 27399, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 115200, ts: 27445, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 115712, ts: 27492, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 115712, ts: 27538, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 115712, ts: 27585, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 116224, ts: 27631, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 116224, ts: 27678, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 116736, ts: 27724, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 116736, ts: 27771, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 116736, ts: 27817, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 117248, ts: 27863, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 117248, ts: 27910, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 117248, ts: 27956, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 117760, ts: 28003, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 117760, ts: 28049, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
+# pos: 118272, ts: 28096, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 118272, ts: 28142, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 118272, ts: 28189, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 206
+# pos: 118784, ts: 28235, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 118784, ts: 28281, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 118784, ts: 28328, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 119296, ts: 28374, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 119296, ts: 28421, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 119808, ts: 28467, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 119808, ts: 28514, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 119808, ts: 28560, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 120320, ts: 28606, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 120320, ts: 28653, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 120320, ts: 28699, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 120832, ts: 28746, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 120832, ts: 28792, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 121344, ts: 28839, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 121344, ts: 28885, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 121344, ts: 28932, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 121856, ts: 28978, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 121856, ts: 29024, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 121856, ts: 29071, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 122368, ts: 29117, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 122368, ts: 29164, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
+# pos: 122880, ts: 29210, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 122880, ts: 29257, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 122880, ts: 29303, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 123392, ts: 29350, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 123392, ts: 29396, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 123904, ts: 29442, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 123904, ts: 29489, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 123904, ts: 29535, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 124416, ts: 29582, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 124416, ts: 29628, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 124416, ts: 29675, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 175
+# pos: 124928, ts: 29721, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 124928, ts: 29767, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
+# pos: 125440, ts: 29814, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 125440, ts: 29860, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 125440, ts: 29907, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 125952, ts: 29953, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 125952, ts: 30000, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 125952, ts: 30046, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 126464, ts: 30093, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 126464, ts: 30139, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 126976, ts: 30185, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 126976, ts: 30232, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 126976, ts: 30278, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 127488, ts: 30325, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 127488, ts: 30371, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
+# pos: 127488, ts: 30418, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 128000, ts: 30464, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 128000, ts: 30511, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 128512, ts: 30557, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 128512, ts: 30603, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 128512, ts: 30650, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 129024, ts: 30696, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 129024, ts: 30743, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 129024, ts: 30789, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 129536, ts: 30836, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 239
+# pos: 129536, ts: 30882, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 130048, ts: 30928, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 130048, ts: 30975, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 130048, ts: 31021, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 130560, ts: 31068, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 130560, ts: 31114, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 130560, ts: 31161, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
+# pos: 131072, ts: 31207, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 131072, ts: 31254, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 131584, ts: 31300, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 131584, ts: 31346, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 131584, ts: 31393, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 132096, ts: 31439, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 132096, ts: 31486, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 132608, ts: 31532, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 132608, ts: 31579, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 132608, ts: 31625, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 133120, ts: 31672, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 133120, ts: 31718, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 133120, ts: 31764, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
+# pos: 133632, ts: 31811, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 133632, ts: 31857, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 133632, ts: 31904, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 134144, ts: 31950, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 134144, ts: 31997, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 134656, ts: 32043, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 134656, ts: 32089, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 134656, ts: 32136, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 135168, ts: 32182, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 235
+# pos: 135168, ts: 32229, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 135680, ts: 32275, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 135680, ts: 32322, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 135680, ts: 32368, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 136192, ts: 32415, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 136192, ts: 32461, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 136192, ts: 32507, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 136704, ts: 32554, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 136704, ts: 32600, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 137216, ts: 32647, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 137216, ts: 32693, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 137216, ts: 32740, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 137728, ts: 32786, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 137728, ts: 32833, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 137728, ts: 32879, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 138240, ts: 32925, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 138240, ts: 32972, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 138240, ts: 33018, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 138752, ts: 33065, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 138752, ts: 33111, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 139264, ts: 33158, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 205
+# pos: 139264, ts: 33204, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 139264, ts: 33250, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 139776, ts: 33297, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 139776, ts: 33343, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 140288, ts: 33390, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 140288, ts: 33436, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 140288, ts: 33483, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 140800, ts: 33529, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 232
+# pos: 140800, ts: 33576, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 140800, ts: 33622, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 141312, ts: 33668, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 141312, ts: 33715, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 141824, ts: 33761, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 141824, ts: 33808, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 141824, ts: 33854, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 142336, ts: 33901, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 142336, ts: 33947, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 142336, ts: 33994, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 142848, ts: 34040, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 142848, ts: 34086, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 143360, ts: 34133, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 143360, ts: 34179, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 143360, ts: 34226, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 143872, ts: 34272, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 143872, ts: 34319, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 143872, ts: 34365, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 144384, ts: 34411, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 144384, ts: 34458, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
+# pos: 144896, ts: 34504, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 144896, ts: 34551, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 144896, ts: 34597, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 145408, ts: 34644, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 237
+# pos: 145408, ts: 34690, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 145920, ts: 34737, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 145920, ts: 34783, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 145920, ts: 34829, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 146432, ts: 34876, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 146432, ts: 34922, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 146432, ts: 34969, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 146944, ts: 35015, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 146944, ts: 35062, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 146944, ts: 35108, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 147456, ts: 35155, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 233
+# pos: 147456, ts: 35201, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 147968, ts: 35247, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 147968, ts: 35294, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 147968, ts: 35340, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 148480, ts: 35387, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 148480, ts: 35433, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 210
+# pos: 148992, ts: 35480, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 148992, ts: 35526, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 148992, ts: 35572, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 149504, ts: 35619, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 149504, ts: 35665, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
+# pos: 149504, ts: 35712, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 150016, ts: 35758, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 150016, ts: 35805, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 150528, ts: 35851, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 150528, ts: 35898, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 150528, ts: 35944, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 151040, ts: 35990, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 151040, ts: 36037, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 213
+# pos: 151040, ts: 36083, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 227
+# pos: 151552, ts: 36130, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
+# pos: 151552, ts: 36176, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 177
+# pos: 152064, ts: 36223, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 152064, ts: 36269, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 152064, ts: 36316, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 152576, ts: 36362, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 152576, ts: 36408, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
+# pos: 152576, ts: 36455, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 153088, ts: 36501, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 153088, ts: 36548, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 153600, ts: 36594, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 153600, ts: 36641, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 153600, ts: 36687, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 154112, ts: 36733, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 154112, ts: 36780, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 154112, ts: 36826, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 154624, ts: 36873, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 154624, ts: 36919, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 217
+# pos: 155136, ts: 36966, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 155136, ts: 37012, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 155136, ts: 37059, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 155648, ts: 37105, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 155648, ts: 37151, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 155648, ts: 37198, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 156160, ts: 37244, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 156160, ts: 37291, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 156160, ts: 37337, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 156672, ts: 37384, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 156672, ts: 37430, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 157184, ts: 37477, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 157184, ts: 37523, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 157184, ts: 37569, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 157696, ts: 37616, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 196
+# pos: 157696, ts: 37662, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 157696, ts: 37709, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 158208, ts: 37755, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
+# pos: 158208, ts: 37802, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 158720, ts: 37848, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 158720, ts: 37894, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 158720, ts: 37941, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 159232, ts: 37987, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 159232, ts: 38034, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 159744, ts: 38080, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 159744, ts: 38127, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
+# pos: 159744, ts: 38173, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
+# pos: 160256, ts: 38220, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 160256, ts: 38266, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 160256, ts: 38312, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 207
+# pos: 160768, ts: 38359, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 220
+# pos: 160768, ts: 38405, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 161280, ts: 38452, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 161280, ts: 38498, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 161280, ts: 38545, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 161792, ts: 38591, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 161792, ts: 38638, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 161792, ts: 38684, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 162304, ts: 38730, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 162304, ts: 38777, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
+# pos: 162816, ts: 38823, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 209
+# pos: 162816, ts: 38870, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 162816, ts: 38916, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 163328, ts: 38963, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 231
+# pos: 163328, ts: 39009, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 212
+# pos: 163840, ts: 39055, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 163840, ts: 39102, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 168
+# pos: 163840, ts: 39148, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 164352, ts: 39195, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 164352, ts: 39241, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 164352, ts: 39288, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 164864, ts: 39334, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 164864, ts: 39381, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 226
+# pos: 165376, ts: 39427, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 165376, ts: 39473, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 165376, ts: 39520, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 165888, ts: 39566, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 165888, ts: 39613, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 165888, ts: 39659, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 166400, ts: 39706, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 166400, ts: 39752, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 166912, ts: 39799, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 166912, ts: 39845, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 166912, ts: 39891, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 167424, ts: 39938, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 167424, ts: 39984, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 167424, ts: 40031, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 190
+# pos: 167936, ts: 40077, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 194
+# pos: 167936, ts: 40124, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 167936, ts: 40170, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 168448, ts: 40216, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 214
+# pos: 168448, ts: 40263, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 168960, ts: 40309, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 215
+# pos: 168960, ts: 40356, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 202
+# pos: 168960, ts: 40402, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 169472, ts: 40449, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 169472, ts: 40495, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 169984, ts: 40542, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 195
+# pos: 169984, ts: 40588, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 187
+# pos: 169984, ts: 40634, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 170496, ts: 40681, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 170496, ts: 40727, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 170496, ts: 40774, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 188
+# pos: 171008, ts: 40820, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 199
+# pos: 171008, ts: 40867, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 171520, ts: 40913, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 183
+# pos: 171520, ts: 40959, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 171520, ts: 41006, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 198
+# pos: 172032, ts: 41052, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 172032, ts: 41099, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 229
+# pos: 172032, ts: 41145, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 218
+# pos: 172544, ts: 41192, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
+# pos: 172544, ts: 41238, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 173056, ts: 41285, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 236
+# pos: 173056, ts: 41331, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 173568, ts: 41377, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 173568, ts: 41424, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 173568, ts: 41470, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 174080, ts: 41517, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 174080, ts: 41563, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 174080, ts: 41610, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 174592, ts: 41656, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 178
+# pos: 174592, ts: 41703, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 176
+# pos: 174592, ts: 41749, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 175104, ts: 41795, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 254
+# pos: 175104, ts: 41842, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 175616, ts: 41888, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184
+# pos: 175616, ts: 41935, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 197
+# pos: 175616, ts: 41981, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 191
+# pos: 176128, ts: 42028, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 176128, ts: 42074, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 185
+# pos: 176128, ts: 42120, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 174
+# pos: 176640, ts: 42167, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 179
+# pos: 176640, ts: 42213, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 173
+# pos: 176640, ts: 42260, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 203
+# pos: 177152, ts: 42306, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 200
+# pos: 177152, ts: 42353, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 182
+# pos: 177664, ts: 42399, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 189
+# pos: 177664, ts: 42446, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 181
+# pos: 177664, ts: 42492, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 192
+# pos: 178176, ts: 42538, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 193
+# pos: 178176, ts: 42585, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 186
+# pos: 178176, ts: 42631, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 204
+# pos: 178688, ts: 42678, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 201
+# pos: 178688, ts: 42724, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 180
+# pos: 179070, ts: 42771, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 208
+# pos: 179070, ts: 42817, tag: TYPE_AAC [-A-DC] fl:1 ->  AACFRAME 4096 smp. [44100 Hz, 2] len: 184

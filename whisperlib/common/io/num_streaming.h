@@ -263,15 +263,17 @@ class BaseNumStreamer {
 };
 typedef BaseNumStreamer<InputStream, OutputStream> IONumStreamer;
 
+class MemoryStream;
 class BitArray {
 public:
   BitArray();
   virtual ~BitArray();
 
   // Use an external data buffer.
-  void Wrap(const void* data, uint32 size);
-  // Make an internal copy of the data buffer.
-  void Put(const void* data, uint32 size);
+  void Wrap(const void* data, uint32 size_in_bytes);
+  // Make an internal copy of the data.
+  void Put(const void* data, uint32 size_in_bytes);
+  void PutMS(io::MemoryStream& ms, uint32 size_in_bytes);
 
   // Read next 'bit_count' bits, and assemble them as a T number.
   // e.g. If current data_ contains: "01010000.."

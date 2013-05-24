@@ -50,8 +50,6 @@ namespace streaming {
 // Upon decoding, it calls a bunch of registered callbacks to process them.
 class FlvTagSplitter : public streaming::TagSplitter {
  public:
-  static const Type kType;
- public:
   // name: just for logging
   FlvTagSplitter(const string& name);
   virtual ~FlvTagSplitter();
@@ -65,17 +63,8 @@ class FlvTagSplitter : public streaming::TagSplitter {
 
  private:
   // Maybe extracts cue data from the metadata 'flv_tag'.
-  scoped_ref<CuePointTag> RetrieveCuePoints(const FlvTag::Metadata& metadata,
-      int64 timestamp);
-
-  // Terminates bootstrapping
-  void EndBootstrapping();
-  // This function adjust: duration, size, offset, unseekable, according
-  // to limits/seek/controller.
-  void UpdateMetadata(FlvTag::Metadata& metadata);
-
-  int64 first_tag_timestamp_ms_;
-  int64 tag_timestamp_ms_;
+  static scoped_ref<CuePointTag> RetrieveCuePoints(
+      const FlvTag::Metadata& metadata, int64 timestamp);
 
   // The tags to send next (we may put extra tags in this deque)
   struct TagToSend {
@@ -93,16 +82,12 @@ class FlvTagSplitter : public streaming::TagSplitter {
   bool has_video_;
 
   // wait at most this many tags to extract media info.
-  static const uint32 kMediaInfoMaxWait = 100;
+  static const uint32 kMediaInfoMaxWait = 50;
 
   // we need the first audio + video + metadata tag to extract media info
   scoped_ref<FlvTag> first_audio_;
   scoped_ref<FlvTag> first_video_;
   scoped_ref<FlvTag> first_metadata_;
-
-  bool media_info_extracted_;
-
-  bool bootstrapping_;
 
   DISALLOW_EVIL_CONSTRUCTORS(FlvTagSplitter);
 };

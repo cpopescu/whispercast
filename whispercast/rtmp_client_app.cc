@@ -136,7 +136,7 @@ class TestConnection {
       runtime_alarm_(*selector),
       seek_performed_(false) {
     g_current_connections++;
-    ILOG(INFO) << "New client, total running clients: " << g_current_connections;
+    ILOG(ERROR) << "New client, total running clients: " << g_current_connections;
     client_->set_event_log_level(FLAGS_event_log_level);
     client_->set_tag_log_level(FLAGS_tag_log_level);
     client_->set_close_handler(NewPermanentCallback(this,
@@ -164,8 +164,7 @@ class TestConnection {
   virtual ~TestConnection() {
     CHECK_GE(g_current_connections, 1);
     g_current_connections--;
-    ILOG(INFO) << "Done client, total running clients: "
-               << g_current_connections;
+    ILOG(ERROR) << "Done client, total running clients: " << g_current_connections;
 
     delete client_;
     client_ = NULL;
@@ -190,7 +189,7 @@ class TestConnection {
         break;
       }
       if ( out_file_.IsOpen() ) {
-        out_file_.Write(tag, -1);
+        out_file_.Write(tag, tag->timestamp_ms());
       }
 
       // see how far from realtime is the incoming tag

@@ -42,17 +42,13 @@
 namespace streaming {
 class Mp3TagSplitter : public streaming::TagSplitter {
  public:
-  static const Type kType;
- public:
   Mp3TagSplitter(const string& name, bool resynchronize_always = true)
-      : streaming::TagSplitter(kType, name),
+      : TagSplitter(MFORMAT_MP3, name),
         stream_offset_ms_(0),
-        crt_tag_(NULL),
         do_synchronize_(true),
         resynchronize_always_(resynchronize_always) {
   }
   virtual ~Mp3TagSplitter() {
-    delete crt_tag_;
   }
 
  protected:
@@ -67,7 +63,7 @@ class Mp3TagSplitter : public streaming::TagSplitter {
 
  private:
   int64 stream_offset_ms_;
-  Mp3FrameTag* crt_tag_;
+  scoped_ref<Mp3FrameTag> crt_tag_;
   bool do_synchronize_;
   const bool resynchronize_always_;
 

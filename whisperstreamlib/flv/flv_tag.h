@@ -39,6 +39,7 @@
 #include <whisperlib/common/io/buffer/memory_stream.h>
 #include <whisperlib/common/io/num_streaming.h>
 #include <whisperstreamlib/base/tag.h>
+#include <whisperstreamlib/base/tag_serializer.h>
 #include <whisperstreamlib/base/consts.h>
 #include <whisperstreamlib/flv/flv_consts.h>
 #include <whisperstreamlib/rtmp/objects/rtmp_objects.h>
@@ -90,7 +91,8 @@ class FlvHeader : public streaming::Tag {
 
   virtual int64 duration_ms() const { return 0; }
   virtual uint32 size() const { return kFlvHeaderSize; }
-
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return NULL; }
   virtual Tag* Clone() const {
     return new FlvHeader(*this);
   }
@@ -132,8 +134,8 @@ class FlvTag : public streaming::Tag {
  public:
   class Body : public RefCounted {
    public:
-    Body(FlvFrameType t) : RefCounted(&mutex_), type_(t) {}
-    Body(const Body& other) : RefCounted(&mutex_), type_(other.type_) {}
+    Body(FlvFrameType t) : type_(t) {}
+    Body(const Body& other) : type_(other.type_) {}
     virtual ~Body() {}
     FlvFrameType type() const { return type_; }
     const char* type_name() const { return FlvFrameTypeName(type_); }
@@ -145,7 +147,6 @@ class FlvTag : public streaming::Tag {
     virtual string ToString() const = 0;
    private:
     FlvFrameType type_;
-    synch::Mutex mutex_;
   };
   class Audio : public Body {
    public:
@@ -153,42 +154,29 @@ class FlvTag : public streaming::Tag {
     Audio()
       : Body(kType),
         data_(),
-        audio_type_(FLV_FLAG_SOUND_TYPE_MONO),
-        audio_format_(FLV_FLAG_SOUND_FORMAT_RAW),
-        audio_rate_(FLV_FLAG_SOUND_RATE_5_5_KHZ),
-        audio_size_(FLV_FLAG_SOUND_SIZE_8_BIT),
-        audio_is_aac_header_(false) {}
-    Audio(const io::MemoryStream& data)
-      : Body(kType),
-        data_(),
-        audio_type_(FLV_FLAG_SOUND_TYPE_MONO),
-        audio_format_(FLV_FLAG_SOUND_FORMAT_RAW),
-        audio_rate_(FLV_FLAG_SOUND_RATE_5_5_KHZ),
-        audio_size_(FLV_FLAG_SOUND_SIZE_8_BIT),
-        audio_is_aac_header_(false) {
-      append_data(data);
-    }
+        type_(FLV_FLAG_SOUND_TYPE_MONO),
+        format_(FLV_FLAG_SOUND_FORMAT_RAW),
+        rate_(FLV_FLAG_SOUND_RATE_5_5_KHZ),
+        size_(FLV_FLAG_SOUND_SIZE_8_BIT),
+        is_aac_header_(false) {}
     Audio(const Audio& other)
       : Body(other),
         data_(),
-        audio_type_(other.audio_type_),
-        audio_format_(other.audio_format_),
-        audio_rate_(other.audio_rate_),
-        audio_size_(other.audio_size_),
-        audio_is_aac_header_(other.audio_is_aac_header_) {
+        type_(other.type_),
+        format_(other.format_),
+        rate_(other.rate_),
+        size_(other.size_),
+        is_aac_header_(other.is_aac_header_) {
       data_.AppendStreamNonDestructive(&other.data_);
     }
     virtual ~Audio() {}
 
     const io::MemoryStream& data() const { return data_; }
-    FlvFlagSoundType audio_type() const { return audio_type_; }
-    FlvFlagSoundFormat audio_format() const { return audio_format_; }
-    FlvFlagSoundRate audio_rate() const { return audio_rate_; }
-    FlvFlagSoundSize audio_size() const { return audio_size_; }
-    bool audio_is_aac_header() const { return audio_is_aac_header_; }
-
-    void append_data(const void* data, uint32 size);
-    void append_data(const io::MemoryStream& data);
+    FlvFlagSoundType type() const { return type_; }
+    FlvFlagSoundFormat format() const { return format_; }
+    FlvFlagSoundRate rate() const { return rate_; }
+    FlvFlagSoundSize size() const { return size_; }
+    bool is_aac_header() const { return is_aac_header_; }
 
     virtual TagReadStatus Decode(io::MemoryStream& in, uint32 size);
     virtual void Encode(io::MemoryStream* out) const;
@@ -201,11 +189,11 @@ class FlvTag : public streaming::Tag {
 
     // Audio flags, extracted from 'data_', without consuming any data.
     // Therefore these flags are read-only.
-    FlvFlagSoundType audio_type_;
-    FlvFlagSoundFormat audio_format_;
-    FlvFlagSoundRate audio_rate_;
-    FlvFlagSoundSize audio_size_;
-    bool audio_is_aac_header_;
+    FlvFlagSoundType type_;
+    FlvFlagSoundFormat format_;
+    FlvFlagSoundRate rate_;
+    FlvFlagSoundSize size_;
+    bool is_aac_header_;
   };
   class Video : public Body {
    public:
@@ -213,49 +201,31 @@ class FlvTag : public streaming::Tag {
     Video()
       : Body(kType),
         data_(),
-        video_codec_(FLV_FLAG_VIDEO_CODEC_H263),
-        video_frame_type_(FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME),
-        video_avc_packet_type_(AVC_SEQUENCE_HEADER),
-        video_avc_composition_time_(0),
-        video_avc_moov_() {}
-    Video(const io::MemoryStream& data)
-      : Body(kType),
-        data_(),
-        video_codec_(FLV_FLAG_VIDEO_CODEC_H263),
-        video_frame_type_(FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME),
-        video_avc_packet_type_(AVC_SEQUENCE_HEADER),
-        video_avc_composition_time_(0),
-        video_avc_moov_() {
-      append_data(data);
-    }
+        codec_(FLV_FLAG_VIDEO_CODEC_H263),
+        frame_type_(FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME),
+        avc_packet_type_(AVC_SEQUENCE_HEADER),
+        avc_composition_offset_ms_(0),
+        avc_moov_() {}
     Video(const Video& other)
       : Body(other),
         data_(),
-        video_codec_(other.video_codec_),
-        video_frame_type_(other.video_frame_type_),
-        video_avc_packet_type_(other.video_avc_packet_type_),
-        video_avc_composition_time_(other.video_avc_composition_time_),
-        video_avc_moov_(other.video_avc_moov_) {
+        codec_(other.codec_),
+        frame_type_(other.frame_type_),
+        avc_packet_type_(other.avc_packet_type_),
+        avc_composition_offset_ms_(other.avc_composition_offset_ms_),
+        avc_moov_(other.avc_moov_) {
       data_.AppendStreamNonDestructive(&other.data_);
     }
 
     virtual ~Video() {}
     const io::MemoryStream& data() const { return data_; }
-    FlvFlagVideoCodec video_codec() const {
-      return video_codec_; }
-    FlvFlagVideoFrameType video_frame_type() const {
-      return video_frame_type_; }
-    AvcPacketType video_avc_packet_type() const {
-      return video_avc_packet_type_; }
-    int32 video_avc_composition_time() const {
-        return video_avc_composition_time_; }
-    const scoped_ref<const FlvTag>& video_avc_moov() const {
-      return video_avc_moov_; }
+    FlvFlagVideoCodec codec() const { return codec_; }
+    FlvFlagVideoFrameType frame_type() const { return frame_type_; }
+    AvcPacketType avc_packet_type() const { return avc_packet_type_; }
+    int32 avc_composition_offset_ms() const { return avc_composition_offset_ms_; }
+    const scoped_ref<const FlvTag>& avc_moov() const { return avc_moov_; }
 
-    void set_video_avc_moov(const FlvTag* moov) { video_avc_moov_ = moov; }
-
-    void append_data(const void* data, uint32 size);
-    void append_data(const io::MemoryStream& data);
+    void set_avc_moov(const FlvTag* moov) { avc_moov_ = moov; }
 
     virtual TagReadStatus Decode(io::MemoryStream& in, uint32 size);
     virtual void Encode(io::MemoryStream* out) const;
@@ -268,15 +238,15 @@ class FlvTag : public streaming::Tag {
 
     // Video flags, extracted from 'data_', without consuming any data.
     // Therefore these flags are read-only.
-    FlvFlagVideoCodec video_codec_;
-    FlvFlagVideoFrameType video_frame_type_;
-    // Only for video_codec_ == FLV_FLAG_VIDEO_CODEC_AVC
-    AvcPacketType video_avc_packet_type_;
-    int32 video_avc_composition_time_;
+    FlvFlagVideoCodec codec_;
+    FlvFlagVideoFrameType frame_type_;
+    // Only for codec_ == FLV_FLAG_VIDEO_CODEC_AVC
+    AvcPacketType avc_packet_type_;
+    int32 avc_composition_offset_ms_;
     // The moov tag extracted from parent. Useful to bootstrapper
     // (the alternative would be: the bootstrapper detects and extracts this
     //  moov; however the more bootstrappers => the more extra processing)
-    scoped_ref<const FlvTag> video_avc_moov_;
+    scoped_ref<const FlvTag> avc_moov_;
   };
   class Metadata : public Body {
    public:
@@ -310,7 +280,6 @@ class FlvTag : public streaming::Tag {
          int64 timestamp_ms,
          Body* body)
       : Tag(kType, attributes, flavour_mask),
-        previous_tag_size_(0),
         timestamp_ms_(timestamp_ms),
         stream_id_(0),
         body_(body) {
@@ -321,7 +290,6 @@ class FlvTag : public streaming::Tag {
          int64 timestamp_ms,
          FlvFrameType frame_type)
       : Tag(kType, attributes, flavour_mask),
-        previous_tag_size_(0),
         timestamp_ms_(timestamp_ms),
         stream_id_(0),
         body_(frame_type == FLV_FRAMETYPE_AUDIO ? (Body*)new Audio() :
@@ -332,7 +300,6 @@ class FlvTag : public streaming::Tag {
   }
   FlvTag(const FlvTag& other, int64 timestamp_ms, bool duplicate_body)
       : Tag(other),
-        previous_tag_size_(other.previous_tag_size_),
         timestamp_ms_(timestamp_ms != -1 ? timestamp_ms : other.timestamp_ms_),
         stream_id_(other.stream_id_),
         body_(duplicate_body ? other.body_->Clone() : other.body_) {
@@ -341,28 +308,36 @@ class FlvTag : public streaming::Tag {
   virtual ~FlvTag() {
   }
 
-  void update();
+  // Updates attributes_, based on body_ properties.
+  void LearnAttributes();
 
   int64 timestamp_ms() const { return timestamp_ms_; }
 
   virtual int64 duration_ms() const { return body_->Size(); }
   virtual uint32 size() const { return body_->Size(); }
+  virtual int64 composition_offset_ms() const {
+    return is_video_tag() ? video_body().avc_composition_offset_ms() : 0;
+  }
+  virtual const io::MemoryStream* Data() const {
+    switch ( body().type() ) {
+      case FLV_FRAMETYPE_AUDIO: return &audio_body().data();
+      case FLV_FRAMETYPE_VIDEO: return &video_body().data();
+      case FLV_FRAMETYPE_METADATA: return NULL;
+    }
+    LOG_FATAL << "Illegal body type: " << body().type();
+    return NULL;
+  }
+
   // the new tag shares the internal data buffer with this tag
   virtual Tag* Clone() const {
     return new FlvTag(*this, -1, false);
   }
 
-  uint32 previous_tag_size() const {
-    return previous_tag_size_;
-  }
   uint32 stream_id() const {
     return stream_id_;
   }
   void set_timestamp_ms(int64 timestamp_ms) {
     timestamp_ms_ = timestamp_ms;
-  }
-  void set_previous_tag_size(uint32 previous_tag_size) {
-    previous_tag_size_ = previous_tag_size;
   }
   void set_stream_id(uint32 stream_id) {
     stream_id_ = stream_id;
@@ -395,23 +370,19 @@ class FlvTag : public streaming::Tag {
   Metadata& mutable_metadata_body() { return mutable_tbody<Metadata>(); }
 
   virtual string ToStringBody() const {
-    return strutil::StringPrintf("previous_tag_size_: %u, timestamp_ms_: %"PRId64""
+    return strutil::StringPrintf("timestamp_ms_: %"PRId64""
+        ", composition_offset_ms_: %"PRId64""
         ", stream_id_: %u, body_: %s",
-        previous_tag_size_, timestamp_ms_, stream_id_,
+        timestamp_ms_, composition_offset_ms(), stream_id_,
         body_->ToString().c_str());
   }
 
  protected:
-  static const int kNumMutexes = 1024;
-  static synch::MutexPool mutex_pool_;
-
-  // Previous tag size. 4 bytes BIGENDIAN
-  uint32 previous_tag_size_;
-  // Tag data type. 1 byte. Redundant, it's the same as body_->type().
-  // FlvFrameType data_type_;
-  // Timestamp. 3 bytes BIGENDIAN + 1 byte extension(hi)
+  // Decoding Timestamp. 3 bytes BIGENDIAN + 1 byte extension(hi)
   int64 timestamp_ms_;
-  // Stream ID. Usually not used, 3 bytes: "\0x00\0x00\0x00"
+
+  // Stream ID. 3 bytes: "\0x00\0x00\0x00"
+  // According to 'Video File Format Specification, v.10': not used, always 0.
   uint32 stream_id_;
 
   // Flv tag body. Cannot be NULL.
@@ -422,9 +393,9 @@ class FlvTag : public streaming::Tag {
 
 //////////////////////////////////////////////////////////////////////
 
-inline ostream& operator<<(ostream& os, const FlvTag& obj) {
-  return os << obj.ToString();
-}
+//inline ostream& operator<<(ostream& os, const FlvTag& obj) {
+//  return os << obj.ToString();
+//}
 
 class FlvTagSerializer : public streaming::TagSerializer {
  public:
@@ -435,27 +406,25 @@ class FlvTagSerializer : public streaming::TagSerializer {
   void set_has_video(bool has_video) { has_video_ = has_video; }
   void set_has_audio(bool has_audio) { has_audio_ = has_audio; }
 
+  ////////////////////////////////////////////////////////////////////////
+  // Methods from TagSerializer:
+
   // If any starting things are necessary to be serialized before the
   // actual tags, this is the moment :)
   virtual void Initialize(io::MemoryStream* out);
-  // If any finishing touches things are necessary to be serialized after the
-  // actual tags, this is the moment :)
-  virtual void Finalize(io::MemoryStream* out);
-
-  // The stuf that actually writes a flv tag - for easy access
-  void SerializeFlvTag(const FlvTag* tag, int64 timestamp_ms,
-                       io::MemoryStream* out);
-
-  // Returns the serialized tag size.
-  static uint32 EncodingSize(const FlvTag* tag);
-
- protected:
-  ////////////////////////////////////////////////////////////////////////
-  // Methods from TagSerializer:
+private:
   // The main interface function - puts "tag" into "out"
   virtual bool SerializeInternal(const Tag* tag,
                                  int64 timestamp_ms,
                                  io::MemoryStream* out);
+public:
+  // If any finishing touches things are necessary to be serialized after the
+  // actual tags, this is the moment :)
+  virtual void Finalize(io::MemoryStream* out);
+
+  // Returns the serialized tag size.
+  static uint32 EncodingSize(const FlvTag* tag);
+
  private:
   bool write_header_;
   bool has_video_;

@@ -36,6 +36,7 @@
 #include <whisperlib/common/base/types.h>
 #include <whisperstreamlib/base/consts.h>
 #include <whisperstreamlib/base/tag.h>
+#include <whisperstreamlib/base/tag_serializer.h>
 
 namespace io {
 class MemoryStream;
@@ -114,6 +115,12 @@ class Mp3FrameTag : public streaming::Tag {
   // Computes the length (in miliseconds) of this frame.
   int64 TimeLengthInMs() const;
 
+  uint8 channels() const {
+    return channel_mode_ == STEREO ||
+           channel_mode_ == JOINT_STEREO ||
+           channel_mode_ == DUAL_CHANNEL ? 2 : 1;
+  }
+
   Version version() const { return version_; }
   Layer layer() const { return layer_; }
   ChannelMode channel_mode() const { return channel_mode_; }
@@ -133,6 +140,8 @@ class Mp3FrameTag : public streaming::Tag {
   const char* ChannelModeName() const { return ChannelModeName(channel_mode_); }
   virtual int64 duration_ms() const { return TimeLengthInMs(); }
   virtual uint32 size() const { return data_.Size(); }
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return &data_; }
   virtual Tag* Clone() const {
     return new Mp3FrameTag(*this);
   }
@@ -162,7 +171,7 @@ class Mp3FrameTag : public streaming::Tag {
 
 class Mp3TagSerializer : public streaming::TagSerializer {
  public:
-  Mp3TagSerializer() : streaming::TagSerializer() { }
+  Mp3TagSerializer() : TagSerializer(MFORMAT_MP3) { }
   virtual ~Mp3TagSerializer() {}
   virtual void Initialize(io::MemoryStream* out) {}
   virtual void Finalize(io::MemoryStream* out) {}
@@ -170,11 +179,9 @@ class Mp3TagSerializer : public streaming::TagSerializer {
   virtual bool SerializeInternal(const Tag* tag,
                                  int64 timestamp_ms,
                                  io::MemoryStream* out) {
-    if ( tag->type() != Tag::TYPE_MP3 ) {
-      return false;
+    if ( tag->is_audio_tag() ) {
+      out->AppendStreamNonDestructive(tag->Data());
     }
-    out->AppendStreamNonDestructive(
-        &static_cast<const Mp3FrameTag*>(tag)->data());
     return true;
   }
  private:

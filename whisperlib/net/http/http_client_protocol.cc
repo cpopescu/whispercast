@@ -254,7 +254,7 @@ BaseClientProtocol::BaseClientProtocol(
     net::HostPort server)
     : name_(string("HTTP CLI[") + server.ToString() + "]"),
       params_(params),
-      server_(server),
+      server_(server, 80),
       available_output_size_(params->max_output_buffer_size_),
       conn_error_(http::CONN_INCOMPLETE),
       connection_(connection),
@@ -309,9 +309,10 @@ void BaseClientProtocol::SendRequestToServer(ClientRequest* req) {
     req->request()->client_header()->AddField(
         kHeaderConnection, "Keep-Alive", true);
   }
-  req->request()->client_header()->AddField(http::kHeaderHost,
-      connection_->remote_address().ip_object().ToString(), true);
-
+  if (!req->request()->client_header()->HasField(http::kHeaderHost)) {
+    req->request()->client_header()->AddField(http::kHeaderHost,
+      server_.ToString(), true);
+  }
   if ( req->is_pure_dumping() ) {
     req->request()->client_header()->AppendToStream(connection_->outbuf());
     connection_->outbuf()->AppendStream(req->request()->client_data());
@@ -491,10 +492,8 @@ void ClientStreamingProtocol::NotifyConnectionWrite() {
         connection_->outbuf()->AppendStream(
             current_request_->request()->client_data());
       } else {
-        connection_->outbuf()->AppendStreamNonDestructive(
+        connection_->outbuf()->AppendStream(
             current_request_->request()->client_data(),
-            available_output_size_);
-        current_request_->request()->client_data()->Skip(
             available_output_size_);
       }
     } else {

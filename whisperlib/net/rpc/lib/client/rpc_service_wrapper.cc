@@ -65,8 +65,8 @@ const std::string& ServiceWrapper::GetServiceClassName() const {
   return service_class_name_;
 }
 
-Codec& ServiceWrapper::GetCodec() const {
-  return rpc_connection_.GetCodec();
+CodecId ServiceWrapper::GetCodec() const {
+  return rpc_connection_.codec();
 }
 
 void ServiceWrapper::CancelCall(CALL_ID call_id) {

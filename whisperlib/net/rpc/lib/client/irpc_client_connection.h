@@ -41,7 +41,8 @@
 #include <whisperlib/net/base/selector.h>
 #include <whisperlib/net/base/timeouter.h>
 #include <whisperlib/net/rpc/lib/types/rpc_message.h>
-#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_decoder.h>
 
 // This is an interface for all client side RPC transport connections.
 // The interface is capable of sending & receiving RPCMessage through
@@ -60,7 +61,7 @@ class IClientConnection {
  public:
   IClientConnection(net::Selector& selector,
                     rpc::CONNECTION_TYPE connection_type,
-                    rpc::CODEC_ID codec_id);
+                    rpc::CodecId codec);
   virtual ~IClientConnection();
 
   // Returns a description of the last error.
@@ -72,10 +73,7 @@ class IClientConnection {
     return connection_type_;
   }
 
-  // Retrieve connection codec.
-  rpc::Codec& GetCodec() const {
-    return *codec_;
-  }
+  CodecId codec() const { return codec_; }
 
  protected:
   typedef Callback3<uint32, rpc::REPLY_STATUS, const io::MemoryStream&>
@@ -225,9 +223,9 @@ class IClientConnection {
   net::Selector& selector_;
 
   rpc::CONNECTION_TYPE connection_type_;  // identifies the transport layer
-  rpc::Codec* codec_;                     // the codec used. Allocated locally.
+  rpc::CodecId codec_;                    // rpc Messages are coded by this
 
-  string error_;                          // description of the last error
+  string error_;                 // description of the last error
 
   uint32 next_xid_;              // for generating consecutive transaction IDs
   synch::Mutex sync_next_xid_;   // synchronize access to next_xid_

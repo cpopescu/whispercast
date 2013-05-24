@@ -68,7 +68,7 @@ class FailsafeClientConnectionHTTP : public rpc::IClientConnection {
   //  Methods available to any external thread (application).
   //
   FailsafeClientConnectionHTTP(net::Selector* selector,
-                               rpc::CODEC_ID codec_id,
+                               rpc::CodecId codec,
                                http::FailSafeClient* failsafe_client,
                                const string& httpRequestPath,
                                const string& auth_user,
@@ -114,7 +114,7 @@ class FailsafeClientConnectionHTTP : public rpc::IClientConnection {
         : req_(req),
           msg_(msg),
           cancelled_(false),
-          xid_(msg->header_.xid_) {
+          xid_(msg->header().xid()) {
     }
     ~QueryStruct() {
       delete req_;

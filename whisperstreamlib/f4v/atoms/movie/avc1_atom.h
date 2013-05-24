@@ -90,6 +90,7 @@ class Avc1Atom : public ContainerVersionedAtom {
                                      Decoder& decoder);
   virtual void EncodeData(io::MemoryStream& out, Encoder& encoder) const;
   virtual uint64 MeasureDataSize() const;
+  virtual bool EqualsData(const ContainerVersionedAtom& other) const;
   virtual string ToStringData(uint32 indent) const;
 
  private:

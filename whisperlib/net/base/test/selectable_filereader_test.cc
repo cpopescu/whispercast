@@ -91,6 +91,7 @@ int main(int argc, char* argv[]) {
     net::SelectableFilereader reader(&selector);
     CHECK(reader.InitializeFd(fd[0],
                               NewPermanentCallback(PrintFileData),
+                              true,
                               NewCallback(&selector,
                                           &net::Selector::MakeLoopExit)));
     selector.Loop();

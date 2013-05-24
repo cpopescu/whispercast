@@ -69,6 +69,8 @@ class ContainerVersionedAtom : public VersionedAtom {
   virtual void EncodeData(io::MemoryStream& out, Encoder& encoder) const = 0;
   // Returns the size of the data between version - subatoms.
   virtual uint64 MeasureDataSize() const = 0;
+  // test only the data between version - subatoms
+  virtual bool EqualsData(const ContainerVersionedAtom& other) const = 0;
   // returns a description of the atom data between version - subatoms.
   virtual string ToStringData(uint32 indent) const = 0;
 
@@ -80,9 +82,11 @@ class ContainerVersionedAtom : public VersionedAtom {
   /////////////////////////////////////////////////////////////
   // VersionedAtom methods
   //
- private:
-  virtual BaseAtom* Clone() const = 0;
+ public:
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
+  virtual BaseAtom* Clone() const = 0;
+ protected:
+  virtual bool EqualsVersionedBody(const VersionedAtom& other) const;
   virtual TagDecodeStatus DecodeVersionedBody(uint64 size,
                                               io::MemoryStream& in,
                                               Decoder& decoder);

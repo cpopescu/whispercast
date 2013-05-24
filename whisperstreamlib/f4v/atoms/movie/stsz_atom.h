@@ -49,6 +49,7 @@ struct StszRecord {
   StszRecord(const StszRecord& other);
   ~StszRecord();
 
+  bool Equals(const StszRecord& other) const;
   StszRecord* Clone() const;
 
   bool Decode(io::MemoryStream& in);
@@ -70,6 +71,7 @@ public:
 
  ///////////////////////////////////////////////////////////////////////////
  // Methods from MultiRecordVersionedAtom
+ virtual bool EqualsVersionedBody(const VersionedAtom& other) const;
  virtual BaseAtom* Clone() const;
  virtual TagDecodeStatus DecodeVersionedBody(uint64 size, io::MemoryStream& in,
                                               Decoder& decoder);

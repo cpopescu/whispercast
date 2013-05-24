@@ -59,16 +59,13 @@ class HttpClientElementData : public ElementController {
     net::Selector* selector,
     const net::NetFactory& net_factory,
     net::PROTOCOL net_protocol,
-    const HttpClientElement::Host2IpMap* host_aliases,
     const string& name,
-    const char* server_name,
+    const string& server_name,
     uint16 server_port,
-    const char* url_escaped_query_path,
+    const string& url_escaped_query_path,
     bool should_reopen,
     bool fetch_only_on_request,
     const http::ClientParams* client_params,
-    Tag::Type tag_type,
-    streaming::SplitterCreator* splitter_creator,
     int32 prefill_buffer_ms,
     int32 advance_media_ms,
     int media_http_maximum_tag_size);
@@ -80,13 +77,11 @@ class HttpClientElementData : public ElementController {
 
   string name() const { return name_; }
 
-  const streaming::Capabilities& caps() const { return caps_; }
-
   bool AddCallback(streaming::Request* req,
                    streaming::ProcessingCallback* callback);
   void RemoveCallback(streaming::Request* req);
 
-  void SetRemoteUser(const char* user_name, const char* password) {
+  void SetRemoteUser(const string& user_name, const string& password) {
     remote_user_name_ = user_name;
     remote_password_ = password;
   }
@@ -175,10 +170,8 @@ class HttpClientElementData : public ElementController {
   const net::NetFactory& net_factory_;       // creates TCP or SSL connections
                                              // as base for HTTP
   net::PROTOCOL net_protocol_;               // SSL or TCP
-  const HttpClientElement::Host2IpMap* const host_aliases_;
-                                             // can map server_name_ -> ip
   const string name_;                        // our name
-  const string server_name_;                 // we connect to this server(alias)
+  const string server_name_;                 // we connect to this server
   const uint16 server_port_;                 // we connect on this port
   const string url_escaped_query_path_;      // and ask for this path
   const bool should_reopen_;                 // do we reopen URL on error ?
@@ -187,8 +180,6 @@ class HttpClientElementData : public ElementController {
 
   const http::ClientParams* const client_params_;
                                               // how to behave (HTTP wise)
-  const Capabilities caps_;                   // we provide this kind of media
-  SplitterCreator* splitter_creator_;         // creates splitters for us
   Closure* call_on_close_;
                                               // upon closure we call this
                                               // notification callback
@@ -232,20 +223,15 @@ class HttpClientElementData : public ElementController {
 const char HttpClientElement::kElementClassName[] = "http_client";
 
 HttpClientElement::HttpClientElement(
-  const char* name,
-  const char* id,
+  const string& name,
   ElementMapper* mapper,
   net::Selector* selector,
-  const HttpClientElement::Host2IpMap* host_aliases,
-  streaming::SplitterCreator* splitter_creator,
   int32 prefill_buffer_ms,
   int32 advance_media_ms,
   int media_http_maximum_tag_size)
-    : Element(kElementClassName, name, id, mapper),
+    : Element(kElementClassName, name, mapper),
       selector_(selector),
       net_factory_(selector_),
-      host_aliases_(host_aliases),
-      splitter_creator_(splitter_creator),
       prefill_buffer_ms_(prefill_buffer_ms),
       advance_media_ms_(advance_media_ms),
       media_http_maximum_tag_size_(media_http_maximum_tag_size),
@@ -268,28 +254,20 @@ HttpClientElement::HttpClientElement(
 
 HttpClientElement::~HttpClientElement() {
   DCHECK(elements_.empty());
-  delete splitter_creator_;
 }
 
-bool HttpClientElement::AddRequest(const char* media,
-                                   streaming::Request* req,
-                                   streaming::ProcessingCallback* callback) {
+bool HttpClientElement::AddRequest(const string& media, Request* req,
+                                   ProcessingCallback* callback) {
   CHECK(callback->is_permanent());
-  ElementMap::const_iterator it = elements_.find(string(media));
+  ElementMap::const_iterator it = elements_.find(media);
   if ( it == elements_.end() ) {
     ILOG_ERROR << "Cannot find media: [" << media << "], looking through: "
                << strutil::ToStringKeys(elements_);
     return false;
   }
 
-  if ( !it->second->caps().IsCompatible(req->caps()) ) {
-    ILOG_ERROR << "Caps do not match: request: " << req->caps().ToString()
-               << " v.s. ours: " << it->second->caps().ToString();
-    return false;
-  }
   if ( it->second->AddCallback(req, callback) ) {
     requests_.insert(make_pair(req, it->second));
-    req->mutable_caps()->IntersectCaps(it->second->caps());
     return true;
   }
   ILOG_ERROR << "The subelement: [" << it->second->name() << "]"
@@ -308,23 +286,16 @@ void HttpClientElement::RemoveRequest(streaming::Request* req) {
   data->RemoveCallback(req);
 }
 
-bool HttpClientElement::HasMedia(const char* media, Capabilities* out) {
-  ElementMap::const_iterator it = elements_.find(string(media));
-  if ( it == elements_.end() ) {
-    return false;
-  }
-  *out = it->second->caps();
-  return true;
+bool HttpClientElement::HasMedia(const string& media) {
+  return elements_.find(media) != elements_.end();
 }
 
-void HttpClientElement::ListMedia(const char* media_dir,
-                                  streaming::ElementDescriptions* medias) {
+void HttpClientElement::ListMedia(const string& media_dir,
+                                  vector<string>* out) {
   for ( ElementMap::const_iterator it = elements_.begin();
         it != elements_.end(); ++it ) {
-    if ( *media_dir == '\0' || it->first == media_dir ) {
-      medias->push_back(make_pair(
-                            it->first,
-                            it->second->caps()));
+    if ( media_dir == "" || it->first == media_dir ) {
+      out->push_back(it->first);
     }
   }
 }
@@ -340,21 +311,20 @@ bool HttpClientElement::DescribeMedia(const string& media,
   return true;
 }
 
-bool HttpClientElement::AddElement(const char* name,
-                                   const char* server_name,
+bool HttpClientElement::AddElement(const string& ename,
+                                   const string& server_name,
                                    const uint16 server_port,
-                                   const char* url_escaped_query_path,
+                                   const string& url_escaped_query_path,
                                    bool should_reopen,
                                    bool fetch_only_on_request,
-                                   Tag::Type tag_type,
                                    const http::ClientParams* client_params) {
-  const string full_name = name_ + "/" + name;
+  const string full_name = name() + "/" + ename;
   ElementMap::const_iterator it = elements_.find(full_name);
   if ( it != elements_.end() ) {
     return false;
   }
   HttpClientElementData* const src = new HttpClientElementData(
-    selector_, net_factory_, net::PROTOCOL_TCP, host_aliases_,
+    selector_, net_factory_, net::PROTOCOL_TCP,
     full_name,
     server_name,
     server_port,
@@ -362,8 +332,6 @@ bool HttpClientElement::AddElement(const char* name,
     should_reopen,
     fetch_only_on_request,
     client_params == NULL ? &default_params_ : client_params,
-    tag_type,
-    splitter_creator_,
     prefill_buffer_ms_,
     advance_media_ms_,
     media_http_maximum_tag_size_);
@@ -376,10 +344,10 @@ bool HttpClientElement::AddElement(const char* name,
   return true;
 }
 
-bool HttpClientElement::SetElementRemoteUser(const char* name,
-                                             const char* user_name,
-                                             const char* password) {
-  const string full_name = name_ + "/" + name;
+bool HttpClientElement::SetElementRemoteUser(const string& ename,
+                                             const string& user_name,
+                                             const string& password) {
+  const string full_name = name() + "/" + ename;
   ElementMap::const_iterator it = elements_.find(full_name);
   if ( it == elements_.end() ) {
     return false;
@@ -402,8 +370,8 @@ void HttpClientElement::ClosedElement(HttpClientElementData* data) {
   }
 }
 
-bool HttpClientElement::DeleteElement(const char* name) {
-  const string full_name = name_ + "/" + name;
+bool HttpClientElement::DeleteElement(const string& ename) {
+  const string full_name = name() + "/" + ename;
   ElementMap::const_iterator it = elements_.find(full_name);
   if ( it == elements_.end() ) {
     return false;
@@ -438,23 +406,19 @@ HttpClientElementData::HttpClientElementData(
     net::Selector* selector,
     const net::NetFactory& net_factory,
     net::PROTOCOL net_protocol,
-    const HttpClientElement::Host2IpMap* host_aliases,
     const string& name,
-    const char* server_name,
+    const string& server_name,
     uint16 server_port,
-    const char* url_escaped_query_path,
+    const string& url_escaped_query_path,
     bool should_reopen,
     bool fetch_only_on_request,
     const http::ClientParams* client_params,
-    Tag::Type tag_type,
-    streaming::SplitterCreator* splitter_creator,
     int32 prefill_buffer_ms,
     int32 advance_media_ms,
     int media_http_maximum_tag_size)
     : selector_(selector),
       net_factory_(net_factory),
       net_protocol_(net_protocol),
-      host_aliases_(host_aliases),
       name_(name),
       server_name_(server_name),
       server_port_(server_port),
@@ -462,8 +426,6 @@ HttpClientElementData::HttpClientElementData(
       should_reopen_(should_reopen),
       fetch_only_on_request_(fetch_only_on_request),
       client_params_(client_params),
-      caps_(tag_type, kDefaultFlavourMask),
-      splitter_creator_(splitter_creator),
       call_on_close_(NULL),
       splitter_(NULL),
       distributor_(kDefaultFlavourMask, name),
@@ -586,25 +548,15 @@ bool HttpClientElementData::InitializeSplitter() {
   CHECK(splitter_ == NULL);
   const string content_type =
     http_req_->request()->server_header()->FindField(http::kHeaderContentType);
-  const Tag::Type stream_type = GetStreamTypeFromContentType(content_type);
-  if ( stream_type == caps_.tag_type_ ) {
-    ILOG_DEBUG << "Stream content type: [" << content_type << "] => "
-              << Tag::TypeName(stream_type);
-    splitter_ = splitter_creator_->CreateSplitter(name_, caps_.tag_type_);
-  } else {
-    ILOG_ERROR << "Server stream has content type: ["
-               << content_type << "] => " << Tag::TypeName(stream_type)
-               << " , while we expect: " << Tag::TypeName(caps_.tag_type_);
-  }
-
-  if ( splitter_ == NULL ) {
+  MediaFormat media_format;
+  if ( !MediaFormatFromContentType(content_type, &media_format) ) {
+    LOG_ERROR << "Unrecognized content_type: [" << content_type << "]";
     distributor_.CloseAllCallbacks(false);
     CloseRequest(kRetryOnBadSplitter);
     return false;
   }
-  ILOG_DEBUG << "Created splitter for type: " << content_type
-            << ", splitter: " << splitter_->type_name();
-
+  ILOG_DEBUG << "Stream format: [" << MediaFormatName(media_format) << "]";
+  splitter_ = CreateSplitter(name_, media_format);
   is_first_tag_ = true;
   start_decode_time_ = 0;
   first_tag_time_ = 0;
@@ -653,10 +605,8 @@ void HttpClientElementData::ProcessStreamData() {
     TagReadStatus status = splitter_->GetNextTag(
         http_req_->request()->server_data(),
         &tag, &timestamp_ms, http_req_->is_finalized());
-    if ( status == streaming::READ_UNKNOWN ||
-         status == streaming::READ_EOF ||
-         status == streaming::READ_CORRUPTED_FAIL ||
-         status == streaming::READ_OVERSIZED_TAG ) {
+    if ( status == streaming::READ_EOF ||
+         status == streaming::READ_CORRUPTED ) {
       ILOG_ERROR << "Error reading tag, status: " << TagReadStatusName(status)
                  << ", http error code: " << http_req_->error_name();
       CloseRequest(kRetryOnErrorCorruptedData);
@@ -731,31 +681,15 @@ void HttpClientElementData::Start() {
   CHECK(http_proto_ == NULL);
   selector_->UnregisterAlarm(start_request_callback_);
 
-  net::IpAddress ip(server_name_.c_str());
-  if ( ip.IsInvalid() ) {
-    if ( host_aliases_ != NULL ) {
-      HttpClientElement::Host2IpMap::const_iterator it =
-        host_aliases_->find(server_name_.c_str());
-      if ( it != host_aliases_->end() ) {
-        ip = net::IpAddress(it->second.c_str());
-      }
-    }
-  }
-  if ( ip.IsInvalid() ) {
-    ILOG_ERROR << "Invalid host: [" << server_name_ << "] and no aliases";
-    CloseRequest(kRetryOnWrongParams);
-    return;
-  }
-
   ILOG_DEBUG << "Starting request, server_name_: [" << server_name_
-           << "], host: " << ip.ToString() << ":" << server_port_
+           << "], host: " << server_name_ << ":" << server_port_
            << ", url: [" << url_escaped_query_path_
            << "], callbacks: " << distributor_.count();
 
   http_proto_ = new http::ClientStreamReceiverProtocol(
       client_params_,
       new http::SimpleClientConnection(selector_, net_factory_, net_protocol_),
-      net::HostPort(ip, server_port_));
+      net::HostPort(server_name_, server_port_));
   http_req_ = new http::ClientRequest(http::METHOD_GET,
                                       url_escaped_query_path_);
   if ( !remote_user_name_.empty() || !remote_password_.empty() ) {

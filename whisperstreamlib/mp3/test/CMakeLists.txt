@@ -29,15 +29,6 @@
 
 project (whisperstreamlib)
 
-ADD_EXECUTABLE(mp3_tag_printer
-  mp3_tag_printer.cc)
-ADD_DEPENDENCIES(mp3_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-TARGET_LINK_LIBRARIES(mp3_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-
 ADD_CUSTOM_TARGET(mp3_tag_test)
-ADD_DEPENDENCIES(mp3_tag_test mp3_tag_printer)
-ADD_TEST(mp3_tag_test ${CMAKE_CURRENT_SOURCE_DIR}/mp3_tag_test.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+ADD_DEPENDENCIES(mp3_tag_test media_file_printer)
+ADD_TEST(mp3_tag_test ${CMAKE_CURRENT_SOURCE_DIR}/mp3_tag_test.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/whisperstreamlib/utils)

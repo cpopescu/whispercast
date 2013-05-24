@@ -39,6 +39,7 @@
 #include <map>
 #include <whisperlib/net/base/selector.h>
 #include <whisperstreamlib/base/element.h>
+#include <whisperstreamlib/base/consts.h>
 #include <whisperstreamlib/base/tag_splitter.h>
 
 namespace streaming {
@@ -54,33 +55,31 @@ class CommandElementData;
 //
 class CommandElement : public Element {
  public:
-  CommandElement(const char* name,
-                 const char* id,
+  CommandElement(const string& name,
                  ElementMapper* mapper,
-                 net::Selector* selector,
-                 SplitterCreator* splitter_creator);
+                 net::Selector* selector);
   virtual ~CommandElement();
 
 
   // streaming::Element interface
   virtual bool Initialize() { return true; }
-  virtual bool AddRequest(const char* media, Request* req,
+  virtual bool AddRequest(const string& media, Request* req,
                           ProcessingCallback* callback);
   virtual void RemoveRequest(Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir, ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 
   static const char kElementClassName[];
 
   // Initializes element names w/ commands
-  bool AddElement(const char* name, Tag::Type tag_type,
-                  const char* command, bool should_reopen);
+  bool AddElement(const string& name, MediaFormat media_format,
+                  const string& command, bool should_reopen);
 
  protected:
   // Finds if we can provide the givven name element
-  CommandElementData* GetElement(const char* name);
+  CommandElementData* GetElement(const string& name);
 
  private:
   // Callback when a pipe is closed
@@ -88,7 +87,6 @@ class CommandElement : public Element {
 
  private:
   net::Selector* const selector_;
-  SplitterCreator* const splitter_creator_;
   int num_registered_callbacks_;
   typedef map<string, CommandElementData*> ElementMap;
   ElementMap elements_;

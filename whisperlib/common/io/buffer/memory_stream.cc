@@ -43,14 +43,27 @@ MemoryStream::MemoryStream(BlockSize block_size)
     size_(0) {
   CHECK_GT(block_size_, 0);
 }
+MemoryStream::MemoryStream(const MemoryStream& other)
+  : block_size_(other.block_size_),
+    read_pointer_(&blocks_, -1, 0),
+    write_pointer_(&blocks_, -1, 0),
+    scratch_pointer_(&blocks_, -1, 0),
+    invalid_markers_size_(false),
+    size_(0) {
+  AppendStreamNonDestructive(&other);
+}
 
 MemoryStream::~MemoryStream() {
   Clear();
 }
 
+void MemoryStream::operator=(const MemoryStream& other) {
+  Clear();
+  AppendStreamNonDestructive(&other);
+}
+
 void MemoryStream::Clear() {
-  while ( MarkerIsSet() )
-    MarkerClear();
+  CHECK(!MarkerIsSet());
   read_pointer_ = DataBlockPointer(&blocks_, -1, 0);
   write_pointer_ = DataBlockPointer(&blocks_, -1, 0);
   for ( BlockDqueue::const_iterator it = blocks_.begin();
@@ -195,6 +208,13 @@ int32 MemoryStream::ReadString(string* s, int32 len) {
   s->assign(tmp.c_str(), cb);
   return cb;
 }
+int32 MemoryStream::PeekString(string* s, int32 len) const {
+  MemoryStream* This = const_cast<MemoryStream*>(this);
+  This->MarkerSet();
+  int32 result = This->ReadString(s, len);
+  This->MarkerRestore();
+  return result;
+}
 
 bool MemoryStream::Equals(const io::MemoryStream& other) const {
   io::MemoryStream& a = const_cast<io::MemoryStream&>(*this);
@@ -262,10 +282,8 @@ int32 MemoryStream::Write(const void* buffer, int32 len) {
   return len - crt_len;
 }
 
-string MemoryStream::DumpContent(int32 max_size) const {
-  int32 size = Size();
-  if ( max_size > 0 )
-    size = min(max_size, size);
+string MemoryStream::DumpContent(uint32 max_size) const {
+  uint32 size = min(Size(), max_size);
   uint8* buffer = new uint8[size];
   scoped_ptr<uint8> auto_del_buffer(buffer);
   Peek(buffer, size);
@@ -273,10 +291,8 @@ string MemoryStream::DumpContent(int32 max_size) const {
          strutil::PrintableDataBuffer(buffer, size);
 }
 
-string MemoryStream::DumpContentHex(int32 max_size) const {
-  int32 size = Size();
-  if ( max_size > 0 )
-    size = min(max_size, size);
+string MemoryStream::DumpContentHex(uint32 max_size) const {
+  uint32 size = min(Size(), max_size);
   uint8* buffer = new uint8[size];
   scoped_ptr<uint8> auto_del_buffer(buffer);
   Peek(buffer, size);
@@ -284,29 +300,12 @@ string MemoryStream::DumpContentHex(int32 max_size) const {
          strutil::PrintableDataBufferHexa(buffer, size);
 }
 
-string MemoryStream::DumpContentInline(int32 max_size) const {
-  int32 size = Size();
-  if ( max_size > 0 ) {
-    size = min(max_size, Size());
-  }
+string MemoryStream::DumpContentInline(uint32 max_size) const {
+  uint32 size = min(Size(), max_size);
   uint8* buffer = new uint8[size];
   scoped_ptr<uint8> auto_del_buffer(buffer);
   Peek(buffer, size);
   return strutil::PrintableDataBufferInline(buffer, size);
-  /*
-  ostringstream oss;
-  oss << "Stream " << size << "/" << Size() << " {";
-  for ( int32 i = 0; i < size; i++ ) {
-    if ( i != 0 ) {
-      oss << " ";
-    }
-    char text[8] = {0};
-    ::snprintf(text, sizeof(text)-1, "%02x", buffer[i]);
-    oss << text;
-  }
-  oss << "}";
-  return oss.str();
-  */
 }
 
 string MemoryStream::DetailedContent() const {
@@ -435,13 +434,15 @@ string MemoryStream::DetailedContent() const {
 #ifdef __APPEND_WITH_BLOCK_REUSE__
 
 void MemoryStream::AppendStreamNonDestructive(const MemoryStream* buffer,
+                                              int32 offset,
                                               int32 size) {
   DataBlockPointer begin(buffer->GetReadPointer());
   if ( begin.IsNull() )
     return;
+  begin.Advance(offset);
   DataBlockPointer end(buffer->write_pointer_);
   if ( size >= 0 ) {
-    size = min(size, buffer->Size());
+    size = min((uint32)size, buffer->Size());
     end = begin;
     end.Advance(size);
   } else {
@@ -481,7 +482,7 @@ void MemoryStream::AppendStreamNonDestructive(
   write_pointer_.SkipToCurrentBlockEnd();
 }
 void MemoryStream::AppendStream(MemoryStream* buffer, int32 size) {
-  AppendStreamNonDestructive(buffer, size);
+  AppendStreamNonDestructive(buffer, 0, size);
   if ( size >= 0 && size < buffer->Size() ) {
     buffer->Skip(size);
   } else {
@@ -499,9 +500,11 @@ void MemoryStream::AppendStream(MemoryStream* buffer, int32 size) {
 // !!!!!!! IMPORTANT -- this is not read-thread safe !!!!!!!
 //  DO NOT ENABLE THIS CODE !!!
 void MemoryStream::AppendStreamNonDestructive(const MemoryStream* buffer,
+                                              int32 offset,
                                               int32 size) {
   MemoryStream* mbuffer = const_cast<MemoryStream*>(buffer);
   mbuffer->MarkerSet();
+  mbuffer->Skip(offset);
   AppendStream(mbuffer, size);
   mbuffer->MarkerRestore();
 }

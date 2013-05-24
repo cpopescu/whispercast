@@ -35,7 +35,7 @@ namespace streaming {
 
 const char FailoverPolicy::kPolicyClassName[] = "failover_policy";
 
-FailoverPolicy::FailoverPolicy(const char* name,
+FailoverPolicy::FailoverPolicy(const string& name,
                                PolicyDrivenElement* element,
                                ElementMapper* mapper,
                                net::Selector* selector,

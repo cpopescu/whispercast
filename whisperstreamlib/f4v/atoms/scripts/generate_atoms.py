@@ -65,6 +65,7 @@ class ${Atom}Atom : public BaseAtom {
   ///////////////////////////////////////////////////////////////////////////
 
   // Methods from BaseAtom
+  virtual bool EqualsBody(const BaseAtom& other) const;
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
   virtual BaseAtom* Clone() const;
   virtual TagDecodeStatus DecodeBody(uint64 size,
@@ -105,6 +106,10 @@ ${Atom}Atom::${Atom}Atom(const ${Atom}Atom& other)
 ${Atom}Atom::~${Atom}Atom() {
 }
 
+bool ${Atom}Atom::EqualsBody(const BaseAtom& other) const {
+  const ${Atom}Atom& a = static_cast<const ${Atom}Atom&>(other);
+  return raw_data_.Equals(a.raw_data_);
+}
 void ${Atom}Atom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* ${Atom}Atom::Clone() const {
@@ -283,8 +288,8 @@ def main():
   else:
     print "Usage %s <output_dir>" % sys.argv[0]
     return
-  if not os.path.isdir(output_dir):
-    print "Output directory: [%s] does not exist" % output_dir
+  if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
   GenerateF4vAtoms(output_dir, all_atoms, autogen)
 
 if __name__ == "__main__":

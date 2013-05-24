@@ -45,7 +45,7 @@ namespace synch {
 template<typename C>
 class ProducerConsumerQueue {
  public:
-  explicit ProducerConsumerQueue(int max_size)
+  explicit ProducerConsumerQueue(uint32 max_size)
     : max_size_(max_size) {
     CHECK_SYS_FUN(pthread_mutex_init(&mutex_, NULL), 0);
     CHECK_SYS_FUN(pthread_cond_init(&cond_full_, NULL), 0);
@@ -145,6 +145,9 @@ class ProducerConsumerQueue {
     CHECK_SYS_FUN(pthread_mutex_unlock(&mutex_), 0);
     return size;
   }
+  bool IsEmpty() {
+    return Size() == 0;
+  }
 
   static const uint32 kInfiniteWait = 0xffffffff;
 
@@ -153,7 +156,7 @@ class ProducerConsumerQueue {
   pthread_cond_t cond_full_;   // triggered when is some element in queue
   pthread_cond_t cond_empty_;  // triggered when is some free space in queue
 
-  const int max_size_;
+  const uint32 max_size_;
   deque<C> data_;
 
  private:

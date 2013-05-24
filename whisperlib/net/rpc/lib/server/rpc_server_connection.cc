@@ -29,16 +29,18 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/base/common.h"
-#include "common/base/errno.h"
-#include "common/base/log.h"
-#include "common/base/scoped_ptr.h"
+#include <whisperlib/common/base/common.h>
+#include <whisperlib/common/base/errno.h>
+#include <whisperlib/common/base/log.h>
+#include <whisperlib/common/base/scoped_ptr.h>
 
-#include "net/rpc/lib/server/rpc_server_connection.h"
-#include "net/rpc/lib/codec/rpc_codec.h"
-#include "net/rpc/lib/codec/binary/rpc_binary_codec.h"
-#include "net/rpc/lib/codec/json/rpc_json_codec.h"
-#include "net/rpc/lib/rpc_version.h"
+#include <whisperlib/net/rpc/lib/rpc_version.h>
+#include <whisperlib/net/rpc/lib/rpc_constants.h>
+#include <whisperlib/net/rpc/lib/server/rpc_server_connection.h>
+#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_decoder.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_decoder.h>
 
 namespace rpc {
 
@@ -108,20 +110,19 @@ void rpc::ServerConnection::ProtocolHandleHandshake(io::MemoryStream& in) {
 
   // create codec according to client codecID
   //
-  if ( !codec_ ) {
-    switch ( codecID ) {
-      case rpc::CID_BINARY:
-        codec_ = codec_ ? codec_ : new rpc::BinaryCodec();
-        break;
-      case rpc::CID_JSON:
-        codec_ = codec_ ? codec_ : new rpc::JsonCodec();
-        break;
-      default:
-        LOG_WARNING << "handshake attempt"
-                       " from " << net_connection_->remote_address()
-                    << " with invalid codecID: " << codecID;
-        handshakeState_ = HS_FAILURE;
-        break;
+  if ( encoder_ == NULL ) {
+    CHECK_NULL(decoder_);
+    if ( codecID == kCodecIdBinary ) {
+      encoder_ = new rpc::BinaryEncoder();
+      decoder_ = new rpc::BinaryDecoder();
+    } else if ( codecID == kCodecIdJson ) {
+      encoder_ = new rpc::JsonEncoder();
+      decoder_ = new rpc::JsonDecoder();
+    } else {
+      LOG_WARNING << "handshake attempt"
+                     " from " << net_connection_->remote_address()
+                  << " with invalid codecID: " << (int)codecID;
+      handshakeState_ = HS_FAILURE;
     };
   }
 
@@ -132,7 +133,7 @@ void rpc::ServerConnection::ProtocolHandleHandshake(io::MemoryStream& in) {
       memcpy(handResponse, "rpc", 3);          // "rpc" head
       handResponse[3] = RPC_VERSION_MAJOR;     // version HI
       handResponse[4] = RPC_VERSION_MINOR;     // version LO
-      handResponse[5] = codec_->GetCodecID();  // codec identifier
+      handResponse[5] = codecID;               // codec identifier
       memcpy(handResponse + 6,
              handshakeServerRandomData_,
              HANDSHAKE_RANDOM_SIZE);           // 32 bytes server random data
@@ -154,11 +155,12 @@ void rpc::ServerConnection::ProtocolHandleHandshake(io::MemoryStream& in) {
         handshakeState_ = HS_FAILURE;
         return;
       }
-      CHECK(codec_);
-      if ( codecID != codec_->GetCodecID() ) {
-        LOG_WARNING << "handshake failed: client replied "
-                    << "different codecid. First: "
-                    << codec_->GetCodecID() << "  second: " << codecID;
+      CHECK_NOT_NULL(encoder_);
+      CHECK_NOT_NULL(decoder_);
+      if ( codecID != encoder_->type() ) {
+        LOG_WARNING << "handshake failed: client replied different codecid."
+                       " First: " << encoder_->type()
+                    << ", second: " << codecID;
         handshakeState_ = HS_FAILURE;
         return;
       }
@@ -181,7 +183,7 @@ void rpc::ServerConnection::ProtocolHandleHandshake(io::MemoryStream& in) {
 void rpc::ServerConnection::ProtocolHandleMessage(const rpc::Message& p) {
   LOG_DEBUG << "Handle received packet: " << p;
 
-  if ( p.header_.msgType_ != RPC_CALL ) {
+  if ( p.header().msgType() != RPC_CALL ) {
     LOG_ERROR << "Received a non-CALL message! ignoring: " << p;
     return;
   }
@@ -191,33 +193,32 @@ void rpc::ServerConnection::ProtocolHandleMessage(const rpc::Message& p) {
                            net_connection_->local_address(),
                            net_connection_->remote_address());
   // extract call: service, method and arguments
-  CHECK_EQ(p.header_.msgType_, RPC_CALL);
-  const uint32 xid = p.header_.xid_;
-  const string& service = p.cbody_.service_;
-  const string& method = p.cbody_.method_;
-  const io::MemoryStream& params = p.cbody_.params_;
+  CHECK_EQ(p.header().msgType(), RPC_CALL);
+  const uint32 xid = p.header().xid();
+  const string& service = p.cbody().service();
+  const string& method = p.cbody().method();
+  const io::MemoryStream& params = p.cbody().params();
 
   // create an internal query. Use xid as qid, because inside a connection
   //  xid s are unique.
   rpc::Query* query = new rpc::Query(transport, xid, service, method,
-                                     params, *codec_, GetResultHandlerID());
+                                     params, encoder_->type(),
+                                     GetResultHandlerID());
 
   // send the query to the executor. Specify us as the result collector.
   //
-  if ( asyncQueryExecutor_.QueueRPC(query) ) {
-    return;  // Success
+  if ( !asyncQueryExecutor_.QueueRPC(query) ) {
+    delete query;
+    query = NULL;
+    LOG_ERROR << "Async queue execution failed:"
+              << " service=" << service
+              << " method=" << method
+              << " reason=" << GetLastSystemErrorDescription();
+    io::MemoryStream ms;
+    encoder_->Encode(GetLastSystemErrorDescription(), &ms);
+    WriteReply(xid, RPC_SYSTEM_ERR, ms);
+    return;
   }
-  // on error, send error message
-  //
-  delete query;
-  query = NULL;
-  LOG_ERROR << "Async queue execution failed:"
-            << " service=" << service
-            << " method=" << method
-            << " reason=" << GetLastSystemErrorDescription();
-  io::MemoryStream ms;
-  codec_->Encode(ms, GetLastSystemErrorDescription());
-  WriteReply(xid, RPC_SYSTEM_ERR, ms);
 }
 
 rpc::ServerConnection::ServerConnection(
@@ -227,12 +228,11 @@ rpc::ServerConnection::ServerConnection(
     rpc::IAsyncQueryExecutor& queryExecutor)
     : selector_(selector),
       net_connection_(net_connection),
-      cachedPacketBuffer_(),
-      syncCachedPacketBuffer_(),
       handshakeState_(HS_WAITING_REQUEST),
       asyncQueryExecutor_(queryExecutor),
       registeredToQueryExecutor_(false),
-      codec_(NULL),
+      encoder_(NULL),
+      decoder_(NULL),
       expectedWriteReplyCalls_(0),
       accessExpectedWriteReplyCalls_(),
       auto_delete_on_close_(auto_delete_on_close) {
@@ -257,8 +257,10 @@ rpc::ServerConnection::~ServerConnection() {
     asyncQueryExecutor_.UnregisterResultHandler(*this);
     registeredToQueryExecutor_ = false;
   }
-  delete codec_;
-  codec_ = NULL;
+  delete encoder_;
+  encoder_ = NULL;
+  delete decoder_;
+  decoder_ = NULL;
   delete net_connection_;
   net_connection_ = NULL;
   CHECK_EQ(expectedWriteReplyCalls_, 0);
@@ -292,19 +294,11 @@ rpc::ServerConnection::DecExpectedWriteReplyCallsAndPossiblyDeleteConnection() {
 void rpc::ServerConnection::WriteReply(uint32 xid,
                                        rpc::REPLY_STATUS status,
                                        const io::MemoryStream& result) {
-  rpc::Message p;
+  rpc::Message* p = new rpc::Message(xid, RPC_REPLY, status, &result);
 
-  rpc::Message::Header& header = p.header_;
-  header.xid_ = xid;
-  header.msgType_ = RPC_REPLY;
+  LOG_DEBUG << "WriteReply sending packet: " << p->ToString();
 
-  rpc::Message::ReplyBody& body = p.rbody_;
-  body.replyStatus_ = status;
-  body.result_.AppendStreamNonDestructive(&result);
-
-  LOG_DEBUG << "WriteReply sending packet: " << p;
-
-  WriteWithEncodeNow(p);
+  WriteWithEncodeInSelector(p);
 }
 
 void rpc::ServerConnection::WriteWithEncodeInSelector(const rpc::Message* p) {
@@ -313,18 +307,6 @@ void rpc::ServerConnection::WriteWithEncodeInSelector(const rpc::Message* p) {
   IncExpectedWriteReplyCalls();
   selector_->RunInSelectLoop(
       NewCallback(this, &rpc::ServerConnection::CallbackSendRPCPacket, p));
-}
-
-void rpc::ServerConnection::WriteWithEncodeNow(const rpc::Message& p) {
-  io::MemoryStream* ms = new io::MemoryStream();
-  CHECK_NOT_NULL(ms);
-  codec_->EncodePacket(*ms, p);
-
-  IncExpectedWriteReplyCalls();
-  selector_->RunInSelectLoop(
-      NewCallback(this,
-                  &rpc::ServerConnection::CallbackSendData,
-                  (const io::MemoryStream *)ms));
 }
 
 //////////////////////////////////////////////////////////////
@@ -344,33 +326,9 @@ void rpc::ServerConnection::CallbackSendRPCPacket(const rpc::Message* p) {
 
   LOG_DEBUG << "SendRPCPacket: " << *p;
 
-  // serialize the given RPC packet in the cache buffer.
-  //
-  cachedPacketBuffer_.Clear();
-  codec_->EncodePacket(cachedPacketBuffer_, *p);
-
   // send reply over network
   //
-  net_connection_->outbuf()->AppendStream(&cachedPacketBuffer_);
-  net_connection_->RequestWriteEvents(true);
-  DecExpectedWriteReplyCallsAndPossiblyDeleteConnection();
-}
-
-void rpc::ServerConnection::CallbackSendData(const io::MemoryStream* ms) {
-  CHECK_NOT_NULL(ms);
-  // the stream was dynamically allocated
-  scoped_ptr<const io::MemoryStream> autoDelStream(ms);
-
-  if ( net_connection_->state() != net::NetConnection::CONNECTED ) {
-    DLOG_DEBUG << "Bad connection state: " << net_connection_->StateName()
-               << " Cannot SendData: " << ms->DebugString();
-    DecExpectedWriteReplyCallsAndPossiblyDeleteConnection();
-    return;
-  }
-
-  // send reply over network
-  //
-  net_connection_->outbuf()->AppendStreamNonDestructive(ms);
+  encoder_->Encode(p, net_connection_->outbuf());
   net_connection_->RequestWriteEvents(true);
   DecExpectedWriteReplyCallsAndPossiblyDeleteConnection();
 }
@@ -402,22 +360,24 @@ bool rpc::ServerConnection::ConnectionReadHandler() {
   }
 
   // the codec is estabilished in handshake. It should be known by now.
-  CHECK(codec_);
+  CHECK_NOT_NULL(encoder_);
+  CHECK_NOT_NULL(decoder_);
 
   while ( !in->IsEmpty() ) {
     // set a marker, to be able to restore read data on incomplete packets.
     in->MarkerSet();
 
-    // try decoding a RPC message
+    // try decoding an RPC message
     rpc::Message p;
-    DECODE_RESULT result = codec_->DecodePacket(*in, p);
+    DECODE_RESULT result = decoder_->Decode(*in, &p);
 
     if ( result == DECODE_RESULT_NOT_ENOUGH_DATA ) {
       // not enough data to read the entire packet.
       // restore read data
       in->MarkerRestore();
       return true;
-    } else if ( result == DECODE_RESULT_SUCCESS ) {
+    }
+    if ( result == DECODE_RESULT_SUCCESS ) {
       // RPC packet read & decoded successfully
       // a complete packet was read, cancel the marker.
       in->MarkerClear();
@@ -427,7 +387,8 @@ bool rpc::ServerConnection::ConnectionReadHandler() {
 
       // try read & handle next packet in input stream
       continue;
-    } else if ( result == DECODE_RESULT_ERROR ) {
+    }
+    if ( result == DECODE_RESULT_ERROR ) {
       // decoder error. Data is not a packet.
       // no need to restore data, we're closing the connection.
       in->MarkerClear();
@@ -438,7 +399,7 @@ bool rpc::ServerConnection::ConnectionReadHandler() {
 
     // no such result
     in->MarkerClear();
-    LOG_FATAL << "Invalid result from rpc::Message::SerializeLoad: " << result;
+    LOG_FATAL << "Illegal result from Decode: " << result;
     return false;
   }
   return true;

@@ -52,87 +52,41 @@ DEFINE_string(req_flavour_key, streaming::kMediaUrlParam_FlavourMask,
 
 namespace streaming {
 
-uint64 Request::g_count_instances_ = 0;
-int64 Request::g_last_log_ = 0;
-
-//string Capabilities::CapsAndPathFromSpec(const char* media_speco) {
-//  URL url(string("http://h/") + media_spec);
-//  return CapsAndPathFromUrl(url);
-//}
-
-
 void Request::SetFromUrl(const URL& url) {
-  vector< pair<string, string> > comp;
-  if ( url.GetQueryParameters(&comp, true) ) {
-    for ( int i = 0; i < comp.size(); ++i ) {
-      errno = 0;
-      if ( comp[i].first == FLAGS_req_seek_pos_key ) {
-        const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) info_.seek_pos_ms_ = max((int64)(0), n);
-      } else if ( comp[i].first == FLAGS_req_media_origin_key ) {
-        const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) info_.media_origin_pos_ms_ = max((int64)(0), n);
-      } else if ( comp[i].first == FLAGS_req_limit_key ) {
-        const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) info_.limit_ms_ = max((int64)(-1), n);
-      } else if ( comp[i].first == FLAGS_req_session_key ) {
-        info_.session_id_ = comp[i].second;
-      } else if ( comp[i].first == FLAGS_req_affiliate_key ) {
-        info_.affiliate_id_ = comp[i].second;
-      } else if ( comp[i].first == FLAGS_req_client_key ) {
-        info_.client_id_ = comp[i].second;
-      } else if ( comp[i].first == FLAGS_req_flavour_key ) {
-        const uint64 n = strtoul(comp[i].second.c_str(), NULL, 10);
-        if ( !errno ) caps_.flavour_mask_ = n;
-      }
-    }
-    info_.auth_req_.ReadQueryComponents(comp);
-  }
-
+  CHECK(url.is_valid()) << "URL: [" << url.spec() << "]";
   info_.path_ = url.path();
+  if ( info_.path_[0] == '/' ) {
+    info_.path_ = info_.path_.substr(1);
+  }
+  vector< pair<string, string> > comp;
+  url.GetQueryParameters(&comp, true);
+  for ( int i = 0; i < comp.size(); ++i ) {
+    errno = 0;
+    if ( comp[i].first == FLAGS_req_seek_pos_key ) {
+      const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
+      if ( !errno ) info_.seek_pos_ms_ = max((int64)(0), n);
+    } else if ( comp[i].first == FLAGS_req_media_origin_key ) {
+      const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
+      if ( !errno ) info_.media_origin_pos_ms_ = max((int64)(0), n);
+    } else if ( comp[i].first == FLAGS_req_limit_key ) {
+      const int64 n = strtoll(comp[i].second.c_str(), NULL, 10);
+      if ( !errno ) info_.limit_ms_ = max((int64)(-1), n);
+    } else if ( comp[i].first == FLAGS_req_session_key ) {
+      info_.session_id_ = comp[i].second;
+    } else if ( comp[i].first == FLAGS_req_affiliate_key ) {
+      info_.affiliate_id_ = comp[i].second;
+    } else if ( comp[i].first == FLAGS_req_client_key ) {
+      info_.client_id_ = comp[i].second;
+    } else if ( comp[i].first == FLAGS_req_flavour_key ) {
+      const uint64 n = strtoul(comp[i].second.c_str(), NULL, 10);
+      if ( !errno ) caps_.flavour_mask_ = n;
+    }
+  }
+  info_.auth_req_.ReadQueryComponents(comp);
 }
 
 void Request::Close(Closure* close_completed) {
   temp_struct_.Close(close_completed);
-}
-
-void AuthorizerRequest::ReadFromUrl(const URL& url) {
-  if ( url.has_query() ) {
-    vector< pair<string, string> > comp;
-    if ( url.GetQueryParameters(&comp, true) ) {
-      ReadQueryComponents(comp);
-    }
-  }
-}
-
-void AuthorizerRequest::ReadQueryComponents(
-    const vector< pair<string, string> >& comp) {
-  for ( int i = 0; i < comp.size(); ++i ) {
-    if ( comp[i].first == streaming::kMediaUrlParam_UserName ) {
-      user_ = comp[i].second;
-    } else if ( comp[i].first == streaming::kMediaUrlParam_UserPass ) {
-      passwd_ = comp[i].second;
-    } else if ( comp[i].first == streaming::kMediaUrlParam_UserToken ) {
-      token_ = comp[i].second;
-    }
-  }
-}
-
-string AuthorizerRequest::GetUrlQuery() const {
-  vector<string> ret;
-  if ( !user_.empty() ) {
-    ret.push_back(FLAGS_req_session_key + "=" +
-                  URL::UrlEscape(user_));
-  }
-  if ( !passwd_.empty() ) {
-    ret.push_back(FLAGS_req_session_key + "=" +
-                  URL::UrlEscape(passwd_));
-  }
-  if ( !token_.empty() ) {
-    ret.push_back(FLAGS_req_session_key + "=" +
-                  URL::UrlEscape(token_));
-  }
-  return strutil::JoinStrings(ret, "&");
 }
 
 string RequestInfo::GetUrlQuery(bool append_auth) const {
@@ -195,9 +149,6 @@ string RequestInfo::GetUrlPath(const char* media_spec,
 }
 
 string RequestInfo::GetPathId() const {
-  if ( !internal_id_.empty() ) {
-    return internal_id_;
-  }
   if ( session_id_.empty() && affiliate_id_.empty() && client_id_.empty() ) {
     return strutil::StringPrintf("ID-%p", this);
   }
@@ -221,9 +172,6 @@ string RequestInfo::GetPathId() const {
 }
 
 string RequestInfo::GetId() const {
-  if ( !internal_id_.empty() ) {
-    return internal_id_;
-  }
   vector<string> ret;
   const string query = GetUrlQuery(false);
   if ( !query.empty() ) {
@@ -242,22 +190,6 @@ string RequestInfo::GetId() const {
   return strutil::JoinStrings(ret, "&");
 }
 
-string Capabilities::ToString() const {
-  return strutil::StringPrintf("caps[type: %s, mask: %x]",
-                               Tag::TypeName(tag_type_),
-                               flavour_mask_);
-}
-
-void Capabilities::IntersectCaps(const Capabilities& c) {
-  if ( tag_type_ == Tag::kAnyType ) {
-    tag_type_ = c.tag_type_;
-  }
-  if ( tag_type_ != c.tag_type_ && c.tag_type_ != Tag::kAnyType )  {
-    tag_type_ = Tag::kInvalidType;
-  }
-  flavour_mask_ &= c.flavour_mask_;
-}
-
 string RequestInfo::ToString() const {
   return strutil::StringPrintf("RequestInfo{"
       "seek_pos_ms_: %"PRId64""
@@ -271,10 +203,10 @@ string RequestInfo::ToString() const {
       ", local_address: %s"
       ", ip_class_: %d"
       ", path_: [%s]"
-      ", internal_id_: [%s]"
-      //", auth_req_: %s"
+      ", auth_req_: %s"
       ", write_ahead_ms_: %"PRId64""
-      ", is_internal_: %s}",
+      ", is_internal_: %s"
+      ", is_temporary_requestor_: %s}",
       seek_pos_ms_,
       media_origin_pos_ms_,
       limit_ms_,
@@ -286,14 +218,14 @@ string RequestInfo::ToString() const {
       local_address_.ToString().c_str(),
       ip_class_,
       path_.c_str(),
-      internal_id_.c_str(),
-      //auth_req_.ToString().c_str(),
+      auth_req_.ToString().c_str(),
       write_ahead_ms_,
-      strutil::BoolToString(is_internal_).c_str());
+      strutil::BoolToString(is_internal_).c_str(),
+      strutil::BoolToString(is_temporary_requestor_).c_str());
 }
 
 string RequestServingInfo::ToString() const {
-  return strutil::StringPrintf("(export_: %s, media_: %s, tag_type_: %s"
+  return strutil::StringPrintf("(export_: %s, media_: %s, media_format_: %s"
                                ", content_type_: %s"
                                ", authorizer_name_: %s"
                                ", offset_: %"PRId64""
@@ -302,7 +234,7 @@ string RequestServingInfo::ToString() const {
                                ", max_clients_: %d)",
                                export_path_.c_str(),
                                media_name_.c_str(),
-                               Tag::TypeName(tag_type_),
+                               MediaFormatName(media_format_),
                                content_type_.c_str(),
                                authorizer_name_.c_str(),
                                (offset_),
@@ -313,7 +245,11 @@ string RequestServingInfo::ToString() const {
 
 string Request::ToString() const {
   ostringstream oss;
-  oss << callbacks_.size() << "{";
+  oss << "Request{" << endl
+      << "    - caps_: " << caps_.ToString() << endl
+      << "    - info_: " << info_.ToString() << endl
+      << "    - serving_info_: " << serving_info_.ToString() << endl
+      << "    - callbacks_: " << callbacks_.size() << "{";
   for ( CallbacksMap::const_iterator it = callbacks_.begin();
         it != callbacks_.end(); ++it ) {
     if ( it != callbacks_.begin() ) {
@@ -321,13 +257,12 @@ string Request::ToString() const {
     }
     oss << it->first << ": " << it->second->name();
   }
-  oss << "}";
-  return strutil::StringPrintf(
-      "REQ[%s / Info: %s / Serving: %s / #callbacks: %s]",
-      caps_.ToString().c_str(),
-      info_.ToString().c_str(),
-      serving_info_.ToString().c_str(),
-      oss.str().c_str());
+  oss << "}" << endl
+      << "    - rev_callbacks_: #" << rev_callbacks_.size() << endl
+      << "    - temp_struct_: " << temp_struct_.ToString() << endl
+      << "    - controller_: " << controller_ << endl
+      << "    - deleted_: " << strutil::BoolToString(deleted_) << "}";
+  return oss.str();
 }
 
 void RequestInfo::ToSpec(MediaRequestInfoSpec* spec,
@@ -345,7 +280,6 @@ void RequestInfo::ToSpec(MediaRequestInfoSpec* spec,
 
   spec->ip_class_ = ip_class_;
   spec->path_ = path_;
-  spec->internal_id_ = internal_id_;
 
   spec->is_internal_ = is_internal_;
 
@@ -367,37 +301,12 @@ void RequestInfo::FromSpec(const MediaRequestInfoSpec& spec) {
 
   ip_class_ = spec.ip_class_.get();
   path_ = spec.path_.get();
-  internal_id_ = spec.internal_id_.get();
 
   is_internal_ = spec.is_internal_.get();
 
   if ( spec.auth_req_.is_set() ) {
     auth_req_.FromSpec(spec.auth_req_.get());
   }
-}
-
-void AuthorizerRequest::ToSpec(MediaAuthorizerRequestSpec* spec) const {
-  spec->user_ = user_;
-  spec->passwd_ = passwd_;
-  spec->token_ = token_;
-  spec->net_address_ = net_address_;
-
-  spec->resource_ = resource_;
-
-  spec->action_ = action_;
-  spec->action_performed_ms_ = action_performed_ms_;
-}
-
-void AuthorizerRequest::FromSpec(const MediaAuthorizerRequestSpec& spec) {
-  user_ = spec.user_.get();
-  passwd_ = spec.passwd_.get();
-  token_ = spec.token_.get();
-  net_address_ = spec.net_address_.get();
-
-  resource_ = spec.resource_.get();
-
-  action_ = spec.action_.get();
-  action_performed_ms_ = spec.action_performed_ms_.get();
 }
 
 TempElementStruct::~TempElementStruct() {
@@ -437,6 +346,13 @@ void TempElementStruct::ElementCloseCompleted(Element* element) {
     close_completed_ = NULL;
   }
 }
+string TempElementStruct::ToString() const {
+  ostringstream oss;
+  oss << "TempElementStruct{element_name_: " << element_name_
+      << ", elements_: " << strutil::ToStringKeys(elements_)
+      << ", policies_: #" << policies_.size() << "}";
+  return oss.str();
+}
 
 void RequestServingInfo::FromElementExportSpec(
     const ElementExportSpec& spec) {
@@ -450,15 +366,11 @@ void RequestServingInfo::FromElementExportSpec(
     }
   }
   if ( spec.content_type_.is_set() ) {
-    if ( streaming::GetStreamType(spec.content_type_.get(),
-                                  &tag_type_) ) {
-      // Short content type specified
-      content_type_ = GetContentTypeFromStreamType(tag_type_);
-    } else {
-      // Full content type specified
-      tag_type_ = streaming::GetStreamTypeFromContentType (
-          spec.content_type_.get());
-      content_type_ = spec.content_type_.get();
+    content_type_ = spec.content_type_.get();
+    if ( !MediaFormatFromSmallType(content_type_, &media_format_) &&
+         !MediaFormatFromContentType(content_type_, &media_format_) ) {
+      LOG_ERROR << "Failed to read media format from"
+                   " content_type: [" << content_type_ << "]";
     }
    }
   if ( spec.authorizer_name_.is_set() ) {
@@ -484,25 +396,21 @@ void RequestServingInfo::FromElementExportSpec(
 }
 void RequestServingInfo::ToElementExportSpec(
     const string& media_key, ElementExportSpec* spec) const {
-  size_t column_pos = media_key.find(':');
-  CHECK(column_pos != string::npos);
+  pair<string, string> p = strutil::SplitFirst(media_key, ':');
+  CHECK(p.second != "") << "Invalid media_key: " << media_key;
 
   spec->media_name_ = media_name_;
-  spec->protocol_ = media_key.substr(0, column_pos);
-  spec->path_ = media_key.substr(column_pos + 2);
+  spec->protocol_ = p.first;
+  spec->path_ = p.second;
+  spec->authorizer_name_ = authorizer_name_;
 
   if ( !content_type_.empty() ) {
     spec->content_type_ = content_type_;
-    // streaming::GetSmallTypeFromContentType(
-    // streaming::GetContentTypeFromStreamType(tag_type_));
   }
   for ( int i = 0; i < extra_headers_.size(); ++i ) {
     spec->extra_headers_.ref().push_back(
         ExtraHeaders(extra_headers_[i].first,
                      extra_headers_[i].second));
-  }
-  if ( !authorizer_name_.empty() ) {
-    spec->authorizer_name_ = authorizer_name_;
   }
   if ( flow_control_video_ms_ > 0 ) {
     spec->flow_control_video_ms_ = flow_control_video_ms_;

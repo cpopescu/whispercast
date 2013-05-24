@@ -196,7 +196,9 @@ bool FactoryBasedElementMapper::AddElement(const string& name,
   Element* const element = factory_->CreateElement(name,
                                                    extra_element_spec_map_,
                                                    extra_policy_spec_map_,
-                                                   NULL, &new_policies);
+                                                   NULL,
+                                                   !is_global,
+                                                   &new_policies);
   if ( element == NULL ) {
     return false;
   }
@@ -291,10 +293,11 @@ void FactoryBasedElementMapper::ElementClosed(Element* element,
     vector<streaming::Policy*>* policies) {
   CHECK_GT(close_pending_element_count_, 0);
   close_pending_element_count_--;
-  LOG_DEBUG << "Deleting element: " << element->name() << " and "
-           << (policies == NULL ? 0 : policies->size())
-           << " associated policies, close_pending: "
-           << close_pending_element_count_;
+  LOG_DEBUG << "Deleting element: " << element->name() << " of type: "
+            << element->type() << " and "
+            << (policies == NULL ? 0 : policies->size())
+            << " associated policies, close_pending: "
+            << close_pending_element_count_;
   if ( policies != NULL ) {
     for ( int i = 0; i < policies->size(); ++i ) {
       delete (*policies)[i];
@@ -360,14 +363,21 @@ bool FactoryBasedElementMapper::GetElementByName(
   return false;
 }
 
+void FactoryBasedElementMapper::GetAllElements(
+    vector<string>* out_elements) const {
+  for ( ElementMap::const_iterator it = global_element_map_.begin();
+        it != global_element_map_.end(); ++it ) {
+    out_elements->push_back(it->first);
+  }
+}
+
 //////////////////////////////////////////////////////////////////////
 
 bool FactoryBasedElementMapper::AddServingInfo(
     const string& protocol,
     const string& path,
     RequestServingInfo* serving_info) {
-  const string key = (protocol + ":" +
-                      strutil::NormalizeUrlPath("/" + path));
+  const string key = protocol + ":" + path;
   if ( serving_paths_.find(key) != serving_paths_.end() ) {
     return false;
   }
@@ -377,8 +387,7 @@ bool FactoryBasedElementMapper::AddServingInfo(
 
 bool FactoryBasedElementMapper::RemoveServingInfo(const string& protocol,
                                                   const string& path) {
-  const string key = (protocol + ":" +
-                      strutil::NormalizeUrlPath("/" + path));
+  const string key = protocol + ":" + path;
   const ServingInfoMap::iterator it = serving_paths_.find(key);
   if ( it == serving_paths_.end() ) {
     return false;
@@ -430,15 +439,9 @@ bool FactoryBasedElementMapper::SetMediaAlias(const string& alias_name,
 }
 
 void FactoryBasedElementMapper::GetAllMediaAliases(
-    vector< pair<string, string> >* aliases) const {
+    map<string, string>* aliases) const {
   if ( alias_state_keeper_ == NULL ) return;
-  map<string, string>::const_iterator begin, end, it;
-  alias_state_keeper_->GetBounds("", &begin, &end);
-  for ( it = begin; it != end; ++it ) {
-    aliases->push_back(make_pair(it->first.substr(
-                                     alias_state_keeper_->prefix().size()),
-                                 it->second));
-  }
+  alias_state_keeper_->GetKeyValues("", aliases);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -454,8 +457,7 @@ void FactoryBasedElementMapper::GetMediaDetails(
         protocol, path, req, completion_callback);
     return;
   }
-  const string original_key = (protocol + ":" +
-                               strutil::NormalizeUrlPath("/" + path));
+  const string original_key = protocol + ":" + path;
   DLOG_DEBUG << "Looking for key: " << original_key
             << " in req: " << req->ToString();
   string key = original_key;
@@ -473,25 +475,15 @@ void FactoryBasedElementMapper::GetMediaDetails(
           req->serving_info().flow_control_total_ms_/2 : 0;
 
   const string element_path = original_key.substr(key.size());
-  if ( !element_path.empty() && element_path[0] != '/' ) {
-    req->mutable_serving_info()->media_name_ =
-        strutil::NormalizeUrlPath(info->media_name_ + "/" + element_path);
-  } else {
-    req->mutable_serving_info()->media_name_ =
-        info->media_name_ + element_path;
-  }
+  req->mutable_serving_info()->media_name_ =
+      strutil::JoinMedia(info->media_name_, element_path);
   DLOG_DEBUG << "Details found: " << req->ToString();
   completion_callback->Run(true);
 }
 
-string FactoryBasedElementMapper::GetElementName(const char* media) {
-  if ( *media == '/' ) {
-    media++;
-  }
-  const char* const slash_pos = strchr(media, '/');
-  return string(slash_pos == NULL
-                ? string(media)
-                : string(media, slash_pos - media));
+string FactoryBasedElementMapper::GetElementName(const string& media) {
+  const size_t slash_pos = media.rfind('/');
+  return slash_pos == string::npos ? media : media.substr(slash_pos+1);
 
 }
 
@@ -548,17 +540,20 @@ Importer* FactoryBasedElementMapper::GetImporter(
   const string key = ImporterKey(importer_type, path);
   ImporterMap::iterator it = importer_map_.find(key);
   if ( it == importer_map_.end() ) {
-    LOG_ERROR << "GetImporter failed, cannot find key: [" << key << "]";
+    LOG_ERROR << "GetImporter failed, cannot find key: [" << key << "]"
+                 ", looking through: " << strutil::ToStringKeys(importer_map_);
     return NULL;
   }
   return it->second;
 }
 
-string FactoryBasedElementMapper::TranslateMedia(const char* media) const {
-  if ( *media == '\0' ) {
+string FactoryBasedElementMapper::TranslateMedia(const string& m) const {
+  const char* media = m.c_str();
+  if ( media[0] == '\0' ) {
     return "";
   }
-  if ( *media == '/' ) {
+  if ( media[0] == '/' ) {
+    LOG_ERROR << "Invalid media: [" << media << "], should not start with '/'";
     media++;
   }
   pair<string, string> media_pair = strutil::SplitFirst(media, '/');
@@ -618,11 +613,13 @@ bool FactoryBasedElementMapper::DescribeMedia(const string& media,
   return false;
 }
 
-bool FactoryBasedElementMapper::HasMedia(const char* media, Capabilities* out) {
-  if ( *media == '\0' ) {
+bool FactoryBasedElementMapper::HasMedia(const string& m) {
+  const char* media = m.c_str();
+  if ( media[0] == '\0' ) {
     return false;
   }
-  if ( *media == '/' ) {
+  if ( media[0] == '/' ) {
+    LOG_ERROR << "Invalid media: [" << media << "], should not start with '/'";
     media++;
   }
   pair<string, string> media_pair = strutil::SplitFirst(media, '/');
@@ -632,88 +629,89 @@ bool FactoryBasedElementMapper::HasMedia(const char* media, Capabilities* out) {
   const ElementMap::const_iterator
       it_perm = global_element_map_.find(media_pair.first);
   if ( it_perm != global_element_map_.end() ) {
-    return it_perm->second->HasMedia(media, out);
+    return it_perm->second->HasMedia(media_pair.second);
   }
   const ElementMap::const_iterator
       it_non_perm = non_global_element_map_.find(media_pair.first);
   if ( it_non_perm != non_global_element_map_.end() ) {
-    return it_non_perm->second->HasMedia(media, out);
+    return it_non_perm->second->HasMedia(media_pair.second);
   }
   string alias;
   if ( GetMediaAlias(media_pair.first, &alias) ) {
     if ( media_pair.second.empty() ) {
-      if ( master_mapper_ ) {
-        return master_mapper_->HasMedia(alias.c_str(), out);
+      if ( master_mapper_ != NULL ) {
+        return master_mapper_->HasMedia(alias);
       }
-      return HasMedia(alias.c_str(), out);
+      return HasMedia(alias);
     } else {
-      if ( master_mapper_ ) {
-        master_mapper_->HasMedia(strutil::JoinMedia(
-            alias, media_pair.second).c_str(), out);
+      if ( master_mapper_ != NULL ) {
+        master_mapper_->HasMedia(strutil::JoinMedia(alias, media_pair.second));
       }
-      return HasMedia(strutil::JoinMedia(
-          alias, media_pair.second).c_str(), out);
+      return HasMedia(strutil::JoinMedia(alias, media_pair.second));
     }
   }
   if ( fallback_mapper_ != NULL ) {
-    return fallback_mapper_->HasMedia(media, out);
+    return fallback_mapper_->HasMedia(media);
   }
   return false;
 }
 
-void FactoryBasedElementMapper::ListMedia(const char* media,
-                                          ElementDescriptions* medias) {
-  if ( *media == '\0' ) {
+void FactoryBasedElementMapper::ListMedia(const string& m,
+                                          vector<string>* out) {
+  const char* media = m.c_str();
+  if ( media[0] == '\0' ) {
     return;
   }
-  if ( *media == '/' ) {
+  if ( media[0] == '/' ) {
+    LOG_ERROR << "Invalid media: [" << media << "], should not start with '/'";
     media++;
   }
   pair<string, string> media_pair = strutil::SplitFirst(media, '/');
   const ElementMap::const_iterator
       it_perm = global_element_map_.find(media_pair.first);
   if ( it_perm != global_element_map_.end() ) {
-    it_perm->second->ListMedia(media, medias);
+    it_perm->second->ListMedia(media_pair.second, out);
     return;
   }
   const ElementMap::const_iterator
       it_non_perm = non_global_element_map_.find(media_pair.first);
   if ( it_non_perm != non_global_element_map_.end() ) {
-    it_non_perm->second->ListMedia(media, medias);
+    it_non_perm->second->ListMedia(media_pair.second, out);
     return;
   }
   string alias;
   if ( GetMediaAlias(media_pair.first, &alias) ) {
     if ( media_pair.second.empty() ) {
       if ( master_mapper_ ) {
-        master_mapper_->ListMedia(alias.c_str(), medias);
+        master_mapper_->ListMedia(alias, out);
         return;
       }
-      ListMedia(alias.c_str(), medias);
+      ListMedia(alias, out);
     } else {
       if ( master_mapper_ ) {
-        master_mapper_->ListMedia(
-            (alias + "/" + media_pair.second).c_str(), medias);
+        master_mapper_->ListMedia(alias + "/" + media_pair.second, out);
         return;
       }
-      ListMedia((alias + "/" + media_pair.second).c_str(), medias);
+      ListMedia(alias + "/" + media_pair.second, out);
     }
   }
   if ( fallback_mapper_ != NULL ) {
-    fallback_mapper_->ListMedia(media, medias);
+    fallback_mapper_->ListMedia(media, out);
     return;
   }
 }
 
 //////////////////////////////////////////////////////////////////////
 
-bool FactoryBasedElementMapper::AddRequest(const char* media,
+bool FactoryBasedElementMapper::AddRequest(const string& m,
                                            streaming::Request* req,
                                            ProcessingCallback* callback) {
-  if ( *media == '\0' ) {
+  const char* media = m.c_str();
+  if ( media[0] == '\0' ) {
     return false;
   }
-  if ( *media == '/' ) {
+  if ( media[0] == '/' ) {
+    LOG_ERROR << "Invalid media: [" << media << "], should not start with '/'";
     media++;
   }
   pair<string, string> media_pair = strutil::SplitFirst(media, '/');
@@ -729,7 +727,7 @@ bool FactoryBasedElementMapper::AddRequest(const char* media,
       LOG_ERROR << "Duplicate element found in media path @: " << media;
       return false;
     }
-    if ( element->AddRequest(media, req, callback) ) {
+    if ( element->AddRequest(media_pair.second, req, callback) ) {
       requests_set_.insert(req);
       // It is a certain possibility that the element calls AddRequest
       // with the same callback, but on another path
@@ -744,6 +742,9 @@ bool FactoryBasedElementMapper::AddRequest(const char* media,
               << "], refused req: " << req->ToString();
     return false;
   }
+  LOG_WARNING << "Cannot find element: " << media_pair.first
+              << " in global_element_map: "
+              << strutil::ToStringKeys(global_element_map_);
   // Look for aliases
   string alias;
   if ( GetMediaAlias(media_pair.first, &alias) ) {
@@ -758,11 +759,10 @@ bool FactoryBasedElementMapper::AddRequest(const char* media,
       DLOG_DEBUG << "Redirecting request to: " << media
                  << " via Alias to: " << (alias + "/" + media_pair.second);
       if ( master_mapper_ != NULL ) {
-        return master_mapper_->AddRequest(
-            (alias + "/" + media_pair.second).c_str(),
-            req, callback);
+        return master_mapper_->AddRequest(alias + "/" + media_pair.second,
+                                          req, callback);
       }
-      return AddRequest((alias + "/" + media_pair.second).c_str(),
+      return AddRequest(alias + "/" + media_pair.second,
                         req, callback);
     }
   }
@@ -796,6 +796,7 @@ bool FactoryBasedElementMapper::AddRequest(const char* media,
         extra_element_spec_map_,
         extra_policy_spec_map_,
         req,
+        false,
         &req->mutable_temp_struct()->policies_);
     if ( element == NULL ) {
       if ( fallback_mapper_ != NULL ) {
@@ -831,7 +832,7 @@ bool FactoryBasedElementMapper::AddRequest(const char* media,
     LOG_ERROR << " Duplicate element found in media path @: " << media;
     return false;
   }
-  if ( !root_it->second->AddRequest(media, req, callback) ) {
+  if ( !root_it->second->AddRequest(media_pair.second, req, callback) ) {
     LOG_ERROR << "Error adding callback for media: [" << media << "]"
               << " to temp source: " << root_it->second->name();
     return false;
@@ -852,6 +853,8 @@ bool FactoryBasedElementMapper::AddRequest(const char* media,
 
 void FactoryBasedElementMapper::RemoveRequest(streaming::Request* req,
                                               ProcessingCallback* callback) {
+  CHECK_NOT_NULL(req);
+  CHECK_NOT_NULL(callback);
   if ( fallback_mapper_ != NULL ) {
     fallback_mapper_->RemoveRequest(req, callback);
   }

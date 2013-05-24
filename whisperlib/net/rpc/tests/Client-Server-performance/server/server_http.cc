@@ -148,7 +148,7 @@ int main(int argc, char ** argv) {
   // create the RPC processor and register to the httpServer
   //
   rpc::HttpProcessor rpcProcessor(servicesManager, executor, true);
-  rpcProcessor.AttachToServer(&httpServer, "/rpc", NULL);
+  rpcProcessor.AttachToServer(&httpServer, "rpc", NULL);
 
   // start the http server
   //

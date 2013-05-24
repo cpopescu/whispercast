@@ -46,6 +46,10 @@ struct FPU16U16 {
       : integer_(integer), fraction_(0) {}
   FPU16U16(uint16 integer, uint16 fraction)
       : integer_(integer), fraction_(fraction) {};
+  bool operator==(const FPU16U16& other) const {
+    return integer_ == other.integer_ &&
+           fraction_ == other.fraction_;
+  }
 };
 
 enum TagDecodeStatus {

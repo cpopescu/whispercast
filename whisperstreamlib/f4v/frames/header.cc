@@ -54,19 +54,19 @@ FrameHeader::FrameHeader()
   : offset_(0),
     size_(0),
     decoding_timestamp_(0),
-    composition_timestamp_(0),
+    composition_offset_ms_(0),
     duration_(0),
     sample_index_(0),
     type_(AUDIO_FRAME),
     is_keyframe_(false) {
 }
 FrameHeader::FrameHeader(int64 offset, int64 size, int64 decoding_timestamp,
-                         int64 composition_timestamp, int64 duration,
+                         int64 composition_offset_ms, int64 duration,
                          int64 sample_index, Type type, bool is_keyframe)
   : offset_(offset),
     size_(size),
     decoding_timestamp_(decoding_timestamp),
-    composition_timestamp_(composition_timestamp),
+    composition_offset_ms_(composition_offset_ms),
     duration_(duration),
     sample_index_(sample_index),
     type_(type),
@@ -75,13 +75,22 @@ FrameHeader::FrameHeader(int64 offset, int64 size, int64 decoding_timestamp,
 
 FrameHeader::~FrameHeader() {
 }
-
+bool FrameHeader::Equals(const FrameHeader& other) const {
+  return offset_ == other.offset_ &&
+         size_ == other.size_ &&
+         decoding_timestamp_ == other.decoding_timestamp_ &&
+         composition_offset_ms_ == other.composition_offset_ms_ &&
+         duration_ == other.duration_ &&
+         sample_index_ == other.sample_index_ &&
+         type_ == other.type_ &&
+         is_keyframe_ == other.is_keyframe_;
+}
 string FrameHeader::ToString() const {
   ostringstream oss;
   oss << "{offset_: " << offset_
       << ", size_: " << size_
       << ", decoding_timestamp_: " << decoding_timestamp_
-      << ", composition_timestamp_: " << composition_timestamp_
+      << ", composition_offset_ms_: " << composition_offset_ms_
       << ", duration_: " << duration_
       << ", sample_index: " << sample_index_
       << ", type_: " << type_name()

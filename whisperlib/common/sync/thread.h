@@ -50,6 +50,10 @@ class Thread {
   bool Start();
   // Waits for the thread to finish
   bool Join();
+
+  // test if the thread is running
+  bool IsRunning() const;
+
   // Enables waiting on this thread (joining)
   bool SetJoinable();
   // Set the stack size for this thread.
@@ -77,11 +81,11 @@ class Thread {
   // Test if the caller is in this thread context
   bool IsInThread() const;
 
- protected:
+ private:
   pthread_t thread_;
   pthread_attr_t attr_;
   Closure* thread_function_;
- private:
+
   DISALLOW_EVIL_CONSTRUCTORS(Thread);
 };
 }

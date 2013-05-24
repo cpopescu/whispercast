@@ -1,0 +1,44 @@
+
+#include "f4v/atoms/movie/krok_atom.h"
+
+namespace streaming {
+namespace f4v {
+
+KrokAtom::KrokAtom()
+  : BaseAtom(kType),
+    raw_data_() {
+}
+KrokAtom::KrokAtom(const KrokAtom& other)
+  : BaseAtom(kType),
+    raw_data_() {
+  other.raw_data.MarkerSet();
+  raw_data_.Write(other.raw_data_);
+  other.raw_data.MarkerRestore();
+}
+KrokAtom::~KrokAtom() {
+}
+
+TagDecodeStatus KrokAtom::DecodeBody(uint64 size, io::InputStream& in,
+                                        Decoder& decoder) {
+  if ( in.Readable() < size ) {
+    DATOMLOG << "Not enough data in stream: " << in.Readable()
+             << " is less than expected: " << size;
+    return TAG_DECODE_NO_DATA;
+  }
+  raw_data_.Write(in, size);
+  return TAG_DECODE_SUCCESS;
+}
+void KrokAtom::EncodeBody(io::OutputStream& out, Encoder& encoder) const {
+  io::IOMemoryStream& raw_data = const_cast<io::IOMemoryStream&>(raw_data_);
+  raw_data.MarkerSet();
+  out.Write(raw_data);
+  raw_data.MarkerRestore();
+}
+string KrokAtom::ToStringBody(uint32 indent) const {
+  ostringstream oss;
+  oss << "raw_data_: " << raw_data_.Size() << " bytes";
+  return oss.str();
+}
+
+}
+}

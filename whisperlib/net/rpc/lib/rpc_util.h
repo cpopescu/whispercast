@@ -36,7 +36,6 @@
 
 #include <whisperlib/net/base/address.h>
 #include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
-#include <whisperlib/net/rpc/lib/codec/rpc_codec_id.h>
 #include <whisperlib/net/rpc/lib/client/irpc_client_connection.h>
 
 namespace rpc {
@@ -47,7 +46,7 @@ string CreateUri(const net::HostPort& host_port,
                  const string& auth_user,
                  const string& auth_pswd,
                  rpc::CONNECTION_TYPE connection_type,
-                 rpc::CODEC_ID codec_id);
+                 rpc::CodecId codec);
 
 //  The reverse of CreateUri.
 // input:
@@ -80,12 +79,12 @@ string CreateUri(const net::HostPort& host_port,
 //      connection_type: rpc::CONNECTION_TCP
 //      codec_id: RPC_CID_BINARY
 bool ParseUri(const string& uri,
-              net::HostPort& host_port,
-              string& path,
-              string& auth_user,
-              string& auth_pswd,
-              rpc::CONNECTION_TYPE& connection_type,
-              rpc::CODEC_ID& codec_id);
+              net::HostPort* out_host_port,
+              string* out_path,
+              string* out_auth_user,
+              string* out_auth_pswd,
+              rpc::CONNECTION_TYPE* out_connection_type,
+              rpc::CodecId* out_codec);
 }
 
 #endif   // __NET_RPC_LIB_RPC_UTIL_H__

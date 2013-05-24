@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     //
     rpc::HttpProcessor rpcProcessor(servicesManager, executor, true);
     rpcProcessor.AttachToServer(
-        &httpServer, string("/rpc"),
+        &httpServer, string("rpc"),
         reinterpret_cast<net::UserAuthenticator*>(NULL));
     httpServer.AddAcceptor(net::PROTOCOL_TCP, net::HostPort(0, 8123));
 

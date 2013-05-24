@@ -34,6 +34,11 @@ void VmhdAtom::set_opcolor(uint16 red, uint16 green, uint16 blue) {
   opcolor_[1] = green;
   opcolor_[2] = blue;
 }
+bool VmhdAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const VmhdAtom& a = static_cast<const VmhdAtom&>(other);
+  return graphics_mode_ == a.graphics_mode_ &&
+         ::memcmp(opcolor_, a.opcolor_, sizeof(opcolor_)) == 0;
+}
 void VmhdAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* VmhdAtom::Clone() const {

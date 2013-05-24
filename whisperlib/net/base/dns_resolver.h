@@ -59,7 +59,7 @@ struct DnsHostInfo : public RefCounted {
   vector<IpAddress> ipv4_;
   vector<IpAddress> ipv6_;
   DnsHostInfo(const string& hostname, set<IpAddress> ipv4, set<IpAddress> ipv6)
-    : RefCounted(NULL),
+    : RefCounted(),
       hostname_(hostname),
       ipv4_(ipv4.begin(), ipv4.end()),
       ipv6_(ipv6.begin(), ipv6.end()) {}
@@ -92,6 +92,10 @@ void DnsExit();
 // Synchronous DNS query.
 scoped_ref<DnsHostInfo> DnsBlockingResolve(const string& hostname);
 
+}
+
+inline ostream& operator<<(ostream& os, const net::DnsHostInfo& info) {
+  return os << info.ToString();
 }
 
 #endif // __NET_BASE_DNS_RESOLVER_H__

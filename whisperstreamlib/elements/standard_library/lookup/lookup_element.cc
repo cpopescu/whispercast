@@ -44,8 +44,7 @@ namespace streaming {
 const char LookupElement::kElementClassName[] = "lookup";
 
 LookupElement::LookupElement(
-    const char* name,
-    const char* id,
+    const string& name,
     ElementMapper* mapper,
     net::Selector* selector,
     HttpClientElement* http_client_element,
@@ -57,7 +56,7 @@ LookupElement::LookupElement(
     int lookup_req_timeout_ms,
     const string& lookup_force_host_header,
     bool local_lookup_first)
-    : Element(kElementClassName, name, id, mapper),
+    : Element(kElementClassName, name, mapper),
       selector_(selector),
       net_factory_(selector_),
       failsafe_client_(NULL),
@@ -100,26 +99,19 @@ bool LookupElement::Initialize() {
   return http_client_element_->Initialize();
 }
 
-bool LookupElement::AddRequest(const char* media,
-                               streaming::Request* req,
-                               streaming::ProcessingCallback* callback) {
+bool LookupElement::AddRequest(const string& media, Request* req,
+                               ProcessingCallback* callback) {
   if ( closing_ ) {
     LOG_DEBUG << " Closing element cannot add request for: " << media;
     return false;
   }
-  if ( !strutil::StrPrefix(media,
-                          (name() + "/").c_str()) ) {
-    LOG_WARNING << " Cannot add media: [" << media << "] to " << name();
-    return false;
-  }
-  const string sub_media(media + name().length() + 1);
   if ( lookup_ops_.find(req) != lookup_ops_.end() ) {
     LOG_WARNING << "Cannot serve same request twice: " << req->ToString();
     return false;
   }
   if ( local_lookup_first_ ) {
-    LOG_INFO << " Internal lookup for: " << sub_media;
-    if ( mapper_->AddRequest(sub_media.c_str(), req, callback) ) {
+    LOG_INFO << " Internal lookup for: " << media;
+    if ( mapper_->AddRequest(media, req, callback) ) {
       // We basically don't care about this any more..
       LOG_DEBUG << " Request for [" << media << "] served locally !";
       return true;
@@ -127,8 +119,7 @@ bool LookupElement::AddRequest(const char* media,
     // Need lookup
   }
   req->mutable_caps()->flavour_mask_ = streaming::kDefaultFlavourMask;
-  LookupReqStruct* const ls = PrepareLookupStruct(sub_media,
-                                                  req, callback);
+  LookupReqStruct* const ls = PrepareLookupStruct(media, req, callback);
   lookup_ops_.insert(make_pair(req, ls));
   failsafe_client_->StartRequest(ls->http_request_,
                                  NewCallback(this,
@@ -151,22 +142,12 @@ void LookupElement::RemoveRequest(streaming::Request* req) {
   }
 }
 
-bool LookupElement::HasMedia(const char* media, Capabilities* out) {
-  pair<string, string> split(strutil::SplitFirst(media, '/'));
-  if ( split.first != name() ) {
-    return false;
-  }
-  *out = Capabilities(Tag::kAnyType, kDefaultFlavourMask);
+bool LookupElement::HasMedia(const string& media) {
   return true;
 }
 
-void LookupElement::ListMedia(const char* media_dir,
-                              streaming::ElementDescriptions* medias) {
-  pair<string, string> split(strutil::SplitFirst(media_dir, '/'));
-  if ( split.first != name() ) {
-    return;
-  }
-  mapper_->ListMedia(split.second.c_str(), medias);
+void LookupElement::ListMedia(const string& media, vector<string>* out) {
+  mapper_->ListMedia(media, out);
 }
 bool LookupElement::DescribeMedia(const string& media,
                                   MediaInfoCallback* callback) {
@@ -259,7 +240,7 @@ void LookupElement::LookupCompleted(LookupReqStruct* lr) {
           for ( int i = 0; i < url_names.size() && !fetch_started; ++i ) {
             const string crt_str(
                 strutil::StrTrim(url_names[(i + start_id) % url_names.size()]));
-            if ( strutil::StrPrefix(crt_str.c_str(), "http://") ) {
+            if ( strutil::StrStartsWith(crt_str.c_str(), "http://") ) {
               URL* const url = new URL(crt_str);
               if ( url->is_valid() && !url->is_empty() &&
                    url->scheme() == "http" ) {
@@ -336,14 +317,11 @@ bool LookupElement::StartFetch(LookupReqStruct* lr,
            hp.port(),
            query_path.c_str(),
            false,
-           true,
-           lr->req_->caps().tag_type_) ) {
+           true) ) {
     return false;
   }
-  if ( !http_client_element_->AddRequest(
-           (http_client_element_->name() + "/" + fname).c_str(),
-           lr->req_, lr->callback_) ) {
-    http_client_element_->DeleteElement(fname.c_str());
+  if ( !http_client_element_->AddRequest(fname, lr->req_, lr->callback_) ) {
+    http_client_element_->DeleteElement(fname);
     return false;
   }
   return true;

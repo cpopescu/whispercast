@@ -34,8 +34,6 @@
 
 namespace streaming {
 
-const TagSplitter::Type InternalTagSplitter::kType = TagSplitter::TS_INTERNAL;
-
 streaming::TagReadStatus InternalTagSplitter::GetNextTagInternal(
     io::MemoryStream* in,
     scoped_ref<Tag>* tag,

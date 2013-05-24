@@ -15,6 +15,9 @@ StszRecord::StszRecord(const StszRecord& other)
 }
 StszRecord::~StszRecord() {
 }
+bool StszRecord::Equals(const StszRecord& other) const {
+  return entry_size_ == other.entry_size_;
+}
 StszRecord* StszRecord::Clone() const {
   return new StszRecord(*this);
 }
@@ -45,6 +48,11 @@ StszAtom::~StszAtom() {
 }
 uint32 StszAtom::uniform_sample_size() const {
   return uniform_sample_size_;
+}
+bool StszAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const StszAtom& a = static_cast<const StszAtom&>(other);
+  return uniform_sample_size_ == a.uniform_sample_size_ &&
+         MultiRecordVersionedAtom<StszRecord>::EqualsVersionedBody(a);
 }
 BaseAtom* StszAtom::Clone() const {
   return new StszAtom(*this);

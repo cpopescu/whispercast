@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
   server.AddAcceptor(net::PROTOCOL_TCP, net::HostPort(0, FLAGS_port));
 
   // Register a procesing function. Will process all requests that come under /
-  server.RegisterProcessor("/", NewPermanentCallback(&HelloWorld), true, true);
+  server.RegisterProcessor("", NewPermanentCallback(&HelloWorld), true, true);
 
   // Start the server as soon as networking starts
   selector.RunInSelectLoop(NewCallback(&server, &http::Server::StartServing));

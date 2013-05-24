@@ -111,20 +111,12 @@ Decoder::Decoder()
     mdat_frames_(),
     mdat_next_(0),
     mdat_prev_frame_(NULL),
-    mdat_order_frames_(),
-    mdat_order_next_(0),
-    mdat_frame_cache_(),
-    mdat_seek_order_to_offset_index_(),
-    mdat_order_frames_by_timestamp_(true),
     mdat_split_raw_frames_(false) {
 }
 Decoder::~Decoder() {
   Clear();
 }
 
-void Decoder::set_order_frames_by_timestamp(bool order_frames_by_timestamp) {
-  mdat_order_frames_by_timestamp_ = order_frames_by_timestamp;
-}
 void Decoder::set_split_raw_frames(bool split_raw_frames) {
   mdat_split_raw_frames_ = split_raw_frames;
 }
@@ -147,6 +139,9 @@ uint64 Decoder::timescale(bool audio) const {
     return 1;
   }
   return mdhd->time_scale();
+}
+const vector<FrameHeader*> Decoder::frames() const {
+  return mdat_frames_;
 }
 TagDecodeStatus Decoder::ReadTag(io::MemoryStream& in, scoped_ref<Tag>* out) {
   *out = NULL;
@@ -202,39 +197,29 @@ bool Decoder::SeekToFrame(uint32 desired_frame, bool seek_to_keyframe,
     F4V_LOG_ERROR << "SeekToFrame: failed, not in frame reading mode.";
     return false;
   }
-  if ( desired_frame >= mdat_order_frames_.size() ) {
+  if ( desired_frame >= mdat_frames_.size() ) {
     F4V_LOG_ERROR << "SeekToFrame: failed, frame: " << desired_frame
-                  << " out of range: [0," << mdat_order_frames_.size() << ").";
+                  << " out of range: [0," << mdat_frames_.size() << ").";
     return false;
   }
   uint32 frame = desired_frame;
   if ( seek_to_keyframe ) {
     // TODO(cosmin): maybe optimize keyframe selection (instead of iterating)
-    while ( frame > 0 &&
-            !mdat_order_frames_[frame]->is_keyframe() ) {
+    while ( frame > 0 && !mdat_frames_[frame]->is_keyframe() ) {
       frame--;
     }
   }
 
   // internal seek
-  mdat_order_next_ = frame;
-  mdat_next_ = mdat_seek_order_to_offset_index_[frame];
+  mdat_next_ = frame;
   mdat_offset_ = mdat_frames_[mdat_next_]->offset();
 
   F4V_LOG_INFO << "SeekToFrame: desired frame: "
-               << mdat_order_frames_[desired_frame]->ToString()
+               << mdat_frames_[desired_frame]->ToString()
                << ", go to keyframe: " << std::boolalpha << seek_to_keyframe
-               << ", actual frame: " << mdat_order_frames_[frame]->ToString()
+               << ", actual frame: " << mdat_frames_[frame]->ToString()
                << ", mdat_offset_: " << mdat_offset_
                << ", mdat_next_: " << mdat_frames_[mdat_next_]->ToString();
-
-  // clear mdat_frame_cache_
-  for ( FrameMap::iterator it = mdat_frame_cache_.begin();
-        it != mdat_frame_cache_.end(); ++it ) {
-    Frame* f = it->second;
-    delete f;
-  }
-  mdat_frame_cache_.clear();
 
   // clear prev frame
   delete mdat_prev_frame_;
@@ -246,7 +231,7 @@ bool Decoder::SeekToFrame(uint32 desired_frame, bool seek_to_keyframe,
 }
 bool Decoder::SeekToTime(int64 time, bool seek_to_keyframe,
                          uint32& out_frame, int64& out_file_offset) {
-  if ( mdat_order_frames_.empty() ) {
+  if ( mdat_frames_.empty() ) {
     if ( time == 0 ) {
       // we are at the beginning of stream already
       return true;
@@ -256,8 +241,8 @@ bool Decoder::SeekToTime(int64 time, bool seek_to_keyframe,
   }
   // find the first frame with a timestamp > time
   uint32 foi = 0; // frame_order_index
-  for (; foi < mdat_order_frames_.size() &&
-         mdat_order_frames_[foi]->timestamp() <= time; foi++) {
+  for (; foi < mdat_frames_.size() &&
+         mdat_frames_[foi]->timestamp() <= time; foi++) {
   }
   // go back 1 frame (just before 'time', or exactly on 'time')
   if ( foi > 0 ) {
@@ -265,7 +250,7 @@ bool Decoder::SeekToTime(int64 time, bool seek_to_keyframe,
   }
   F4V_LOG_INFO << "SeekToTime time: " << time
                << ", go to keyframe: " << seek_to_keyframe
-               << ", found frame: " << mdat_order_frames_[foi]->ToString();
+               << ", found frame: " << mdat_frames_[foi]->ToString();
   return SeekToFrame(foi, seek_to_keyframe, out_frame, out_file_offset);
 }
 
@@ -278,17 +263,14 @@ CuePointTag* Decoder::GenerateCuePointTableTag() const {
   CuePointTag* cue_point_tag = new CuePointTag(0, kDefaultFlavourMask);
   // build a map of [timestamp_ms -> file offset]
   vector<pair<int64, int64> >& cue_points = cue_point_tag->mutable_cue_points();
-  for ( uint32 i = 0; i < mdat_order_frames_.size(); i++ ) {
-    FrameHeader* frame = mdat_order_frames_[i];
+  for ( uint32 i = 0; i < mdat_frames_.size(); i++ ) {
+    FrameHeader* frame = mdat_frames_[i];
     if ( !frame->is_keyframe() ) {
       // we map only keyframes
       continue;
     }
-    uint32 seek_frame_index = mdat_seek_order_to_offset_index_[i];
-    CHECK_LT(seek_frame_index, mdat_frames_.size());
-    FrameHeader* seek_frame = mdat_frames_[seek_frame_index];
     cue_points.push_back(pair<int64,int64>(frame->timestamp(),
-                                           seek_frame->offset()));
+                                           frame->offset()));
   }
   F4V_LOG_INFO << "GenerateCuePointTag: " << strutil::ToString(cue_points);
   return cue_point_tag;
@@ -297,7 +279,6 @@ void Decoder::Clear() {
   ClearFrames();
   delete moov_atom_;
   moov_atom_ = NULL;
-  mdat_seek_order_to_offset_index_.clear();
   stream_position_ = 0;
   is_topmost_atom_ = true;
   stream_size_on_topmost_atom_ = 0;
@@ -313,11 +294,6 @@ void Decoder::Clear() {
   CHECK(mdat_frames_.empty());
   CHECK_EQ(mdat_next_, 0);
   CHECK_NULL(mdat_prev_frame_);
-  CHECK(mdat_order_frames_.empty());
-  CHECK_EQ(mdat_order_next_, 0);
-  CHECK(mdat_frame_cache_.empty());
-  CHECK(mdat_seek_order_to_offset_index_.empty());
-  //Nothing to CHECK on mdat_order_frames_by_timestamp_;
 }
 
 TagDecodeStatus Decoder::ReadAtom(io::MemoryStream& in, BaseAtom** out) {
@@ -444,13 +420,19 @@ TagDecodeStatus Decoder::ReadAtom(io::MemoryStream& in, BaseAtom** out) {
   // we're going to decode an atom, recursive calls will find subatoms
   is_topmost_atom_ = false;
   const int32 size_before_decode = in.Size();
-  TagDecodeStatus status = atom->Decode(atom_position, size,
-                                         header_size == 16, in, *this);
+  TagDecodeStatus status = atom->Decode(atom_position, size - header_size,
+                                        in, *this);
   const int32 size_after_decode = in.Size();
   CHECK_GE(size_before_decode, size_after_decode);
   const int32 size_decoded = size_before_decode - size_after_decode;
   // restore is_topmost_atom_
   is_topmost_atom_ = this_is_topmost_atom;
+
+  // force extended header, so that the encoder's output is identical
+  // to the decoder's input
+  if ( header_size == 16 ) {
+    atom->set_force_extended_body_size(true);
+  }
 
   if ( status != TAG_DECODE_SUCCESS ) {
     F4V_LOG_ERROR << "Failed to decode atom: " << atom->type_name()
@@ -483,9 +465,11 @@ TagDecodeStatus Decoder::ReadAtom(io::MemoryStream& in, BaseAtom** out) {
     delete moov_atom_;
     moov_atom_ = static_cast<MoovAtom*>(atom->Clone());
     // extract and print MediaInfo .. just for debug
-    util::MediaInfo media_info;
+    MediaInfo media_info;
     util::ExtractMediaInfo(*moov_atom_, &media_info);
     F4V_LOG_INFO << "MediaInfo: " << media_info.ToString();
+
+    BuildFrames();
   }
   if ( atom->type() == ATOM_MDAT ) {
     if ( !mdat_split_raw_frames_ && moov_atom_ == NULL ) {
@@ -500,12 +484,14 @@ TagDecodeStatus Decoder::ReadAtom(io::MemoryStream& in, BaseAtom** out) {
     mdat_begin_ = mdat_atom_->position() + header_size;
     mdat_end_ = mdat_atom_->position() + mdat_atom_->size();
     mdat_offset_ = mdat_begin_;
+    /*
     F4V_LOG_DEBUG << "Before BuildFrames"
                      ", mdat_begin_: " << mdat_begin_
                   << ", mdat_end_: " << mdat_end_
                   << ", mdat_offset_: " << mdat_offset_
                   << ", peek data: " << in.DumpContentHex(10);
     BuildFrames();
+    */
   }
 
   *out = atom;
@@ -526,107 +512,20 @@ TagDecodeStatus Decoder::ReadFrame(io::MemoryStream& in, Frame** out) {
       return TAG_DECODE_NO_DATA;
     }
     FrameHeader header(mdat_offset_ - mdat_begin_, raw_frame_size, 0,
-                0, 0, 0, FrameHeader::RAW_FRAME, false);
+                       0, 0, 0, FrameHeader::RAW_FRAME, false);
     *out = new Frame(header);
     (*out)->mutable_data().AppendStream(&in, raw_frame_size);
     mdat_offset_ += raw_frame_size;
     stream_position_ += raw_frame_size;
     return TAG_DECODE_SUCCESS;
   }
-  if ( mdat_order_frames_by_timestamp_ == false ) {
-    // direct decoding, stream order
-    TagDecodeStatus status = IOReadFrame(in, out);
-    if ( status == TAG_DECODE_SUCCESS && *out == NULL ) {
-      F4V_LOG_INFO << "No more frames.";
-      ClearFrames();
-    }
-    return status;
-  }
 
-  // decode frames in custom order
-  //
-
-  if ( mdat_order_next_ >= mdat_order_frames_.size() ) {
-    // no more frames to decode
-    CHECK_EQ(mdat_order_next_, mdat_order_frames_.size());
+  TagDecodeStatus status = IOReadFrame(in, out);
+  if ( status == TAG_DECODE_SUCCESS && *out == NULL ) {
     F4V_LOG_INFO << "No more frames.";
     ClearFrames();
-    return TAG_DECODE_SUCCESS;
   }
-  FrameHeader& lookout_frame = *mdat_order_frames_[mdat_order_next_];
-
-  // look in frame cache
-  //
-  FrameMap::iterator it = mdat_frame_cache_.find(lookout_frame.offset());
-  if ( it != mdat_frame_cache_.end() ) {
-    F4V_LOG_DEBUG << "ReadFrame: Frame found in cache, offset: "
-                  << lookout_frame.offset();
-    Frame* frame = it->second;
-    mdat_frame_cache_.erase(it);
-    *out = frame;
-    mdat_order_next_++;
-    return TAG_DECODE_SUCCESS;
-  }
-
-  // IO read frames until we find it
-  //
-  while ( true ) {
-    Frame* frame = NULL;
-    // 1. read a new frame from "in" stream
-    TagDecodeStatus status = IOReadFrame(in, &frame);
-    if ( status != TAG_DECODE_SUCCESS ) {
-      if ( status == TAG_DECODE_NO_DATA ) {
-        F4V_LOG_DEBUG << "IOReadFrame failed. result: "
-                      << TagDecodeStatusName(status);
-      } else {
-        F4V_LOG_ERROR << "IOReadFrame failed. result: "
-                      << TagDecodeStatusName(status);
-      }
-      return status;
-    }
-    // 2. is it the frame we're looking for?
-    if ( frame->header().offset() == lookout_frame.offset() ) {
-      F4V_LOG_DEBUG << "ReadFrame: Frame found by IO read, offset: "
-                    << frame->header().offset();
-      *out = frame;
-      mdat_order_next_++;
-      return TAG_DECODE_SUCCESS;
-    }
-    // 3. is it a raw frame? We don't expect raw frames so there's no reason
-    //    caching them.
-    if ( frame->header().type() == FrameHeader::RAW_FRAME ) {
-      F4V_LOG_DEBUG << "ReadFrame: RawFrame found by IO read, offset: "
-                    << frame->header().offset();
-      *out = frame;
-      // don't advance mdat_order_next_
-      return TAG_DECODE_SUCCESS;
-    }
-    // 4. cache other frames
-    // IOReadFrame should read frames in offset order, and we cannot
-    // skip/lose frames";
-    CHECK_LT(frame->header().offset(), lookout_frame.offset());
-    if ( mdat_frame_cache_.size() > kMaxFrameCacheSize ) {
-      F4V_LOG_ERROR << "ReadFrame: frame cache max size exceeded"
-                       ", current size: " << mdat_frame_cache_.size();
-      return TAG_DECODE_ERROR;
-    }
-    pair<FrameMap::iterator, bool> result = mdat_frame_cache_.insert(
-        make_pair(frame->header().offset(), frame));
-    if ( !result.second ) {
-      Frame* old = result.first->second;
-      F4V_LOG_ERROR << "Duplicate frame offset!"
-                       " old: " << old->header().ToString()
-                    << ", new: " << frame->header().ToString()
-                    << " ignoring new frame.";
-      delete frame;
-      frame = NULL;
-    }
-    F4V_LOG_DEBUG << "ReadFrame: caching frame, offset: "
-                  << frame->header().offset()
-                  << " (looking for offset: "
-                  << lookout_frame.offset() << ")"
-                     ", cache size: " << mdat_frame_cache_.size();
-  }
+  return status;
 }
 TagDecodeStatus Decoder::IOReadFrame(io::MemoryStream& in, Frame** out) {
   *out = NULL;
@@ -669,7 +568,7 @@ TagDecodeStatus Decoder::IOReadFrame(io::MemoryStream& in, Frame** out) {
       int64 raw_size = mdat_end_ - mdat_offset_;
       int64 raw_ts = mdat_prev_frame_ ? mdat_prev_frame_->timestamp() : 0;
       frame = new Frame(FrameHeader(mdat_offset_, raw_size,
-                                    raw_ts, raw_ts, 0, 0, FrameHeader::RAW_FRAME,
+                                    raw_ts, 0, 0, 0, FrameHeader::RAW_FRAME,
                                     false));
       advance_to_next_frame = false;
       F4V_LOG_WARNING << "IOReadFrame: Raw frame before MDAT end: "
@@ -728,7 +627,7 @@ TagDecodeStatus Decoder::IOReadFrame(io::MemoryStream& in, Frame** out) {
       int64 raw_size = raw_end - mdat_offset_;
       int64 raw_ts = mdat_prev_frame_ ? mdat_prev_frame_->timestamp() : 0;
       frame = new Frame(FrameHeader(mdat_offset_, raw_size,
-                                    raw_ts, raw_ts, 0, 0, FrameHeader::RAW_FRAME,
+                                    raw_ts, 0, 0, 0, FrameHeader::RAW_FRAME,
                                     false));
       advance_to_next_frame = false;
       if ( mdat_prev_frame_ != NULL ) {
@@ -765,7 +664,7 @@ TagDecodeStatus Decoder::IOReadFrame(io::MemoryStream& in, Frame** out) {
       // We need to advance to next frame.
       frame = new Frame(FrameHeader(mdat_offset_, mdat_end_ - mdat_offset_,
                                     frame_header.decoding_timestamp(),
-                                    frame_header.composition_timestamp(),
+                                    frame_header.composition_offset_ms(),
                                     frame_header.duration(),
                                     frame_header.sample_index(),
                                     FrameHeader::RAW_FRAME,
@@ -841,8 +740,6 @@ void Decoder::BuildFrames() {
 
   // check clear
   CHECK(mdat_frames_.empty());
-  CHECK(mdat_order_frames_.empty());
-  CHECK(mdat_frame_cache_.empty());
 
   // BuildFrames into temporary containers
   vector<FrameHeader*> mdat_audio_frames;
@@ -868,57 +765,19 @@ void Decoder::BuildFrames() {
     ++it;
     mdat_frames_.push_back(frame);
   }
-  // Second: make a frame vector in read order (by timestamp or by offset).
-  // Begin with making a copy of the frames in offset order, then sort it.
-  ::copy(mdat_frames_.begin(), mdat_frames_.end(),
-         inserter(mdat_order_frames_, mdat_order_frames_.end()));
-  ::stable_sort(mdat_order_frames_.begin(), mdat_order_frames_.end(),
-                mdat_order_frames_by_timestamp_ ? util::CompareFramesByTimestamp
-                                                : util::CompareFramesByOffset);
+
   mdat_audio_frames.clear();
   mdat_video_frames.clear();
 
-  // Build mdat_seek_frame_
-  //
-  CHECK(mdat_seek_order_to_offset_index_.empty());
-  {
-    uint32 offset_index = 0;
-    set<FrameHeader*> visited;
-    for ( uint32 order_index = 0; order_index < mdat_order_frames_.size();
-          order_index++ ) {
-      FrameHeader* order_frame = mdat_order_frames_[order_index];
-      FrameHeader* offset_frame = mdat_frames_[offset_index];
-
-      while ( visited.find(offset_frame) != visited.end() ) {
-        visited.erase(offset_frame);
-        offset_index++;
-        offset_frame = mdat_frames_[offset_index];
-      }
-
-      //Make: mdat_seek_order_to_offset_index_[order_index] = offset_index;
-      CHECK_EQ(mdat_seek_order_to_offset_index_.size(), order_index);
-      mdat_seek_order_to_offset_index_.push_back(offset_index);
-
-      visited.insert(order_frame);
-    }
-  }
-
-  //for ( uint32 i = 0; i < 1000 && i < mdat_order_frames_.size(); ++i ) {
-  //  F4V_LOG_INFO << "#" << i << " a&v ordered frame: " << *mdat_order_frames_[i];
-  //}
   F4V_LOG_INFO << "audio frames: " << stream_audio_frames << " in stream";
   F4V_LOG_INFO << "video frames: " << stream_video_frames << " in stream";
   F4V_LOG_INFO << "total frames: " << mdat_frames_.size();
   F4V_LOG_INFO << "mdat_begin_: " << mdat_begin_;
   F4V_LOG_INFO << "mdat_end_: " << mdat_end_;
-  if ( !mdat_order_frames_.empty() ) {
-    F4V_LOG_INFO << "first ordered frame: "
-                 << mdat_order_frames_[0]->ToString();
-    F4V_LOG_INFO << "last ordered frame: "
-                 << mdat_order_frames_[mdat_order_frames_.size() - 1]->ToString();
+  if ( !mdat_frames_.empty() ) {
+    F4V_LOG_INFO << "first frame: " << mdat_frames_.front()->ToString();
+    F4V_LOG_INFO << "last frame: " << mdat_frames_.back()->ToString();
   }
-  F4V_LOG_INFO << "frame order: " << (mdat_order_frames_by_timestamp_ ?
-                                     "by timestamp" : "by offset");
 }
 void Decoder::ClearFrames() {
   for ( vector<FrameHeader*>::iterator it = mdat_frames_.begin();
@@ -927,18 +786,9 @@ void Decoder::ClearFrames() {
     delete frame_header;
   }
   mdat_frames_.clear();
-  mdat_order_frames_.clear();
   mdat_next_ = 0;
-  mdat_order_next_ = 0;
   delete mdat_prev_frame_;
   mdat_prev_frame_ = NULL;
-  for ( FrameMap::iterator it = mdat_frame_cache_.begin();
-        it != mdat_frame_cache_.end(); it++ ) {
-    Frame* frame = it->second;
-    delete frame;
-  }
-  mdat_frame_cache_.clear();
-  mdat_seek_order_to_offset_index_.clear();
 
   delete mdat_atom_;
   mdat_atom_ = NULL;
@@ -947,8 +797,6 @@ void Decoder::ClearFrames() {
   mdat_offset_ = 0;
 
   CHECK(mdat_frames_.empty());
-  CHECK(mdat_order_frames_.empty());
-  CHECK(mdat_frame_cache_.empty());
   CHECK_NULL(mdat_prev_frame_);
   CHECK_NULL(mdat_atom_);
 }
@@ -961,24 +809,14 @@ string Decoder::ToString() const {
       ", mdat_offset_: %"PRId64""
       ", mdat_frames_: %zu frames"
       ", mdat_next_: %u"
-      ", mdat_prev_frame_: %s"
-      ", mdat_order_frames_: %zu frames"
-      ", mdat_order_next_: %u"
-      ", mdat_frame_cache_: %zu frames"
-      ", mdat_seek_order_to_offset_index_: %zu entries"
-      ", mdat_order_frames_by_timestamp_: %s}",
+      ", mdat_prev_frame_: %s}",
       (stream_position_),
       (mdat_begin_),
       (mdat_end_),
       (mdat_offset_),
       mdat_frames_.size(),
       mdat_next_,
-      mdat_prev_frame_ == NULL ? "NULL" : mdat_prev_frame_->ToString().c_str(),
-      mdat_order_frames_.size(),
-      mdat_order_next_,
-      mdat_frame_cache_.size(),
-      mdat_seek_order_to_offset_index_.size(),
-      strutil::BoolToString(mdat_order_frames_by_timestamp_).c_str());
+      mdat_prev_frame_ == NULL ? "NULL" : mdat_prev_frame_->ToString().c_str());
 }
 
 }

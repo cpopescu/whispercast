@@ -32,22 +32,22 @@ project (whisperstreamlib)
 ADD_EXECUTABLE(rtp_simple_push
   rtp_simple_push.cc)
 ADD_DEPENDENCIES(rtp_simple_push
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(rtp_simple_push
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 #INSTALL (TARGETS rtp_simple_push
 #         DESTINATION bin)
 
 ADD_EXECUTABLE(rtp_packetizer_test
   rtp_packetizer_test.cc)
 ADD_DEPENDENCIES(rtp_packetizer_test
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(rtp_packetizer_test
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/data/backcountry.f4v)
   ADD_TEST(rtp_packetizer_test
     rtp_packetizer_test --f4v_path ${CMAKE_CURRENT_SOURCE_DIR}/data/backcountry.f4v)

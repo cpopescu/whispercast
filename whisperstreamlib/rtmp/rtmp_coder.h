@@ -60,7 +60,7 @@ namespace rtmp {
 class ProtocolData;
 class Coder {
  public:
-  Coder(rtmp::ProtocolData* protocol, int64 memory_limit);
+  Coder(int64 memory_limit);
   virtual ~Coder();
 
   // Reads (and creates) the next event found in the 'in' memory stream.
@@ -86,30 +86,55 @@ class Coder {
                              scoped_ref<rtmp::Event>* out);
 
   // Writes an event to the given output stream, splitting it (possibly)
-  // into multiple chunks
-  // event is not const because we may update event->header()->event_size()
-  // in the process of writing.
-  int Encode(io::MemoryStream* out,
-             AmfUtil::Version version,
-             rtmp::Event* event) const;
+  // into multiple chunks. 'event' is not const because we update
+  // event->header()->event_size() in the process of writing.
+  void Encode(const rtmp::Event& event,
+              AmfUtil::Version version,
+              io::MemoryStream* out);
 
   // Another version of encode, where you have the encoded event (no header)
   // in event stream..
-  int EncodeWithAuxBuffer(io::MemoryStream* out,
-                          AmfUtil::Version version,
-                          rtmp::Event* event,
-                          const io::MemoryStream* event_stream) const;
+  void EncodeWithAuxBuffer(const rtmp::Event& event,
+                           const io::MemoryStream* event_stream,
+                           AmfUtil::Version version,
+                           io::MemoryStream* out);
 
   // Factory method for events
-  static rtmp::Event* CreateEvent(rtmp::Header* header);
+  static rtmp::Event* CreateEvent(const rtmp::Header& header);
 
-  const rtmp::Header* last_header() const { return last_header_; }
 
+  const rtmp::Header& last_read_event_header(uint32 channel_id,
+      uint32* out_last_read_event_size) const {
+    DCHECK(channel_id < kMaxNumChannels);
+    *out_last_read_event_size = last_read_event_size_[channel_id];
+    return last_read_event_header_[channel_id];
+  }
+  const rtmp::Header& last_write_event_header(uint32 channel_id,
+      uint32* out_last_write_event_size) const {
+    DCHECK(channel_id < kMaxNumChannels);
+    *out_last_write_event_size = last_write_event_size_[channel_id];
+    return last_write_event_header_[channel_id];
+  }
+  int32 read_chunk_size() const {
+    return read_chunk_size_;
+  }
+
+  static const uint32 kMaxNumChannels = 32;
+  static const uint32 kMaxChunkSize = 65536;
  private:
-
+  // in bytes. The upper limit for simultaneous partial events on all channels.
   const int64 memory_limit_;
-  rtmp::ProtocolData* const protocol_data_;
-  rtmp::Header* last_header_;
+
+  rtmp::Header last_read_event_header_[kMaxNumChannels];
+  uint32 last_read_event_size_[kMaxNumChannels];
+  rtmp::Header last_write_event_header_[kMaxNumChannels];
+  uint32 last_write_event_size_[kMaxNumChannels];
+  io::MemoryStream partial_bodies_[kMaxNumChannels];
+
+  // the data that comes from the client, comes in chunks of this size:
+  int32 read_chunk_size_;
+  // the data that goes to the client, goes in chunks of this size:
+  int32 write_chunk_size_;
 
   // We keep track of the used memory (size of uncompleted events - events
   // that received a bunch of chunks w/ a total memory too big)

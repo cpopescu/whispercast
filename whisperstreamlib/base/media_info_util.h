@@ -36,6 +36,7 @@
 
 #include <whisperlib/common/base/types.h>
 #include <whisperstreamlib/base/media_info.h>
+#include <whisperstreamlib/f4v/f4v_tag.h>
 #include <whisperstreamlib/f4v/atoms/movie/moov_atom.h>
 #include <whisperstreamlib/flv/flv_tag.h>
 #include <whisperstreamlib/mp3/mp3_frame.h>
@@ -45,6 +46,7 @@ namespace util {
 
 // Extracts MediaInfo from a f4v MOOV atom.
 bool ExtractMediaInfoFromMoov(const streaming::f4v::MoovAtom& moov,
+    const vector<f4v::FrameHeader*>& frames,
     MediaInfo* out);
 
 // Extract MediaInfo from 3 representative FLV tags: metadata,
@@ -63,6 +65,22 @@ bool ExtractMediaInfoFromMp3(const Mp3FrameTag& mp3_tag, MediaInfo* out);
 // other file: may not be supported.
 // Returns success.
 bool ExtractMediaInfoFromFile(const string& filename, MediaInfo* out);
+
+/////////////////////////////////////////////////////////////////
+// The reverse of Extract.. methods
+
+// Generates the MOOV atom specific to MP4/F4V files.
+// moov_offset: The offset of the MOOV atom in the output file.
+//              This is actually the size of the atoms written before
+//              MOOV (usually just FTYP). Used to compute the frame offset.
+// Returns success status. If the 'info' is incomplete this method fails.
+bool ComposeMoov(const MediaInfo& info, uint32 moov_offset,
+                 scoped_ref<F4vTag>* out);
+
+// Generates the Metadata tag specific to FLV files
+// Returns success.
+bool ComposeFlv(const MediaInfo& info, scoped_ref<FlvTag>* out);
+
 
 } // util
 } // streaming

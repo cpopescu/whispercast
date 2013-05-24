@@ -29,9 +29,9 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/base/log.h"
-#include "net/url/url.h"
-#include "net/rpc/lib/rpc_util.h"
+#include <whisperlib/common/base/log.h>
+#include <whisperlib/net/url/url.h>
+#include <whisperlib/net/rpc/lib/rpc_util.h>
 
 namespace {
 
@@ -42,55 +42,28 @@ const char kRpcConnectionTypeTcp[] = "tcp";
 const char kRpcConnectionTypeHttp[] = "http";
 const char kRpcConnectionTypeUnknown[] = "unknown";
 
-const char kRpcCodecIdBinary[] = "binary";
-const char kRpcCodecIdJson[] = "json";
-const char kRpcCodecIdUnknown[] = "unknown";
-
 const char* RpcConnectionTypeToString(
     rpc::CONNECTION_TYPE connection_type) {
   switch ( connection_type ) {
     case rpc::CONNECTION_TCP:  return kRpcConnectionTypeTcp;
     case rpc::CONNECTION_HTTP: return kRpcConnectionTypeHttp;
-    default: {
-      LOG_FATAL << "no such connection_type: " << connection_type;
-      return kRpcConnectionTypeUnknown;
-    }
+    case rpc::CONNECTION_FAILSAFE_HTTP: return kRpcConnectionTypeHttp;
   }
+  LOG_FATAL << "Illegal connection_type: " << connection_type;
+  return kRpcConnectionTypeUnknown;
 }
 
-rpc::CONNECTION_TYPE RpcConnectionTypeFromString(const string& str) {
+bool RpcConnectionTypeFromString(const string& str, rpc::CONNECTION_TYPE* out) {
   if ( str == kRpcConnectionTypeTcp ) {
-    return rpc::CONNECTION_TCP;
+    *out = rpc::CONNECTION_TCP;
+    return true;
   } else if ( str == kRpcConnectionTypeHttp ) {
-    return rpc::CONNECTION_HTTP;
-  } else {
-    return (rpc::CONNECTION_TYPE)(-1);
+    *out = rpc::CONNECTION_HTTP;
+    return true;
   }
+  return false;
 }
-
-const char* RpcCodecIdToString(rpc::CODEC_ID codec_id) {
-  switch ( codec_id ) {
-    case rpc::CID_BINARY: return kRpcCodecIdBinary;
-    case rpc::CID_JSON:   return kRpcCodecIdJson;
-    default: {
-      LOG_FATAL << "no such codec_id: " << codec_id;
-      return kRpcCodecIdUnknown;
-    }
-  }
 }
-
-rpc::CODEC_ID RpcCodecIdFromString(const string& str) {
-  if ( str == kRpcCodecIdBinary ) {
-    return rpc::CID_BINARY;
-  } else if ( str == kRpcCodecIdJson ) {
-    return rpc::CID_JSON;
-  } else {
-    return (rpc::CODEC_ID)(-1);
-  }
-}
-
-}  // namespace
-
 
 namespace rpc {
 
@@ -99,13 +72,13 @@ string CreateUri(const net::HostPort& host_port,
                  const string& auth_user,
                  const string& auth_pswd,
                  rpc::CONNECTION_TYPE connection_type,
-                 rpc::CODEC_ID codec_id) {
+                 rpc::CodecId codec) {
   string str = strutil::StringPrintf(
       "%s://%s/%s?codec=%s",
       RpcConnectionTypeToString(connection_type),
       host_port.ToString().c_str(),
       path.c_str()[0] == '/' ? path.c_str() + 1 : path.c_str(),
-      RpcCodecIdToString(codec_id));
+      CodecName(codec).c_str());
   if ( auth_user != "" ) {
     str += strutil::StringPrintf("&user=%s&pswd=%s",
         auth_user.c_str(), auth_pswd.c_str());
@@ -114,12 +87,12 @@ string CreateUri(const net::HostPort& host_port,
 }
 
 bool ParseUri(const string& address,
-              net::HostPort& host_port,
-              string& path,
-              string& auth_user,
-              string& auth_pswd,
-              rpc::CONNECTION_TYPE& connection_type,
-              rpc::CODEC_ID& codec_id) {
+              net::HostPort* out_host_port,
+              string* out_path,
+              string* out_auth_user,
+              string* out_auth_pswd,
+              rpc::CONNECTION_TYPE* out_connection_type,
+              rpc::CodecId* out_codec) {
   URL url(address);
   if ( !url.is_valid() ) {
     LOG_ERROR << "invalid address: " << address;
@@ -129,45 +102,44 @@ bool ParseUri(const string& address,
     LOG_ERROR << "port not specified in address: " << address;
     return false;
   }
-  host_port = net::HostPort(url.host(), url.IntPort());
-  if ( host_port.port() == 0 ) {
+  *out_host_port = net::HostPort(url.host(), url.IntPort());
+  if ( out_host_port->IsInvalidPort() ) {
     LOG_ERROR << "invalid port in address: " << address;
     return false;
   }
-  path = url.path();
-  connection_type = RpcConnectionTypeFromString(url.scheme());
-  if ( connection_type == -1 ) {
+  *out_path = url.path();
+  if ( !RpcConnectionTypeFromString(url.scheme(), out_connection_type) ) {
     LOG_ERROR << "invalid connection_type in address: " << address;
     return false;
   }
   vector< pair<string, string> > qp;
   url.GetQueryParameters(&qp, true);
-  bool codec_id_found = false;
+  bool codec_found = false;
   for ( vector< pair<string, string> >::iterator it = qp.begin();
         it != qp.end(); ++it ) {
     const string& param = it->first;
     const string& value = it->second;
     if ( param == "codec" ) {
-      codec_id = RpcCodecIdFromString(value);
-      if ( codec_id == -1 ) {
-        LOG_ERROR << "invalid codec_id in address: " << address;
+      if ( !GetCodecIdFromName(value, out_codec) ) {
+        LOG_ERROR << "invalid codec_id: [" << value << "]"
+                     ", in address: [" << address << "]";
         return false;
       }
-      codec_id_found = true;
+      codec_found = true;
       continue;
     }
     if ( param == "user" ) {
-      auth_user = value;
+      *out_auth_user = value;
       continue;
     }
     if ( param == "pswd" ) {
-      auth_pswd = value;
+      *out_auth_pswd = value;
       continue;
     }
     LOG_ERROR << "Unknown URI parameter, name: [" << param << "]"
                  ", value: [" << value << "], ignoring..";
   }
-  if ( !codec_id_found ) {
+  if ( !codec_found ) {
     LOG_ERROR << "missing codec_id in address: " << address;
     return false;
   }

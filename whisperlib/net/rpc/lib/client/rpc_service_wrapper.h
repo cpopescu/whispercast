@@ -37,6 +37,7 @@
 #include <map>
 #include <whisperlib/common/base/callback.h>
 #include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
 #include <whisperlib/net/rpc/lib/client/irpc_client_connection.h>
 
 namespace rpc {
@@ -89,7 +90,7 @@ class ServiceWrapper {
   const std::string& GetServiceClassName() const;
 
   // Returns the codec used in the underlying connection.
-  Codec& GetCodec() const;
+  CodecId GetCodec() const;
 
  private:
   CALL_ID MakeCallId(uint32 qid) {
@@ -152,7 +153,7 @@ class ServiceWrapper {
                   << " Returned Status: " << ReplyStatusName(status);
         if ( result.Size() > 0 ) {
           string reason;
-          if ( GetCodec().Decode(result, reason) == DECODE_RESULT_SUCCESS ) {
+          if ( DecodeBy(GetCodec(), result, &reason) == DECODE_RESULT_SUCCESS ) {
             call_result.error_ += string(" Hint: ") + reason;
             LOG_ERROR << "Call failed hint: " << reason;
           }
@@ -162,7 +163,7 @@ class ServiceWrapper {
 
       // decode returned value
       //
-      if ( GetCodec().Decode(result, call_result.result_) ==
+      if ( DecodeBy(GetCodec(), result, &call_result.result_) ==
            DECODE_RESULT_ERROR ) {
         DLOG_ERROR << "RPC cannot decode return value as " << __NAME_STRINGIZER(RET)
                    << ". Bytes: " << result.DebugString();

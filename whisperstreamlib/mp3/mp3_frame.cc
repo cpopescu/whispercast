@@ -137,7 +137,7 @@ streaming::TagReadStatus Mp3FrameTag::ExtractHeader(
     LOG_ERROR << " Found wrong header in mp3 data."
               << hex << "0x" << static_cast<int>(buffer[0])
               << " - " << "0x" << static_cast<int>(buffer[1]) << dec;
-    return streaming::READ_CORRUPTED_FAIL;
+    return streaming::READ_CORRUPTED;
   }
   const uint8 version_index = ((buffer[1] & 0x18)  >> 3) & 0x03;
   version_ = kVersionIndex[version_index];
@@ -146,7 +146,7 @@ streaming::TagReadStatus Mp3FrameTag::ExtractHeader(
   if ( version_ == VERSION_UNKNOWN || layer_ == LAYER_UNKNOWN ) {
     LOG_ERROR << " Mp3 error: version_index=" << static_cast<int>(version_index)
               << " layer_index=" << static_cast<int>(layer_index);
-    return streaming::READ_CORRUPTED_FAIL;
+    return streaming::READ_CORRUPTED;
   }
   has_crc_ = ((buffer[1] & 0x01) == 0);
   const uint8 bitrate_index = ((buffer[2] & 0xF0)  >> 4) & 0x0F;
@@ -154,13 +154,13 @@ streaming::TagReadStatus Mp3FrameTag::ExtractHeader(
     LOG_ERROR << " Mp3 error: version_index=" << static_cast<int>(version_index)
               << " layer_index=" << static_cast<int>(layer_index)
               << " bitrate_index=" << static_cast<int>(bitrate_index);
-    return streaming::READ_UNKNOWN;
+    return streaming::READ_CORRUPTED;
   }
   if ( bitrate_index == 0xF ) {
     LOG_ERROR << " Mp3 error: version_index=" << version_index
               << " layer_index=" << layer_index
               << " bitrate_index=" << bitrate_index;
-    return streaming::READ_CORRUPTED_FAIL;
+    return streaming::READ_CORRUPTED;
   }
   if ( version_ == MPEG_VERSION_1 ) {
     bitrate_kbps_ = kBitrate[bitrate_index * 5 + layer_];
@@ -173,7 +173,7 @@ streaming::TagReadStatus Mp3FrameTag::ExtractHeader(
     LOG_ERROR << " Mp3 error: version_index=" << static_cast<int>(version_index)
               << " layer_index=" << static_cast<int>(layer_index)
               << " bitrate_index=" << static_cast<int>(bitrate_index);
-    return streaming::READ_CORRUPTED_FAIL;
+    return streaming::READ_CORRUPTED;
   }
   padding_ = ((buffer[2] & 0x02) >> 1) != 0;
   const uint8 channel_index = ((buffer[3] & 0xC0)  >> 6) & 0x03;

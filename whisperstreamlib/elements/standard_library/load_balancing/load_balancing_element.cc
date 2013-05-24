@@ -42,12 +42,11 @@ namespace streaming {
 
 const char LoadBalancingElement::kElementClassName[] = "load_balancing";
 
-LoadBalancingElement::LoadBalancingElement(const char* name,
-                                           const char* id,
+LoadBalancingElement::LoadBalancingElement(const string& name,
                                            ElementMapper* mapper,
                                            net::Selector* selector,
                                            const vector<string>& sub_elements)
-    : Element(kElementClassName, name, id, mapper),
+    : Element(kElementClassName, name, mapper),
       selector_(selector),
       close_completed_(NULL) {
   for ( int i = 0; i < sub_elements.size(); ++i ) {
@@ -64,16 +63,9 @@ bool LoadBalancingElement::Initialize() {
   }
   return true;
 }
-bool LoadBalancingElement::AddRequest(
-    const char* media,
-    streaming::Request* req,
-    streaming::ProcessingCallback* callback) {
-  pair<string, string> media_pair = strutil::SplitFirst(media, '/');
-  if ( media_pair.first != name() ) {
-    return false;
-  }
-  ++next_element_;
-  if ( next_element_ >= sub_elements_.size() ) next_element_ = 0;
+bool LoadBalancingElement::AddRequest(const string& media,
+    Request* req, ProcessingCallback* callback) {
+  next_element_ = (next_element_ + 1) % sub_elements_.size();
 
   ReqStruct* rs = new ReqStruct(callback);
   rs->added_callback_ = NewPermanentCallback(this,
@@ -85,8 +77,8 @@ bool LoadBalancingElement::AddRequest(
       ndx -= sub_elements_.size();
     }
     rs->new_element_name_ = sub_elements_[ndx];
-    const string crt_name = sub_elements_[ndx] + "/" + media_pair.second;
-    if ( mapper_->AddRequest(crt_name.c_str(), req, rs->added_callback_) ) {
+    const string crt_name = sub_elements_[ndx] + "/" + media;
+    if ( mapper_->AddRequest(crt_name, req, rs->added_callback_) ) {
       LOG_INFO << name() << " Successfully redirected to: [" << crt_name << "]";
       req_map_.insert(make_pair(req, rs));
       next_element_ = (ndx + 1) >= sub_elements_.size() ? 0 : ndx;
@@ -95,7 +87,7 @@ bool LoadBalancingElement::AddRequest(
     LOG_ERROR << name() << " cannot add media: [" << crt_name
               << "], trying the next prefix...";
   }
-  LOG_ERROR << name() << " cannot add media: [" << media_pair.second << "]";
+  LOG_ERROR << name() << " cannot add media: [" << media << "]";
   delete rs;
   return false;
 }
@@ -119,37 +111,29 @@ void LoadBalancingElement::RemoveRequest(streaming::Request* req) {
   }
 }
 
-bool LoadBalancingElement::HasMedia(const char* media, Capabilities* out) {
-  pair<string, string> media_pair = strutil::SplitFirst(media, '/');
-  if ( media_pair.first != name() ) {
-    return false;
-  }
+bool LoadBalancingElement::HasMedia(const string& media) {
   for ( int i = 0; i < sub_elements_.size(); ++i ) {
-    const string crt_name = strutil::JoinMedia(sub_elements_[i],
-        media_pair.second);
-    if ( mapper_->HasMedia(crt_name.c_str(), out) ) {
+    const string crt_name = strutil::JoinMedia(sub_elements_[i], media);
+    if ( mapper_->HasMedia(crt_name) ) {
       return true;
     }
   }
   return false;
 }
-void LoadBalancingElement::ListMedia(const char* media_dir,
-                                     streaming::ElementDescriptions* medias) {
-  pair<string, string> media_pair = strutil::SplitFirst(media_dir, '/');
-  if ( media_pair.first != name() ) {
-    return;
-  }
+void LoadBalancingElement::ListMedia(const string& media_dir,
+                                     vector<string>* out) {
+  // gather media in a set, to avoid reporting duplicates
+  set<string> media_set;
   for ( int i = 0; i < sub_elements_.size(); ++i ) {
-    streaming::ElementDescriptions crt;
-    string crt_name = strutil::JoinMedia(sub_elements_[i], media_pair.second);
-    mapper_->ListMedia(crt_name.c_str(), &crt);
+    vector<string> crt;
+    string crt_name = strutil::JoinMedia(sub_elements_[i], media_dir);
+    mapper_->ListMedia(crt_name, &crt);
     for ( int j = 0; j < crt.size(); ++j ) {
-      pair<string, string> crt_pair = strutil::SplitFirst(
-          crt[i].first.c_str(), '/');
-      medias->push_back(make_pair(name() + "/" + crt_pair.second,
-                                  crt[i].second));
+      media_set.insert(strutil::JoinPaths(name(), crt[j]));
     }
   }
+  // move media to output
+  std::copy(media_set.begin(), media_set.end(), std::back_inserter(*out));
 }
 bool LoadBalancingElement::DescribeMedia(const string& media,
                                          MediaInfoCallback* callback) {

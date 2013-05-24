@@ -71,26 +71,17 @@ class F4vToFlvConverterElement : public FilteringElement {
   };
  public:
   static const char kElementClassName[];
-  F4vToFlvConverterElement(const char* name,
-                           const char* id,
+  F4vToFlvConverterElement(const string& name,
                            ElementMapper* mapper,
                            net::Selector* selector);
   virtual ~F4vToFlvConverterElement();
 
  protected:
   virtual bool Initialize();
-  virtual bool HasMedia(const char* media_name, Capabilities* out);
-  virtual void ListMedia(const char* media_dir,
-                         ElementDescriptions* media);
-  virtual bool AddRequest(const char* media,
-                          streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
-  virtual FilteringCallbackData* CreateCallbackData(const char* media_name,
+  virtual FilteringCallbackData* CreateCallbackData(const string& media_name,
                                                     streaming::Request* req);
   virtual void DeleteCallbackData(FilteringCallbackData* data);
 
-  // Caps we serve (we do flv..);
-  const streaming::Capabilities default_caps_;
  private:
   DISALLOW_EVIL_CONSTRUCTORS(F4vToFlvConverterElement);
 };

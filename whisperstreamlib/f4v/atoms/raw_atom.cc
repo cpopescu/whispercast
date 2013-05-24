@@ -21,7 +21,11 @@ RawAtom::~RawAtom() {
 uint32 RawAtom::atom_type() const {
   return atom_type_;
 }
-
+bool RawAtom::EqualsBody(const BaseAtom& other) const {
+  const RawAtom& a = static_cast<const RawAtom&>(other);
+  return atom_type_ == a.atom_type_ &&
+         raw_data_.Equals(a.raw_data_);
+}
 void RawAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* RawAtom::Clone() const {

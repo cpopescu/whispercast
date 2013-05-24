@@ -64,7 +64,7 @@ streaming::TagReadStatus FlvCoder::DecodeHeader(io::MemoryStream* in,
     in->MarkerRestore();
     size_t pos_flv = s.find(string("FLV", 3));
     if ( pos_flv == string::npos ) {
-     return streaming::READ_CORRUPTED_FAIL;
+     return streaming::READ_CORRUPTED;
     }
     LOG_INFO << " Header found at position: " << pos_flv;
     in->Skip(pos_flv);
@@ -97,24 +97,30 @@ streaming::TagReadStatus FlvCoder::DecodeTag(io::MemoryStream* in,
     return streaming::READ_NO_DATA;
   }
   in->MarkerSet();
-  const uint32 prev_tag_size =
-      io::NumStreamer::ReadUInt32(in, common::BIGENDIAN);
+  // skip previous tag size: 4 bytes integer, BIGENDIAN
+  in->Skip(4);
   const uint8  type = io::NumStreamer::ReadByte(in);
   const uint32 body_size = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
   if ( body_size > FLAGS_flv_max_tag_size ) {
     in->MarkerRestore();
     LOG_ERROR << "Oversized FLV tag size found: " << body_size;
-    return streaming::READ_OVERSIZED_TAG;
+    return streaming::READ_CORRUPTED;
+  }
+  if ( in->Size() < body_size + 7 ) {
+    in->MarkerRestore();
+    return streaming::READ_NO_DATA;
   }
 
   if ( type != FLV_FRAMETYPE_VIDEO &&
        type != FLV_FRAMETYPE_AUDIO &&
        type != FLV_FRAMETYPE_METADATA ) {
-    in->MarkerRestore();
     LOG_ERROR << "Illegal frame type: "
               << strutil::StringPrintf("0x%02x", type)
-              << " in stream: " << in->DumpContent();
-    return streaming::READ_CORRUPTED_FAIL;
+              << " in stream: " << in->DumpContentInline(32)
+              << ", ignoring frame..";
+    in->Skip(7 + body_size);
+    in->MarkerClear();
+    return streaming::READ_SKIP;
   }
   FlvFrameType data_type = static_cast<FlvFrameType>(type);
 
@@ -123,8 +129,9 @@ streaming::TagReadStatus FlvCoder::DecodeTag(io::MemoryStream* in,
     // No header for audio or video tag
     LOG_ERROR << "Zero sized FLV tag size found";
     in->MarkerRestore();
-    return streaming::READ_CORRUPTED_FAIL;
+    return streaming::READ_CORRUPTED;
   }
+  in->MarkerClear();
 
   // The lower 3 bytes of timestamp. This is how the protocol was
   // firstly designed. The longest stream would be 2^24ms = 4.66hours
@@ -141,19 +148,13 @@ streaming::TagReadStatus FlvCoder::DecodeTag(io::MemoryStream* in,
   const uint32 stream_id =
       io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
 
-  if ( in->Size() < body_size ) {
-    in->MarkerRestore();
-    return streaming::READ_NO_DATA;
-  }
-  in->MarkerClear();
-
   *cb = kFlvTagHeaderSize + body_size;
 
   // compose Tag
   *tag = new FlvTag(0, kDefaultFlavourMask, timestamp, data_type);
-  (*tag)->set_previous_tag_size(prev_tag_size);
   (*tag)->set_stream_id(stream_id);
   (*tag)->mutable_body().Decode(*in, body_size);
+  (*tag)->LearnAttributes();
 
   return streaming::READ_OK;
 }
@@ -162,7 +163,7 @@ TagReadStatus FlvCoder::DecodeVideoFlags(const io::MemoryStream& const_ms,
     FlvFlagVideoCodec* video_codec,
     FlvFlagVideoFrameType* video_frame_type,
     AvcPacketType* video_avc_packet_type,
-    int32* video_avc_composition_time) {
+    int32* video_avc_composition_offset_ms) {
   io::MemoryStream& ms = const_cast<io::MemoryStream&>(const_ms);
   ms.MarkerSet();
   if ( ms.Size() < 1 ) {
@@ -182,7 +183,7 @@ TagReadStatus FlvCoder::DecodeVideoFlags(const io::MemoryStream& const_ms,
     }
     *video_avc_packet_type = static_cast<streaming::AvcPacketType>(
         io::NumStreamer::ReadByte(&ms));
-    *video_avc_composition_time =
+    *video_avc_composition_offset_ms =
         io::NumStreamer::ReadUInt24(&ms, common::BIGENDIAN);
   }
   ms.MarkerRestore();
@@ -214,9 +215,9 @@ FlvTag* FlvCoder::DecodeAuxiliaryMoovTag(const FlvTag* tag) {
     return NULL;
   }
   const FlvTag::Video& video_body = tag->video_body();
-  if ( video_body.video_frame_type() != FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ||
-       video_body.video_codec() != FLV_FLAG_VIDEO_CODEC_AVC ||
-       video_body.video_avc_packet_type() != streaming::AVC_NALU ) {
+  if ( video_body.frame_type() != FLV_FLAG_VIDEO_FRAMETYPE_KEYFRAME ||
+       video_body.codec() != FLV_FLAG_VIDEO_CODEC_AVC ||
+       video_body.avc_packet_type() != streaming::AVC_NALU ) {
     return NULL;
   }
 
@@ -315,18 +316,17 @@ bool FlvCoder::UpdateTimeInCuePoint(FlvTag::Metadata* metadata,
   return false;
 }
 
-int32 FlvCoder::ExtractVideoCodecData(const FlvTag* flv_tag,
-    uint8* buffer, int32 buffer_size) {
+bool FlvCoder::ExtractVideoCodecData(const FlvTag* flv_tag,
+                                      io::MemoryStream* out) {
   if ( flv_tag->body().type() != streaming::FLV_FRAMETYPE_VIDEO ) {
-    return -1;
+    return false;
   }
+  CHECK_NOT_NULL(flv_tag->Data());
   const FlvTag::Video& video_body = flv_tag->video_body();
-  io::MemoryStream video_data;
-  video_data.AppendStreamNonDestructive(&video_body.data());
 
   // The easy stuff:
   int skip_size = -1;
-  switch ( video_body.video_codec() ) {
+  switch ( video_body.codec() ) {
     case streaming::FLV_FLAG_VIDEO_CODEC_H263:
       skip_size = 1;
       break;
@@ -343,26 +343,32 @@ int32 FlvCoder::ExtractVideoCodecData(const FlvTag* flv_tag,
       break;
   }
   if ( skip_size == -1 ) {
-      LOG_ERROR << "Cannot ExtractVideoCodecData, unknown codec: "
-                << FlvFlagVideoCodecName(video_body.video_codec())
-                << " For: " << flv_tag->ToString();
-      return -1;
+    LOG_ERROR << "ExtractVideoCodecData() failed, unknown codec: "
+              << FlvFlagVideoCodecName(video_body.codec())
+              << " For: " << flv_tag->ToString();
+    return false;
   }
-  if ( video_data.Size() < skip_size ) {
-    return -1;
+  if ( flv_tag->Data()->Size() < skip_size ) {
+    LOG_ERROR << "ExtractVideoCodecData() failed, tag too small: "
+              << flv_tag->ToString();
+    return false;
   }
-  video_data.Skip(skip_size);
 
-  //////////////////////////////////////////////////////////////////////
+  out->AppendStreamNonDestructive(flv_tag->Data(), skip_size);
+  return true;
+}
+bool TransformNaluFromPacketToStream(const io::MemoryStream& cin,
+                                     AvcPacketType avc_packet_type,
+                                     io::MemoryStream* out) {
+  io::MemoryStream in;
+  in.AppendStreamNonDestructive(&cin);
+
+  ////////////////////////////////////////////////////////////////////////
   //
-  // Easy path, VP6 or H263
-  //   -- just read the data after what we skip
+  // nothing to do for END of Sequence
   //
-  if ( video_body.video_codec() != streaming::FLV_FLAG_VIDEO_CODEC_AVC ) {
-    const int32 len = video_data.Size();
-    if ( len > buffer_size ) return 0;
-    video_data.Read(buffer, len);
-    return len;
+  if ( avc_packet_type == AVC_END_OF_SEQUENCE ) {
+    return true;
   }
 
   //////////////////////////////////////////////////////////////////////
@@ -370,23 +376,21 @@ int32 FlvCoder::ExtractVideoCodecData(const FlvTag* flv_tag,
   // Semi-Hard path H264 - non AVC header :)
   //  - read NALU after NALU and write them w/ AVC header (0x00000001)
   //
-  io::MemoryStream tmp;
-  if ( video_body.video_avc_packet_type() != AVC_SEQUENCE_HEADER ) {
-    while ( video_data.Size() > sizeof(uint32) ) {
-      const uint32 crt_size = io::NumStreamer::ReadUInt32(
-          &video_data, common::BIGENDIAN);
-      if ( video_data.Size() >= crt_size ) {
-        io::NumStreamer::WriteUInt32(&tmp, 0x00000001, common::BIGENDIAN);
-        tmp.AppendStream(&video_data, crt_size);
+  if ( avc_packet_type == AVC_NALU ) {
+    while ( in.Size() > sizeof(uint32) ) {
+      const uint32 crt_size = io::NumStreamer::ReadUInt32(&in, common::BIGENDIAN);
+      if ( in.Size() >= crt_size ) {
+        io::NumStreamer::WriteUInt32(out, 0x00000001, common::BIGENDIAN);
+        out->AppendStream(&in, crt_size);
       } else {
-        return -1;
+        LOG_ERROR << "Incomplete NALU at the end of stream";
+        return false;
       }
     }
-    const int32 len = tmp.Size();
-    if ( len > buffer_size ) return 0;
-    tmp.Read(buffer, len);
-    return len;
+    return true;
   }
+
+  CHECK_EQ(avc_packet_type, AVC_SEQUENCE_HEADER);
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -395,39 +399,38 @@ int32 FlvCoder::ExtractVideoCodecData(const FlvTag* flv_tag,
   //     0x00000001 <32bit sps size> <sps> <32bit pps0 size> <pps0> ...
   //              ... <32bitppsN size> <ppsN>
   //
-  io::NumStreamer::WriteUInt32(&tmp, 0x00000001, common::BIGENDIAN);
-  if ( video_data.Size() < 8 ) {
-    return -1;
+  io::NumStreamer::WriteUInt32(out, 0x00000001, common::BIGENDIAN);
+  if ( in.Size() < 8 ) {
+    LOG_ERROR << "AVC Sequence Header corrupted, no SPS";
+    return false;
   }
-  video_data.Skip(6);   // some header..
-  const int32 sps_size = io::NumStreamer::ReadUInt16(&video_data,
-                                                     common::BIGENDIAN);
-  io::NumStreamer::WriteInt32(&tmp, sps_size, common::BIGENDIAN);
-  if ( video_data.Size() < sps_size ) {
-    return -1;
+  in.Skip(6);   // some header..
+  const int32 sps_size = io::NumStreamer::ReadUInt16(&in, common::BIGENDIAN);
+  io::NumStreamer::WriteInt32(out, sps_size, common::BIGENDIAN);
+  if ( in.Size() < sps_size ) {
+    LOG_ERROR << "AVC Sequence Header corrupted, SPS size: " << sps_size;
+    return false;
   }
-  tmp.AppendStream(&video_data, sps_size);
-  if ( video_data.Size() < 1 ) {
-    return -1;
+  out->AppendStream(&in, sps_size);
+  if ( in.Size() < 1 ) {
+    LOG_ERROR << "AVC Sequence Header corrupted, no PPS";
+    return false;
   }
-  int num_pps = io::NumStreamer::ReadByte(&video_data);
-  while ( num_pps > 0 ) {
-    if ( video_data.Size() < 2 ) {
-      return -1;
+  const int num_pps = io::NumStreamer::ReadByte(&in);
+  for ( int i = 0; i < num_pps; i++ ) {
+    if ( in.Size() < 2 ) {
+      LOG_ERROR << "AVC Sequence Header corrupted, incomplete PPS";
+      return false;
     }
-    const int32 pps_size = io::NumStreamer::ReadUInt16(&video_data,
-                                                       common::BIGENDIAN);
-    io::NumStreamer::WriteInt32(&tmp, pps_size, common::BIGENDIAN);
-    if ( video_data.Size() < pps_size ) {
-      return -1;
+    const int32 pps_size = io::NumStreamer::ReadUInt16(&in, common::BIGENDIAN);
+    io::NumStreamer::WriteInt32(out, pps_size, common::BIGENDIAN);
+    if ( in.Size() < pps_size ) {
+      LOG_ERROR << "AVC Sequence Header corrupted, incomplete PPS";
+      return false;
     }
-    tmp.AppendStream(&video_data, pps_size);
-    --num_pps;
+    out->AppendStream(&in, pps_size);
   }
-  const int32 len = tmp.Size();
-  if ( len > buffer_size ) return 0;
-  tmp.Read(buffer, len);
-  return len;
+  return true;
 }
 
 //////////////////////////////////////////////////////////////////////

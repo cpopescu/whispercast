@@ -57,7 +57,11 @@ ServerAcceptor::ServerAcceptor(
     next_connection_id_(0),
     num_accepted_connections_(0),
     flags_(flags),
-    sync_() {
+    sync_(),
+    missing_stream_cache_(util::CacheBase::LRU,
+        kMissingStreamCacheSize,
+        flags->missing_stream_cache_expiration_ms_,
+        NULL, false, true) {
   if ( flags_->ssl_certificate_ != "" && flags_->ssl_key_ != "" ) {
     ssl_context_ = net::SslConnection::SslCreateContext(
         flags_->ssl_certificate_, flags_->ssl_key_);
@@ -138,7 +142,7 @@ bool ServerAcceptor::AcceptorFilterHandler(const net::HostPort& peer) {
 
 void ServerAcceptor::AcceptorAcceptHandler(net::NetConnection* peer) {
   // NOTE!: Multiple secondary network threads call this function, concurrently.
-  CHECK(peer->net_selector()->IsInSelectThread());
+  CHECK(peer->selector()->IsInSelectThread());
   LOG_DEBUG << net_acceptor_->PrefixInfo()
             << "Handling an accept from: " << peer->remote_address();
 
@@ -150,7 +154,7 @@ void ServerAcceptor::AcceptorAcceptHandler(net::NetConnection* peer) {
   }
 
   new rtmp::ServerConnection(
-      peer->net_selector(),
+      peer->selector(),
       media_selector_,
       element_mapper_,
       peer,
@@ -158,7 +162,8 @@ void ServerAcceptor::AcceptorAcceptHandler(net::NetConnection* peer) {
       stats_collector_,
       NewCallback(this, &ServerAcceptor::NotifyConnectionClose),
       classifiers_,
-      flags_);   // auto deleted ..
+      flags_,
+      &missing_stream_cache_); // auto deletes itself, on ConnectionCloseHandler
   DLOG_DEBUG << "=====>> RTMP Client accepted from " << peer->remote_address();
 }
 

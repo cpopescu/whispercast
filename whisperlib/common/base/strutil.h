@@ -42,6 +42,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <list>
 #include <set>
 #include <map>
 #include <algorithm>
@@ -63,18 +64,14 @@ bool StrIEql(const char* str1, const char* str2);
 bool StrIEql(const string& str1, const string& str2);
 
 // Tests if this string starts with the specified prefix.
-bool StrPrefix(const char* str, const char* prefix);
 bool StrStartsWith(const char* str, const char* prefix);
 bool StrStartsWith(const string& str, const string& prefix);
 
 // Tests if this string starts with the specified prefix - ignoring case.
-bool StrCasePrefix(const char* str, const char* prefix);
 bool StrIStartsWith(const char* str, const char* prefix);
 bool StrIStartsWith(const string& str, const string& prefix);
 
 // Tests if string ends with the specified sufix.
-bool StrSuffix(const char* str, const char* suffix);
-bool StrSuffix(const string& str, const string& suffix);
 bool StrEndsWith(const char* str, const char* suffix);
 bool StrEndsWith(const string& str, const string& suffix);
 
@@ -116,8 +113,9 @@ string JoinStrings(const char* pieces[], size_t size, const char* glue);
 // Given an array of strings it joins them using the provided glue string
 string JoinStrings(const vector<string>& pieces, const char* glue);
 
-// Takes a string, a separator and splits the string in constituting componants
-// separated by the separator (which is in none of them);
+// Takes a string, a separator and splits the string in constituting components.
+// e.g. : SplitString("a b c", " ") => ["a", "b", "c"]
+// e.g. : SplitString("a  b   c ", " ") => ["a", "b", "c"]
 void SplitString(const string& s,
                  const string& separator,
                  vector<string>* output);
@@ -133,6 +131,14 @@ inline pair<string, string> SplitFirst(const char* s, char separator) {
   return make_pair(string(s, slash_pos - s), string(slash_pos + 1));
 }
 
+inline pair<string, string> SplitFirst(const string& s, char separator) {
+  const size_t pos_sep = s.find(separator);
+  if ( pos_sep != string::npos ) {
+    return make_pair(s.substr(0, pos_sep), s.substr(pos_sep + 1));
+  } else {
+    return make_pair(s, string(""));
+  }
+}
 inline pair<string, string> SplitFirst(const string& s,
                                        const string& separator) {
   const size_t pos_sep = s.find(separator);
@@ -144,14 +150,22 @@ inline pair<string, string> SplitFirst(const string& s,
 }
 
 // Similar to SplitFirst, but splits at the last occurrence of 'separator'.
-// If separator is not found, returns: pair(s,"")
+// If separator is not found, returns: pair("",s)
+inline pair<string, string> SplitLast(const string& s, char separator) {
+  const size_t pos_sep = s.rfind(separator);
+  if ( pos_sep != string::npos ) {
+    return make_pair(s.substr(0, pos_sep), s.substr(pos_sep + 1));
+  } else {
+    return make_pair(string(""), s);
+  }
+}
 inline pair<string, string> SplitLast(const string& s,
                                       const string& separator) {
   const size_t pos_sep = s.rfind(separator);
   if ( pos_sep != string::npos ) {
     return make_pair(s.substr(0, pos_sep), s.substr(pos_sep + 1));
   } else {
-    return make_pair(s, string(""));
+    return make_pair(string(""), s);
   }
 }
 
@@ -219,19 +233,31 @@ inline string NormalizePath(const string& path) {
   return NormalizePath(path, PATH_SEPARATOR);
 }
 
-// Joins system paths together, canonically
+// Joins system paths together, canonically. It does not normalize each path!
+// So if you provide junk, you'll get junk in return.
 inline string JoinPaths(const string& path1, const string& path2,
                         char sep) {
-  if ( path1.empty() ) return NormalizePath(path2, sep);
-  if ( path2.empty() ) return NormalizePath(path1, sep);
-  if ( path1.size() == 1 && path1[0] == sep ) {
-    return NormalizePath(path1 + path2, sep);
+  if ( path1.empty() ) { return path2; }
+  if ( path2.empty() ) { return path1; }
+  if ( path1[path1.size()-1] == sep && path2[0] == sep ) {
+    return path1 + path2.substr(1);
   }
-  return NormalizePath(path1 + sep + path2);
+  if ( path1[path1.size()-1] == sep || path2[0] == sep ) {
+    return path1 + path2;
+  }
+  return path1 + sep + path2;
 }
 
 inline string JoinPaths(const string& path1, const string& path2) {
   return JoinPaths(path1, path2, PATH_SEPARATOR);
+}
+inline string JoinPaths(const string& path1, const string& path2,
+                        const string& path3) {
+  return JoinPaths(JoinPaths(path1, path2), path3);
+}
+inline string JoinPaths(const string& path1, const string& path2,
+                        const string& path3, const string& path4) {
+  return JoinPaths(JoinPaths(path1, path2), JoinPaths(path3, path4));
 }
 
 // Joins media paths together, canonically.
@@ -240,10 +266,14 @@ inline string JoinPaths(const string& path1, const string& path2) {
 inline string JoinMedia(const string& path1, const string& path2) {
   return JoinPaths(path1, path2, '/');
 }
-
-// similar with NormalizePath, but collapses the prefix '/'
-string NormalizeUrlPath(const string& path);
-
+inline string JoinMedia(const string& path1, const string& path2,
+                        const string& path3) {
+  return JoinMedia(JoinMedia(path1, path2), path3);
+}
+inline string JoinMedia(const string& path1, const string& path2,
+                        const string& path3, const string& path4) {
+  return JoinMedia(JoinMedia(path1, path2), JoinMedia(path3, path4));
+}
 
 // Transforms a data buffer to a printable string (a'la od)
 string PrintableDataBuffer(const void* buffer, size_t size);
@@ -388,6 +418,21 @@ string ToString(const vector<T>& v) {
   oss << "}";
   return oss.str();
 }
+template <typename T>
+string ToString(const list<T>& v) {
+  ostringstream oss;
+  oss << "list #" << v.size() << "{";
+  for ( typename list<T>::const_iterator it = v.begin(); it != v.end(); ) {
+    const T& t = *it;
+    oss << t;
+    ++it;
+    if ( it != v.end() ) {
+      oss << ", ";
+    }
+  }
+  oss << "}";
+  return oss.str();
+}
 template <typename K, typename V>
 string ToStringP(const map<K, V*>& m) {
   ostringstream oss;
@@ -465,6 +510,22 @@ string ToStringKeys(const map<K, V>& m) {
   return oss.str();
 
 }
+template <typename K, typename V>
+string ToStringKeys(const hash_map<K, V>& m) {
+  ostringstream oss;
+  oss << "map-keys #" << m.size() << "{";
+  for ( typename hash_map<K,V>::const_iterator it = m.begin(); it != m.end(); ) {
+    const K& k = it->first;
+    oss << k;
+    ++it;
+    if ( it != m.end() ) {
+      oss << ", ";
+    }
+  }
+  oss << "}";
+  return oss.str();
+
+}
 const string& BoolToString(bool value);
 
 // Works with numeric types only: int8, uint8, int16, uint16, ...
@@ -506,6 +567,25 @@ string ToBinary(T x) {
   }
   return string(buf, buf_size);
 }
+template <typename T>
+string ToHex(T a, uint32 size = 0) {
+  const char* format = "Illegal type";
+  if ( size == 0 ) {
+    size = sizeof(T);
+  }
+  switch(size) {
+    case 1: format = "0x%02x"; break;
+    case 2: format = "0x%04x"; break;
+    case 3: format = "0x%06x"; break;
+    case 4: format = "0x%08x"; break;
+    case 8: format = "0x%016llx"; break;
+    default:
+      LOG_FATAL << "Illegal type: " << a;
+      return "Unknown";
+  }
+  return StringPrintf(format, a);
+}
+
 // return a string s such that:
 //      s > prefix
 //  and
@@ -582,22 +662,18 @@ inline string JsonStrUnescape(const string& text) {
 }
 
 // Returns true if the string is a valid identifier (a..z A..Z 0..9 and _)
-// TODO(cosmin): clear this up!
-//               Can it start with a digit?
-inline bool IsValidIdentifier(const char* s) {
-  if ( *s < '0' || (*s > '9' && *s < 'A') ||  (*s > 'Z' && *s < 'a') || *s > 'z' ) {
+inline bool IsValidIdentifier(const string& s) {
+  if ( s == "" || s[0] == '_' ) {
     return false;
   }
-  ++s;
-  while ( *s ) {
-    if ( *s < '0' ||
-         (*s > '9' && *s < 'A') ||
-         (*s > 'Z' && *s < '_') ||
-         (*s > '_' && *s < 'a') ||
-         *s > 'z' ) {
+  for ( uint32 i = 0; i < s.size(); i++ ) {
+    if ( s[i] < '0' ||
+         (s[i] > '9' && s[i] < 'A') ||
+         (s[i] > 'Z' && s[i] < '_') ||
+         (s[i] > '_' && s[i] < 'a') ||
+         s[i] > 'z' ) {
       return false;
     }
-    ++s;
   }
   return true;
 }

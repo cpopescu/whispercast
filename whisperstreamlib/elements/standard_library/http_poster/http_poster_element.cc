@@ -29,6 +29,7 @@
 //
 // Author: Catalin Popescu
 
+#include <whisperstreamlib/base/tag_serializer.h>
 #include <whisperstreamlib/aac/aac_tag_splitter.h>
 #include <whisperstreamlib/flv/flv_tag_splitter.h>
 #include <whisperstreamlib/mp3/mp3_tag_splitter.h>
@@ -40,32 +41,29 @@
 namespace streaming {
 
 HttpPosterElement::HttpPosterElement(
-    const char* name,
-    const char* id,
+    const string& name,
     ElementMapper* mapper,
     net::Selector* selector,
-    const Host2IpMap* host_aliases,
-    const char* media_name,
-    const char* server_name,
+    const string& media_name,
+    const string& server_name,
     const uint16 server_port,
-    const char* url_escaped_query_path,
-    Tag::Type tag_type,
-    const char* user_name,
-    const char* password,
+    const string& url_escaped_query_path,
+    MediaFormat media_format,
+    const string& user_name,
+    const string& password,
     int32 max_buffer_size,
     int32 desired_http_chunk_size,
     int64 media_retry_timeout_ms,
     int64 http_retry_timeout_ms,
     const http::ClientParams* http_client_params)
-    : Element(kElementClassName, name, id, mapper),
+    : Element(kElementClassName, name, mapper),
       selector_(selector),
       net_factory_(selector_),
-      host_aliases_(host_aliases),
       media_name_(media_name),
       server_name_(server_name),
       server_port_(server_port),
       url_escaped_query_path_(url_escaped_query_path),
-      tag_type_(tag_type),
+      media_format_(media_format),
       remote_user_name_(user_name),
       remote_password_(password),
       max_buffer_size_(max_buffer_size),
@@ -107,26 +105,25 @@ HttpPosterElement::~HttpPosterElement() {
 }
 
 bool HttpPosterElement::Initialize() {
-  CreateSerializer();
+  CreateSerializer(MFORMAT_FLV);
   selector_->RegisterAlarm(retry_callback_, 0);
   return true;
 }
 
-bool HttpPosterElement::AddRequest(const char* media,
-                                   streaming::Request* req,
-                                   streaming::ProcessingCallback* callback) {
+bool HttpPosterElement::AddRequest(const string& media, Request* req,
+                                   ProcessingCallback* callback) {
   return false;
 }
 
 void HttpPosterElement::RemoveRequest(streaming::Request* req) {
 }
 
-bool HttpPosterElement::HasMedia(const char* media, Capabilities* out) {
+bool HttpPosterElement::HasMedia(const string& media) {
   return false;
 }
 
-void HttpPosterElement::ListMedia(const char* media_dir,
-                                  streaming::ElementDescriptions* medias) {
+void HttpPosterElement::ListMedia(const string& media_dir,
+                                  vector<string>* out) {
 }
 bool HttpPosterElement::DescribeMedia(const string& media,
                                       MediaInfoCallback* callback) {
@@ -189,24 +186,6 @@ void HttpPosterElement::StartRequest() {
         http_req_ == NULL &&
         http_protocol_ == NULL);
 
-  net::IpAddress ip(server_name_.c_str());
-  if ( ip.IsInvalid() ) {
-    if ( host_aliases_ != NULL ) {
-      HttpPosterElement::Host2IpMap::const_iterator
-          it = host_aliases_->find(server_name_.c_str());
-      if ( it != host_aliases_->end() ) {
-        ip = net::IpAddress(it->second.c_str());
-      }
-    }
-  }
-  if ( ip.IsInvalid() ) {
-    LOG_ERROR << name() << " Invalid host to connect to: [" << server_name_
-              << "] and no aliases defined";
-    if ( !selector_->IsExiting() ) {
-      CloseRequest(kRetryOnWrongParamsMs);
-    }
-    return;
-  }
   http_req_ = new http::ClientRequest(http::METHOD_POST,
                                       url_escaped_query_path_);
 
@@ -219,7 +198,7 @@ void HttpPosterElement::StartRequest() {
     }
   }
   hs->AddField(http::kHeaderContentType,
-               streaming::GetContentTypeFromStreamType(tag_type_),
+               MediaFormatToContentType(media_format_),
                true, true);
 
   http_protocol_ = new http::ClientStreamingProtocol(
@@ -227,11 +206,10 @@ void HttpPosterElement::StartRequest() {
       // TODO: we need https also
       new http::SimpleClientConnection(selector_, net_factory_,
                                        net::PROTOCOL_TCP),
-      net::HostPort(ip, server_port_));
+      net::HostPort(server_name_, server_port_));
   http_protocol_->BeginStreaming(http_req_, http_process_callback_);
 
   req_ = new streaming::Request();
-  req_->mutable_info()->internal_id_ = id();
 
   if ( !mapper_->AddRequest(media_name_.c_str(),
                             req_, media_process_callback_) ) {
@@ -288,33 +266,13 @@ bool HttpPosterElement::ProcessHttp(int32 available_out) {
     while ( !out_.IsEmpty() && available_out > 0 &&
             out_.Size() > kMinChunkSize ) {
       const int32 to_send = min(
-          out_.Size(),
+          (int32)out_.Size(),
           min(desired_http_chunk_size_, available_out));
       http_req_->request()->client_data()->AppendStream(&out_, to_send);
       available_out -= to_send;
     }
   }
   return true;
-}
-
-void HttpPosterElement::CreateSerializer() {
-  switch ( tag_type_ ) {
-    case streaming::Tag::TYPE_MP3:
-      serializer_ = new streaming::Mp3TagSerializer();
-      break;
-    case streaming::Tag::TYPE_FLV:
-      serializer_ = new streaming::FlvTagSerializer();
-      break;
-    case streaming::Tag::TYPE_AAC:
-      serializer_ = new streaming::AacTagSerializer();
-      break;
-    case streaming::Tag::TYPE_INTERNAL:
-      serializer_ = new streaming::InternalTagSerializer();
-      break;
-    default:
-      serializer_ = new streaming::RawTagSerializer();
-      break;
-  }
 }
 
 }

@@ -38,7 +38,8 @@
 #include <whisperlib/common/base/types.h>
 #include <whisperlib/common/base/date.h>
 #include <whisperlib/common/base/strutil.h>
-#include <whisperlib/net/rpc/lib/codec/rpc_decode_result.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_decoder.h>
 
 namespace rpc {
 
@@ -68,10 +69,10 @@ class Custom {
 
   // Write object data using the given encoder.
   // There's no reason for this serialization to fail.
-  virtual void SerializeSave(Encoder& output) const = 0;
+  virtual void SerializeSave(Encoder& enc, io::MemoryStream* out) const = 0;
 
   //  Read object data from the given decoder.
-  virtual DECODE_RESULT SerializeLoad(Decoder& input) = 0;
+  virtual DECODE_RESULT SerializeLoad(Decoder& dec, io::MemoryStream& in) = 0;
 
  public:
   virtual string ToString() const = 0;
@@ -120,6 +121,10 @@ class Custom {
       is_set_ = true;
       return value_;
     }
+    T* ptr() {
+      is_set_ = true;
+      return &value_;
+    }
 
     //////////////////////////////////////////////////////////////////////
 
@@ -127,9 +132,9 @@ class Custom {
       value_ = value;
       is_set_ = true;
     }
-    void set(const Attribute<T>& attr) {
-      if ( attr.is_set() ) {
-        set(attr.get());
+    void set(const Attribute<T>& other) {
+      if ( other.is_set() ) {
+        set(other.get());
       } else {
         reset();
       }
@@ -147,8 +152,8 @@ class Custom {
       this->set(value);
       return *this;
     }
-    const Attribute<T>& operator=(const Attribute<T>& attr) {
-      this->set(attr);
+    const Attribute<T>& operator=(const Attribute<T>& other) {
+      this->set(other);
       return *this;
     }
 
@@ -173,7 +178,7 @@ class Custom {
   //
   class StringAttribute : public Attribute<string> {
    public:
-    StringAttribute() : Attribute<string>() {}
+    StringAttribute() : Attribute<string>() { }
     StringAttribute(string& value) : Attribute<string>(value) { }
     virtual ~StringAttribute() { }
 
@@ -241,7 +246,7 @@ class Custom {
   template <typename T>
   class VectorAttribute : public Attribute<T> {
    public:
-    VectorAttribute() : Attribute<T>() {}
+    VectorAttribute() : Attribute<T>() { }
     VectorAttribute(T& value) : Attribute<T>(value) { }
     virtual ~VectorAttribute() { }
 
@@ -328,7 +333,7 @@ class Custom {
   template <typename T>
   class MapAttribute : public Attribute<T> {
    public:
-    MapAttribute() : Attribute<T>() {}
+    MapAttribute() : Attribute<T>() { }
     MapAttribute(T& value) : Attribute<T>(value) { }
     virtual ~MapAttribute() { }
 
@@ -409,19 +414,6 @@ class Custom {
   };
 };
 
-string ToString(bool val);
-string ToString(int32 val);
-string ToString(uint32 val);
-string ToString(int64 val);
-string ToString(uint64 val);
-string ToString(double val);
-string ToString(const string& val);
-string ToString(const rpc::Void& val);
-string ToString(const rpc::Custom& val);
-template<class T> string ToString(const vector<T>& val);
-template <class K, class V> string ToString(const map<K,V>& val);
-template<class T> string ToString(const rpc::Custom::Attribute<T>& val);
-
 //////////////////////////////////////////////////////////////////////
 
 inline string ToString(bool val) {
@@ -454,41 +446,12 @@ inline string ToString(const rpc::Custom& val) {
 
 template <class T>
 inline string ToString(const vector<T>& val) {
-  string text(strutil::StringPrintf("Vector (of \"%s\", #%zu/%zu): {",
-                                    __NAME_STRINGIZER(T),
-                                    val.size(), val.capacity()));
-  if ( val.empty() ) {
-    return text + "}";
-  }
-  for ( size_t i = 0; i < val.size() - 1; ++i ) {
-    text += rpc::ToString(val.at(i));
-    text += ", ";
-  }
-  text += rpc::ToString(val.at(val.size() - 1)) + "}";
-  return text;
+  return strutil::ToString(val);
 }
 
 template <class K, class V>
 inline string ToString(const map<K,V>& val) {
-  string text(strutil::StringPrintf(
-                  "Map (of [%s, %s] #%zu): {",
-                  __NAME_STRINGIZER(K), __NAME_STRINGIZER(V), val.size()));
-  if ( val.empty() ) {
-    text += "}";
-    return text;
-  }
-  for ( typename map<K,V>::const_iterator it = val.begin();
-        it != val.end(); ) {
-    text += strutil::StringPrintf("[%s : %s]",
-                                  rpc::ToString(it->first).c_str(),
-                                  rpc::ToString(it->second).c_str());
-    ++it;
-    if ( it != val.end() ) {
-      text += ", ";
-    }
-  }
-  text += "}";
-  return text;
+  return strutil::ToString(val);
 }
 
 template<class T>
@@ -505,13 +468,6 @@ inline string rpc::Custom::Attribute<T>::ToString() const {
   }
 }
 
-/*
-template<class T>
-inline string ToString(const T& val) {
-  return __NAME_STRINGIZER(T);
-}
-*/
-
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -526,12 +482,12 @@ inline ostream& operator<<(ostream& os, const rpc::Void& obj) {
 
 template<class K, class V>
 inline ostream& operator<<(ostream& os, const map<K, V>& obj) {
-  return os << rpc::ToString(obj);
+  return os << strutil::ToString(obj);
 }
 
 template<class T>
 inline ostream& operator<<(ostream& os, const vector<T>& obj) {
-  return os << rpc::ToString(obj);
+  return os << strutil::ToString(obj);
 }
 
 template <class T>

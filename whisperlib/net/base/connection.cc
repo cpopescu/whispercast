@@ -210,7 +210,8 @@ void NetConnection::InvokeCloseHandler(int err, CloseWhat what) {
 TcpAcceptor::TcpAcceptor(Selector* selector,
                          const TcpAcceptorParams& tcp_params)
   : NetAcceptor(tcp_params),
-    Selectable(selector),
+    Selectable(),
+    selector_(selector),
     tcp_params_(tcp_params),
     fd_(INVALID_FD_VALUE) {
 }
@@ -511,7 +512,7 @@ bool TcpAcceptor::HandleErrorEvent(const SelectorEventData& event) {
 TcpConnection::TcpConnection(Selector* selector,
                              const TcpConnectionParams& tcp_params)
     : NetConnection(selector, tcp_params),
-      Selectable(selector),
+      Selectable(),
       tcp_params_(tcp_params),
       fd_(INVALID_FD_VALUE),
       local_address_(),
@@ -563,7 +564,7 @@ bool TcpConnection::Wrap(int fd) {
   if ( !SetSocketOptions() ) {
     return false;
   }
-  if ( !selector_->Register(this) ) {
+  if ( !selector()->Register(this) ) {
     fd_ = INVALID_FD_VALUE;
     return false;
   }
@@ -584,7 +585,7 @@ bool TcpConnection::Connect(const HostPort& remote_addr) {
   // maybe start DNS resolve
   if ( state() == DISCONNECTED && remote_addr.ip_object().IsInvalid() ) {
     remote_address_ = remote_addr;
-    DnsResolve(net_selector(), remote_addr.host(), handle_dns_result_);
+    DnsResolve(selector(), remote_addr.host(), handle_dns_result_);
     set_state(RESOLVING);
     // NEXT: HandleDnsResult will be called when DNS query completes
     return true;
@@ -607,7 +608,7 @@ bool TcpConnection::Connect(const HostPort& remote_addr) {
     return false;
   }
   // register with selector
-  if ( !selector_->Register(this) ) {
+  if ( !selector()->Register(this) ) {
     ECONNLOG << "Failed to register with selector, aborting Connect.. ";
     ::close(fd_);
     fd_ = INVALID_FD_VALUE;
@@ -690,14 +691,12 @@ bool TcpConnection::SetRecvBufferSize(int size) {
 }
 
 void TcpConnection::RequestReadEvents(bool enable) {
-  CHECK_NOT_NULL(selector_);
   D10CONNLOG << "RequestReadEvents => " << std::boolalpha << enable;
-  selector_->EnableReadCallback(this, enable);
+  selector()->EnableReadCallback(this, enable);
 }
 void TcpConnection::RequestWriteEvents(bool enable) {
-  CHECK_NOT_NULL(selector_);
   D10CONNLOG << "RequestWriteEvents => " << std::boolalpha << enable;
-  selector_->EnableWriteCallback(this, enable);
+  selector()->EnableWriteCallback(this, enable);
 }
 
 const HostPort& TcpConnection::local_address() const {
@@ -709,7 +708,7 @@ const HostPort& TcpConnection::remote_address() const {
 
 string TcpConnection::PrefixInfo() const {
   ostringstream oss;
-  int64 now_ts = selector_ != NULL ? selector_->now() : timer::Date::Now();
+  int64 now_ts = selector() != NULL ? selector()->now() : timer::Date::Now();
   oss << StateName() << " : ["
       << local_address() << " => " << remote_address()
       << " (fd: " << fd_
@@ -766,7 +765,7 @@ bool TcpConnection::HandleReadEvent(const SelectorEventData& event) {
   D10CONNLOG << "HandleReadEvent: #" << cb << " bytes read,"
              << " #" << inbuf()->Size() << " total bytes in inbuf_";
   inc_bytes_read(cb);
-  last_read_ts_ = selector_->now();
+  last_read_ts_ = selector()->now();
 
   if ( cb > 0 ) {
     // call application read_handler_
@@ -834,7 +833,7 @@ bool TcpConnection::HandleWriteEvent(const SelectorEventData& event) {
   D10CONNLOG << "HandleWriteEvent: #" << cb << " bytes written"
              << " to: " << remote_address();
   inc_bytes_written(cb);
-  last_write_ts_ = selector_->now();
+  last_write_ts_ = selector()->now();
 
   if ( state() != FLUSHING ) {
     // call application write_handler_
@@ -940,10 +939,10 @@ bool TcpConnection::HandleErrorEvent(const SelectorEventData& event) {
     WCONNLOG << "HandleErrorEvent: EPOLLHUP, both READ and WRITE halves closed";
     set_write_closed(true);
 #ifdef __USE_EPOLL__
-    if ( events & EPOLLIN ) {
+    if ( (events & EPOLLIN) && state() != CONNECTING ) {
 #else
 #ifdef __USE_POLL__
-    if ( events & POLLIN ) {
+    if ( (events & POLLIN) && state() != CONNECTING  ) {
 #endif
 #endif
       // don't close here, let the next HandleReadEvent read pending data.
@@ -965,10 +964,10 @@ bool TcpConnection::HandleErrorEvent(const SelectorEventData& event) {
     WCONNLOG << "HandleErrorEvent: EPOLLRDHUP, READ half closed";
     set_state(FLUSHING);
 #ifdef __USE_EPOLL__
-    if ( events & EPOLLIN ) {
+    if ( (events & EPOLLIN) && state() != CONNECTING  ) {
 #else
 #ifdef __USE_POLL__
-    if ( events & POLLIN ) {
+    if ( (events & POLLIN) && state() != CONNECTING  ) {
 #endif
 #endif
       // peer closed write half of the connection
@@ -1081,7 +1080,7 @@ void TcpConnection::InternalClose(int err, bool call_close_handler) {
   }
   if ( fd_ != INVALID_FD_VALUE ) {
     D10CONNLOG << "Unregistering connection.. ";
-    selector_->Unregister(this);
+    selector()->Unregister(this);
     ::shutdown(fd_, SHUT_RDWR);
     DCONNLOG << "Performing the ::close... ";
     if ( ::close(fd_) < 0 ) {
@@ -1154,7 +1153,7 @@ bool SslAcceptor::TcpAcceptorFilterHandler(const net::HostPort& peer_addr) {
 void SslAcceptor::TcpAcceptorAcceptHandler(NetConnection* net_connection) {
   TcpConnection* tcp_connection = static_cast<TcpConnection*>(net_connection);
   SslConnection* ssl_connection =
-      new SslConnection(tcp_connection->net_selector(),
+      new SslConnection(tcp_connection->selector(),
                         params_.ssl_connection_params_);
   ICONNLOG << "SslConnection allocated: " << ssl_connection
             << " starting SSL setup...";
@@ -1187,7 +1186,7 @@ void SslAcceptor::SslConnectionCloseHandler(SslConnection* ssl_connection,
   // NOTE: we are called from SslConnection !! don't use "delete" here
   ECONNLOG << "SslConnection setup failed: " << ssl_connection
            << " deleting..";
-  ssl_connection->net_selector()->DeleteInSelectLoop(ssl_connection);
+  ssl_connection->selector()->DeleteInSelectLoop(ssl_connection);
 }
 
 bool SslAcceptor::Listen(const net::HostPort& local_addr) {
@@ -1305,11 +1304,11 @@ bool SslConnection::SetRecvBufferSize(int size) {
 }
 void SslConnection::RequestReadEvents(bool enable) {
   CHECK_NOT_NULL(tcp_connection_);
-  return tcp_connection_->RequestReadEvents(enable);
+  tcp_connection_->RequestReadEvents(enable);
 }
 void SslConnection::RequestWriteEvents(bool enable) {
   CHECK_NOT_NULL(tcp_connection_);
-  return tcp_connection_->RequestWriteEvents(enable);
+  tcp_connection_->RequestWriteEvents(enable);
 }
 const HostPort& SslConnection::local_address() const {
   static const HostPort empty_address;

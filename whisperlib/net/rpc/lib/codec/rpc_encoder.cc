@@ -29,47 +29,18 @@
 //
 // Author: Cosmin Tudorache
 
-#include "net/rpc/lib/codec/rpc_encoder.h"
+#include <whisperlib/net/rpc/lib/codec/rpc_encoder.h>
+#include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
+#include <whisperlib/net/rpc/lib/types/rpc_message.h>
 
 namespace rpc {
 
-void rpc::Encoder::EncodePacket(const rpc::Message& p) {
-  // encode body first in temporary buffer tmp_, to evaluate it's size
-  tmp_.Clear();
-
-  // switch output
-  io::MemoryStream* originalOut = out_;
-  out_ = &tmp_;
-
-  // encode body
-  if ( p.header_.msgType_ == RPC_CALL ) {
-    const rpc::Message::CallBody& call = p.cbody_;
-    Encode(call.service_);
-    Encode(call.method_);
-    tmp_.AppendStreamNonDestructive(&call.params_);
-  } else if ( p.header_.msgType_ == RPC_REPLY ) {
-    const rpc::Message::ReplyBody& reply = p.rbody_;
-    Encode(reply.replyStatus_);
-    tmp_.AppendStreamNonDestructive(&reply.result_);
-  } else {
-    LOG_FATAL << "Bad msgType: " << p.header_.msgType_;
-  }
-
-  // switch back to original output
-  out_ = originalOut;
-
-  const uint32 bodySize = tmp_.Size();
-
-  // encode the header
-  const rpc::Message::Header& header = p.header_;
-  out_->Write(rpc::kMessageMark, sizeof(rpc::kMessageMark));
-  Encode(header.xid_);
-  Encode(header.msgType_);
-  const int32 rpcBodySize(bodySize);
-  Encode(rpcBodySize);
-
-  // write the body (direct copy from the temporary buffer)
-  //
-  out_->AppendStream(&tmp_);
+void Encoder::Encode(const rpc::Custom& obj, io::MemoryStream* out) {
+  obj.SerializeSave(*this, out);
 }
+
+void Encoder::Encode(const rpc::Message& p, io::MemoryStream* out) {
+  p.SerializeSave(*this, out);
+}
+
 }

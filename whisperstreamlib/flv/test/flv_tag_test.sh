@@ -38,7 +38,7 @@ fi
 for f in $1/test_data/*.flv; do
     outfile=/tmp/$(basename $f)".out"
     echo " Test for: " $f
-    $2/flv_tag_printer --flv_path=$f > $outfile || exit 1
+    $2/media_file_printer --in=$f > $outfile || exit 1
     diff -q $f".out" $outfile || exit 1
     rm -f $outfile
 done

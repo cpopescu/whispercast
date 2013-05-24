@@ -66,7 +66,7 @@ class ClientConnectionHTTP : public rpc::IClientConnection {
                        net::PROTOCOL net_protocol,
                        const http::ClientParams& params,
                        const net::HostPort& addr,
-                       rpc::CODEC_ID codec_id,
+                       rpc::CodecId codec,
                        const string& httpRequestPath);
   virtual ~ClientConnectionHTTP();
 

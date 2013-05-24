@@ -32,32 +32,32 @@ project (whisperstreamlib)
 ADD_EXECUTABLE(rtsp_simple_server
   rtsp_simple_server.cc)
 ADD_DEPENDENCIES(rtsp_simple_server
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(rtsp_simple_server
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 #INSTALL (TARGETS rtsp_simple_server
 #         DESTINATION bin)
 
 ADD_EXECUTABLE(rtsp_codec_test
   rtsp_codec_test.cc)
 ADD_DEPENDENCIES(rtsp_codec_test
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(rtsp_codec_test
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 ADD_TEST(rtsp_codec_test
   rtsp_codec_test --sample_messages ${CMAKE_CURRENT_SOURCE_DIR}/data/rtsp_sample_messages)
 
 ADD_EXECUTABLE(rtsp_client
   rtsp_client.cc)
 ADD_DEPENDENCIES(rtsp_client
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(rtsp_client
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 INSTALL (TARGETS rtsp_client
          DESTINATION bin)

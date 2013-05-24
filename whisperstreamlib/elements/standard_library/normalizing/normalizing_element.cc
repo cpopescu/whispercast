@@ -256,13 +256,12 @@ namespace streaming {
 
 const char NormalizingElement::kElementClassName[] = "normalizing";
 
-NormalizingElement::NormalizingElement(const char* name,
-                                       const char* id,
+NormalizingElement::NormalizingElement(const string& name,
                                        ElementMapper* mapper,
                                        net::Selector* selector,
                                        int64 flow_control_write_ahead_ms,
                                        int64 flow_control_extra_write_ahead_ms)
-    :  FilteringElement(kElementClassName, name, id, mapper, selector),
+    :  FilteringElement(kElementClassName, name, mapper, selector),
        flow_control_write_ahead_ms_(flow_control_write_ahead_ms),
        flow_control_extra_write_ahead_ms_(flow_control_extra_write_ahead_ms) {
 }
@@ -270,7 +269,7 @@ NormalizingElement::~NormalizingElement() {
 }
 
 FilteringCallbackData* NormalizingElement::CreateCallbackData(
-    const char* media_name, Request* req) {
+    const string& media_name, Request* req) {
   return new NormalizingElementCallbackData(
       selector_,
       req,

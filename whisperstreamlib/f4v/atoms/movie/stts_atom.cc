@@ -18,6 +18,10 @@ SttsRecord::SttsRecord(const SttsRecord& other)
 }
 SttsRecord::~SttsRecord() {
 }
+bool SttsRecord::Equals(const SttsRecord& other) const {
+  return sample_count_ == other.sample_count_ &&
+         sample_delta_ == other.sample_delta_;
+}
 SttsRecord* SttsRecord::Clone() const {
   return new SttsRecord(*this);
 }

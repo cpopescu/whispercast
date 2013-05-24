@@ -148,12 +148,11 @@ void Proxy::StreamingCallback(ProxyReqStruct* preq) {
     LOG_PROXY << "PROXY:  Remote server header: \n"
               << preq->sreq_->request()->server_header()->ToString();
   }
-  const int32 size_to_copy = min(size_to_send,
+  const int32 size_to_copy = min((uint32)size_to_send,
                                  preq->creq_->request()->server_data()->Size());
   if ( size_to_copy > 0 ) {
-    preq->sreq_->request()->server_data()->AppendStreamNonDestructive(
+    preq->sreq_->request()->server_data()->AppendStream(
       preq->creq_->request()->server_data(), size_to_copy);
-    preq->creq_->request()->server_data()->Skip(size_to_copy);
   }
   if ( !preq->creq_->request()->server_data()->IsEmpty() ) {
     preq->proto_->PauseReading();

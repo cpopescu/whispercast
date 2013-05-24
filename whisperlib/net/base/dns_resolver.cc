@@ -72,7 +72,8 @@ class DnsResolver {
     : thread_(NULL),
       query_map_(),
       query_queue_(kQueryQueueMaxSize),
-      cache_(util::CacheBase::LRU, kCacheSize, kCacheTimeout, NULL, NULL) {
+      cache_(util::CacheBase::LRU, kCacheSize, kCacheTimeout, NULL, NULL,
+             false) {
   }
   virtual ~DnsResolver() {
     Stop();

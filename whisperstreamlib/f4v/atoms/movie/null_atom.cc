@@ -12,6 +12,9 @@ NullAtom::NullAtom(const NullAtom& other)
 }
 NullAtom::~NullAtom() {
 }
+bool NullAtom::EqualsBody(const BaseAtom& other) const {
+  return true;
+}
 void NullAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* NullAtom::Clone() const {

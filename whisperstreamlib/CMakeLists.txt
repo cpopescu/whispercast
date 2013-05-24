@@ -72,10 +72,17 @@ link_libraries(${COMMON_LINK_LIBRARIES})
 
 find_package(WhisperLib REQUIRED)
 find_package(Faad REQUIRED)
+find_package(LibAvCodec REQUIRED)
+find_package(LibAvUtil REQUIRED)
+find_package(LibAvFormat REQUIRED)
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/../)
 include_directories(${whisperlib_INCLUDE_DIR})
+
+add_definitions(-D __AV_CODEC_INCLUDE_FILE="<${AV_CODEC_INCLUDE_FILE}>")
+add_definitions(-D __AV_UTIL_INCLUDE_FILE="<${AV_UTIL_INCLUDE_FILE}>")
+add_definitions(-D __AV_FORMAT_INCLUDE_FILE="<${AV_FORMAT_INCLUDE_FILE}>")
 
 ######################################################################
 
@@ -87,12 +94,15 @@ endif ( NOT RPC_PARSER_TARGET )
 ADD_SUBDIRECTORY (aac)
 ADD_SUBDIRECTORY (flv)
 ADD_SUBDIRECTORY (mp3)
+ADD_SUBDIRECTORY (mts)
+ADD_SUBDIRECTORY (libav_mts)
 ADD_SUBDIRECTORY (f4v)
 ADD_SUBDIRECTORY (internal)
 ADD_SUBDIRECTORY (elements)
 ADD_SUBDIRECTORY (rtmp)
 ADD_SUBDIRECTORY (rtp)
 ADD_SUBDIRECTORY (stats2)
+ADD_SUBDIRECTORY (utils)
 
 
 ################################################################################
@@ -188,6 +198,7 @@ set(WHISPER_STREAM_LIB_SOURCES
   rtmp/objects/amf/amf0_util.cc
   rtmp/objects/amf/amf_util.cc
   rtmp/objects/rtmp_objects.cc
+  rtmp/events/rtmp_event.cc
   rtmp/events/rtmp_call.cc
   rtmp/events/rtmp_event_notify.cc
   rtmp/events/rtmp_event_invoke.cc
@@ -217,9 +228,15 @@ set(WHISPER_STREAM_LIB_SOURCES
   base/joiner.cc
   base/bootstrapper.cc
   base/media_file_reader.cc
+  base/media_file_writer.cc
   base/media_info.cc
   base/media_info_util.cc
   base/tag_distributor.cc
+  base/stream_auth.cc
+  base/time_range.cc
+  base/exporter.cc
+  base/tag_serializer_creator.cc
+  base/tag_splitter_creator.cc
 
   aac/aac_tag_splitter.cc
 
@@ -232,6 +249,13 @@ set(WHISPER_STREAM_LIB_SOURCES
 
   mp3/mp3_frame.cc
   mp3/mp3_tag_splitter.cc
+  
+  mts/mts_consts.cc
+  mts/mts_types.cc
+  mts/mts_decoder.cc
+  mts/mts_encoder.cc
+  
+  libav_mts/libav_mts_encoder.cc
 
   internal/internal_frame.cc
   internal/internal_tag_splitter.cc
@@ -281,11 +305,11 @@ set(WHISPER_STREAM_LIB_SOURCES
   f4v/f4v_types.cc
   f4v/f4v_tag.cc
   f4v/f4v_tag_splitter.cc
-  f4v/f4v_tag_reorder.cc
   f4v/f4v_to_flv.cc
   f4v/f4v_file_reader.cc
   f4v/f4v_file_writer.cc
   f4v/f4v_util.cc
+  f4v/f4v_joiner.cc
 
   rtp/rtp_sdp.cc
   rtp/rtp_util.cc
@@ -335,7 +359,10 @@ TARGET_LINK_LIBRARIES(whisper_streamlib
   dl
 #  crypt
   ${Faad_LIBRARIES}
-  ${whisperlib_LIBRARY}
+  ${AvCodec_LIBRARIES}
+  ${AvFormat_LIBRARIES}
+  ${AvUtil_LIBRARIES}
+  whisper_lib
 )
 
 ######################################################################
@@ -432,7 +459,6 @@ install(FILES
   rtmp/rtmp_acceptor.h
   rtmp/rtmp_connection.h
   rtmp/rtmp_consts.h
-  rtmp/rtmp_protocol_data.h
   rtmp/rtmp_handshake.h
   rtmp/rtmp_flags.h
   rtmp/rtmp_client.h

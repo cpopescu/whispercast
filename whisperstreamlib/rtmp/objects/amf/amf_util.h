@@ -32,8 +32,6 @@
 #ifndef __NET_RTMP_OBJECTS_AMF_AMF_UTIL_H__
 #define __NET_RTMP_OBJECTS_AMF_AMF_UTIL_H__
 
-#include <string>
-
 namespace rtmp {
 
 //

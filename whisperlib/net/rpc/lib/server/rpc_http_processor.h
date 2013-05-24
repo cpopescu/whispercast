@@ -38,8 +38,8 @@
 #include <whisperlib/net/rpc/lib/server/rpc_services_manager.h>
 #include <whisperlib/net/rpc/lib/server/irpc_result_handler.h>
 #include <whisperlib/net/rpc/lib/server/irpc_async_query_executor.h>
-#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_codec.h>
-#include <whisperlib/net/rpc/lib/codec/json/rpc_json_codec.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_decoder.h>
 
 namespace rpc {
 
@@ -132,26 +132,23 @@ class HttpProcessor : protected IResultHandler {
   // true if we're registered in the executor.
   bool registered_to_query_executor_;
 
-  struct ExecutingRequest {
+  struct RpcRequest {
     http::ServerRequest* req_;
-    rpc::Codec& codec_;
+    rpc::CodecId codec_;
     uint32 xid_;
-    ExecutingRequest(http::ServerRequest* req,
-                     rpc::Codec& codec,
-                     uint32 xid);
-    ~ExecutingRequest();
+    RpcRequest(http::ServerRequest* req,
+               rpc::CodecId codec,
+               uint32 xid)
+        : req_(req), codec_(codec), xid_(xid) {}
+    ~RpcRequest() {}
   };
 
-  // map of requests being executed: [http request * -> ExecutingRequest]
-  typedef map<uint32, ExecutingRequest*> MapOfRequests;
+  // map of requests being executed: [http request * -> RpcRequest]
+  typedef map<uint32, RpcRequest*> MapOfRequests;
   MapOfRequests requests_in_execution_;
 
   // synchronize access to map requests_in_execution_
   synch::Mutex access_requests_in_execution_;
-
-  // Used for encoding / decoding of stuff
-  rpc::BinaryCodec binary_codec_;
-  rpc::JsonCodec json_codec_;
 
   // Javascript that needs included in http auto forms
   string auto_forms_js_;

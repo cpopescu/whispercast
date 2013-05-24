@@ -93,6 +93,11 @@ class MultiRecordVersionedAtom : public VersionedAtom {
   // things before or after the regular array of RECORDS.
   //
  protected:
+  virtual bool EqualsVersionedBody(const VersionedAtom& other) const {
+   const MultiRecordVersionedAtom<RECORD>& a =
+       static_cast<const MultiRecordVersionedAtom<RECORD>&>(other);
+   return AllEqualsP(records_, a.records_);
+ }
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const {
   }
   virtual BaseAtom* Clone() const = 0;

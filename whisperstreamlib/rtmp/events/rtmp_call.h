@@ -54,37 +54,35 @@ namespace rtmp {
 class Call {
  public:
   typedef deque<CObject*> ArgVector;
-  enum CallStatus {
+  enum Status {
     // Pending status constant
-    CALL_STATUS_PENDING = 0x01,
+    STATUS_PENDING = 0x01,
     // Success result constant
-    CALL_STATUS_SUCCESS_RESULT = 0x02,
+    STATUS_SUCCESS_RESULT = 0x02,
     // Returned value is null constant
-    CALL_STATUS_SUCCESS_NULL = 0x03,
+    STATUS_SUCCESS_NULL = 0x03,
     // Service returns no value constant
-    CALL_STATUS_SUCCESS_VOID = 0x04,
+    STATUS_SUCCESS_VOID = 0x04,
     // Service not found constant
-    CALL_STATUS_SERVICE_NOT_FOUND = 0x10,
+    STATUS_SERVICE_NOT_FOUND = 0x10,
     // Service's method not found constant
-    CALL_STATUS_METHOD_NOT_FOUND = 0x11,
+    STATUS_METHOD_NOT_FOUND = 0x11,
     // Access denied constant
-    CALL_STATUS_ACCESS_DENIED = 0x12,
+    STATUS_ACCESS_DENIED = 0x12,
     // Exception on invocation constant
-    CALL_STATUS_INVOCATION_EXCEPTION = 0x13,
+    STATUS_INVOCATION_EXCEPTION = 0x13,
     // General exception constant
-    CALL_STATUS_GENERAL_EXCEPTION = 0x14,
+    STATUS_GENERAL_EXCEPTION = 0x14,
   };
-  static const char* CallStatusName(CallStatus status);
+  static const char* StatusName(Status status);
 
  public:
-  Call()
-      : invoke_id_(0),
-        status_(CALL_STATUS_PENDING),
-        connection_params_(NULL) {
-  }
+  //Call() : invoke_id_(0),
+  //         status_(STATUS_PENDING),
+  //         connection_params_(NULL) { }
   // we take control of 'connection_params'
   Call(const string& service_name, const string& method_name, uint32 invoke_id,
-       CallStatus status, CObject* connection_params) :
+       Status status, CObject* connection_params) :
       service_name_(service_name),
       method_name_(method_name),
       invoke_id_(invoke_id),
@@ -101,17 +99,17 @@ class Call {
   }
 
   bool IsSuccess() const {
-    return (status_ == CALL_STATUS_SUCCESS_RESULT ||
-            status_ == CALL_STATUS_SUCCESS_NULL ||
-            status_ == CALL_STATUS_SUCCESS_VOID);
+    return (status_ == STATUS_SUCCESS_RESULT ||
+            status_ == STATUS_SUCCESS_NULL ||
+            status_ == STATUS_SUCCESS_VOID);
   }
-  CallStatus status() const {
+  Status status() const {
     return status_;
   }
   const char* status_name() const {
-    return CallStatusName(status_);
+    return StatusName(status_);
   }
-  void set_status(CallStatus status) {
+  void set_status(Status status) {
     status_ = status;
   }
 
@@ -161,24 +159,16 @@ class Call {
 
   virtual string ToString() const;
 
-  // Serialization method
+  AmfUtil::ReadStatus Decode(io::MemoryStream* in, AmfUtil::Version version);
 
-  // Reads the call data from in, that corresponds to the given stream id
-  // (this identifies server input vs. output streams), and will also read
-  // from data for command calls if read_only_commands is turned on.
-  AmfUtil::ReadStatus ReadCallData(io::MemoryStream* in,
-                                   int stream_id,
-                                   bool is_notify,
-                                   AmfUtil::Version version);
-  // Serialized the call out. If write_invoke_id will also output invoke_id_
-  void WriteCallData(io::MemoryStream* out, bool write_invoke_id,
-                     AmfUtil::Version version);
+  void Encode(bool write_invoke_id, AmfUtil::Version version,
+              io::MemoryStream* out);
 
  private:
   string service_name_;
   string method_name_;
   uint32 invoke_id_;
-  CallStatus status_;
+  Status status_;
   CObject* connection_params_;
  protected:
   ArgVector arguments_;
@@ -186,49 +176,23 @@ class Call {
   DISALLOW_EVIL_CONSTRUCTORS(Call);
 };
 
-//  A pending call is just a Call with a result ( which, by the way, is the
-// first argument - also ).
+// A pending call is just a Call with a result (which MUST be the first
+// argument).
 class PendingCall : public Call {
  public:
-  PendingCall()
-      : Call(), result_(NULL) {
-  }
   // we take control of both 'connection_params' and 'result'
-  PendingCall(const string& service_name, const string& method_name, uint32 invoke_id,
-              CallStatus status, CObject* connection_params, CObject* result)
-      : Call(service_name, method_name, invoke_id, status, connection_params),
-        result_(NULL) {
+  PendingCall(const string& service, const string& method, uint32 invoke_id,
+              Status status, CObject* connection_params, CObject* result)
+      : Call(service, method, invoke_id, status, connection_params) {
     if ( result != NULL ) {
-      set_result(status, result);
+      AddArgument(result);
     }
   }
   virtual ~PendingCall() {
-    // causes proper destruction of result_
-    set_result(rtmp::Call::CALL_STATUS_PENDING, NULL);
   }
   const CObject* result() const {
-    return result_;
+    return arguments_.empty() ? NULL : arguments_.front();
   }
-  void set_result(Call::CallStatus status, CObject* result) {
-    set_status(status);
-    if ( !arguments_.empty() && arguments_.front() == result_ ) {
-      arguments_.pop_front();
-    }
-    delete result_;
-    result_ = result;
-    arguments_.push_front(result);
-  }
-  virtual string ToString() const {
-    string s = Call::ToString();
-    if ( result_ != NULL ) {
-      s += "\n\tResult: " + result_->ToString();
-    } else {
-      s += "\n\tResult: NULL";
-    }
-    return s;
-  }
- protected:
-  CObject* result_;
  private:
   DISALLOW_EVIL_CONSTRUCTORS(PendingCall);
 };

@@ -47,7 +47,7 @@ bool FlvFileWriter::IsOpen() const {
 }
 
 bool FlvFileWriter::Write(const FlvTag& tag, int64 timestamp_ms) {
-  encoder_.SerializeFlvTag(&tag, timestamp_ms, &buf_);
+  encoder_.Serialize(&tag, timestamp_ms, &buf_);
   written_tags_++;
   return Flush();
 }

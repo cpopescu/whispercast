@@ -39,7 +39,6 @@ namespace streaming {
 int64 NextHappening(const TimeSpec& date, const timer::Date& now,
                     int64 error_delta_ms) {
   int64 min_dif = 366LL*12*31*24*60*60*1000; // 1 YEAR in milliseconds
-  int64 min_time = 0LL;
   if ( date.weekdays_.is_set() ) {
     set<int> weekdays;
     for ( int i = 0; i < date.weekdays_.size(); i++ ) {
@@ -72,11 +71,9 @@ int64 NextHappening(const TimeSpec& date, const timer::Date& now,
           crt_time + date.duration_in_seconds_ * 1000LL;
         const int64 crt_dif = crt_time - now.GetTime();
         if ( crt_dif > 0 && crt_dif < min_dif ) {
-          min_time = crt_time;
           min_dif = crt_dif;
         } else if ( crt_time_end > now.GetTime() + error_delta_ms &&
                     crt_time - error_delta_ms < now.GetTime() ) {
-          min_time = crt_time;
           min_dif = crt_time - now.GetTime();
         }
       }
@@ -105,11 +102,9 @@ int64 NextHappening(const TimeSpec& date, const timer::Date& now,
         crt_time + date.duration_in_seconds_ * 1000LL;
       const int64 crt_dif = crt_time - now.GetTime();
       if ( crt_dif > 0 && crt_dif < min_dif ) {
-        min_time = crt_time;
         min_dif = crt_dif;
       } else if ( crt_time_end > now.GetTime() + error_delta_ms &&
                   crt_time - error_delta_ms < now.GetTime() ) {  // 10 sec delay
-        min_time = crt_time;
         min_dif = crt_time - now.GetTime();
       }
     }

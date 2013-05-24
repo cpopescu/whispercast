@@ -44,7 +44,7 @@ ServerParams::ServerParams()
       max_header_size_(4096),
       max_body_size_(1 << 20),
       max_chunk_size_(1 << 18),
-      max_num_chunks_(20),
+      max_num_chunks_(-1),
       worst_accepted_header_error_(Header::READ_NO_STATUS_REASON),
       max_concurrent_connections_(800),
       max_concurrent_requests_(10000),
@@ -148,10 +148,10 @@ bool ServerAcceptor::AcceptorFilterHandler(const net::HostPort& peer_address) {
 void ServerAcceptor::AcceptorAcceptHandler(net::NetConnection* net_connection) {
   http::ServerProtocol* const protocol =
       new ServerProtocol(selector_,
-                         net_connection->net_selector(),
+                         net_connection->selector(),
                          server_);
   ServerConnection* const http_connection = new ServerConnection(
-      net_connection->net_selector(), net_connection, protocol);
+      net_connection->selector(), net_connection, protocol);
   protocol->set_connection(http_connection);
   server_->AddClient(protocol);
 }
@@ -278,7 +278,10 @@ void Server::RegisterProcessor(const string& path,
                                bool auto_del_callback) {
   CHECK_NOT_NULL(callback);
   CHECK(callback->is_permanent());
-  const string reg_path(strutil::NormalizeUrlPath(path));
+  const string reg_path = strutil::StrTrimChars(path, "/");
+  if ( reg_path != path ) {
+    LOG_ERROR << "Invalid path, should not start or end by '/'";
+  }
   synch::MutexLocker l(&mutex_);
   const ProcessorMap::iterator it = processors_.find(reg_path);
   if ( it != processors_.end() ) {
@@ -290,12 +293,15 @@ void Server::RegisterProcessor(const string& path,
     processors_[reg_path] = new Processor(callback, auto_del_callback);
   }
   if ( is_public ) {
-    allowed_ips_[reg_path] = NULL;  // all alowed
+    allowed_ips_[reg_path] = NULL;  // all allowed
   }
 }
 
 void Server::UnregisterProcessor(const string& path) {
-  const string reg_path(strutil::NormalizeUrlPath(path));
+  const string reg_path = strutil::StrTrimChars(path, "/");
+  if ( reg_path != path ) {
+    LOG_ERROR << "Invalid path, should not start or end by '/'";
+  }
   const ProcessorMap::iterator it = processors_.find(reg_path);
   if ( it == processors_.end() ) {
     LOG_INFO << "No HTTP processor found to be deleted for path: " << reg_path;
@@ -304,11 +310,15 @@ void Server::UnregisterProcessor(const string& path) {
   delete it->second;
   processors_.erase(it);
   allowed_ips_.erase(reg_path);
+  is_streaming_client_map_.erase(reg_path);
 }
 
 void Server::RegisterAllowedIpAddresses(const string& path,
                                         const net::IpV4Filter* ips) {
-  const string reg_path(strutil::NormalizeUrlPath(path));
+  const string reg_path = strutil::StrTrimChars(path, "/");
+  if ( reg_path != path ) {
+    LOG_ERROR << "Invalid path, should not start or end by '/'";
+  }
   synch::MutexLocker l(&mutex_);
   const AllowedIpsMap::iterator it_ips = allowed_ips_.find(reg_path);
   if ( it_ips != allowed_ips_.end() ) {
@@ -320,7 +330,10 @@ void Server::RegisterAllowedIpAddresses(const string& path,
 
 void Server::RegisterClientStreaming(const string& path,
                                      bool is_client_streaming) {
-  const string reg_path(strutil::NormalizeUrlPath(path));
+  const string reg_path = strutil::StrTrimChars(path, "/");
+  if ( reg_path != path ) {
+    LOG_ERROR << "Invalid path, should not start or end by '/'";
+  }
   synch::MutexLocker l(&mutex_);
   is_streaming_client_map_[reg_path] = is_client_streaming;
 }
@@ -383,8 +396,8 @@ void Server::GetSpecificProtocolParams(http::ServerRequest* req) {
   req->request()->InitializeUrlFromClientRequest(protocol_params_.root_url_);
   URL* const url = req->request()->url();
   if ( url != NULL ) {
-    string url_path(url->UrlUnescape(url->path().c_str(),
-                                     url->path().size()));
+    string url_path(url->UrlUnescape(url->path().c_str() + 1,
+                                     url->path().size() - 1));
     req->is_client_streaming_ = io::FindPathBased(&is_streaming_client_map_,
                                                   url_path);
   }
@@ -431,8 +444,8 @@ void Server::ProcessRequest(http::ServerRequest* req) {
   }
 
   // Accepted request - looks OK !
-  string url_path(url->UrlUnescape(url->path().c_str(),
-                                   url->path().size()));
+  string url_path(url->UrlUnescape(url->path().c_str() + 1,
+                                   url->path().size() - 1));
   string url_path2(url_path);
 
   synch::MutexLocker l(&mutex_);
@@ -595,6 +608,10 @@ bool ServerProtocol::ProcessMoreData() {
     if ( read_state & http::RequestParser::HEADER_READ ) {
       if ( !crt_recv_->is_initialized_ ) {
         server_->GetSpecificProtocolParams(crt_recv_);
+        LOG_HTTP << "Process request from: "
+                 << crt_recv_->request()->url()->path()
+                 << " , streaming: "
+                 << strutil::BoolToString(crt_recv_->is_client_streaming());
       }
 
       if ( !parser_.InFinalState() && crt_recv_->is_client_streaming() ) {

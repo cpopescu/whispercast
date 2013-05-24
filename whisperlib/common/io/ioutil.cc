@@ -101,6 +101,13 @@ int64 GetFileSize(const char* name) {
 int64 GetFileSize(const string& name) {
   return GetFileSize(name.c_str());
 }
+int64 GetFileModificationTime(const string& filename) {
+  struct stat64 st;
+  if ( 0 != stat64(filename.c_str(), &st) ) {
+    return -1;
+  }
+  return 1000LL * st.st_mtime;
+}
 
 // Per:  http://womble.decadentplace.org.uk/readdir_r-advisory.html
 // * Calculate the required buffer size (in bytes) for directory       *
@@ -137,83 +144,73 @@ size_t dirent_buf_size(DIR* dirp) {
     return (name_end > sizeof(struct dirent)
             ? name_end : sizeof(struct dirent));
 }
-bool DirList(const string& to_list,
-             vector<string>* names,
-             bool list_dirs,
-             re::RE* regex) {
-  DIR* dirp = opendir(to_list.c_str());
-  if ( NULL == dirp ) {
-    LOG_ERROR << "::opendir failed for dir: [" << to_list << "] error: "
+bool DirList(const string& dir,
+              uint32 list_attr,
+              re::RE* regex,
+              vector<string>* out) {
+  DIR* dirp = ::opendir(dir.c_str());
+  if ( dirp == NULL ) {
+    LOG_ERROR << "::opendir failed for dir: [" << dir << "] error: "
               << GetLastSystemErrorDescription();
     return false;
   }
   size_t size = dirent_buf_size(dirp);
   if ( size == -1 ) {
-    closedir(dirp);
-    LOG_ERROR << "error dirent_buf_size for dir: [" << to_list << "]";
+    ::closedir(dirp);
+    LOG_ERROR << "error dirent_buf_size for dir: [" << dir << "]";
     return false;
   }
-  struct dirent* entry;
-  struct dirent* buf = reinterpret_cast<struct dirent *>(malloc(size));
-  int error;
-  while ((error = readdir_r(dirp, buf, &entry)) == 0 && entry != NULL) {
-    struct stat64 st;
+
+  struct dirent* buf = static_cast<struct dirent *>(malloc(size));
+  while ( true ) {
+    struct dirent* entry = NULL;
+    int error = ::readdir_r(dirp, buf, &entry);
+    if ( error != 0 ) {
+      ::closedir(dirp);
+      free(buf);
+      LOG_ERROR << "readdir_r failed dir: [" << dir << "] error: "
+                << GetSystemErrorDescription(error);
+      return false;
+    }
+    if ( entry == NULL) {
+      break;
+    }
+    const char* basename = entry->d_name;
+
     // Skip dots
-    if ( '.' == entry->d_name[0] &&
-         ('\0' == entry->d_name[1] ||
-          ('.' == entry->d_name[1] && '\0' == entry->d_name[2])) ) {
+    if ( (basename[0] == '.' && basename[1] == '\0') ||
+         (basename[0] == '.' && basename[1] == '.' && basename[2] == '\0') ) {
       continue;
     }
-    const string file = strutil::JoinPaths(to_list, entry->d_name);
-    if ( 0 != lstat64(file.c_str(), &st) ) {
-      LOG_ERROR << "lstat64 failed for file: [" << file << "]";
+
+    struct stat64 st;
+    const string abs_path = strutil::JoinPaths(dir, basename);
+    // ::lstat does not follow symlinks. It returns stats for the link itself.
+    if ( 0 != ::lstat64(abs_path.c_str(), &st) ) {
+      LOG_ERROR << "::lstat64 failed for file: [" << abs_path << "]";
       continue;
     }
-    if ( S_ISDIR(st.st_mode) ) {
-      if ( list_dirs && (regex == NULL || regex->Matches(entry->d_name)) ) {
-        names->push_back(entry->d_name);
+    // maybe accumulate entry
+    if ( (list_attr & LIST_EVERYTHING) == LIST_EVERYTHING ||
+         ((list_attr & LIST_FILES) && S_ISREG(st.st_mode)) ||
+         ((list_attr & LIST_SYMLINKS) && S_ISLNK(st.st_mode)) ||
+         ((list_attr & LIST_DIRS) && S_ISDIR(st.st_mode)) ) {
+      // add only entries which match the regex
+      if ( regex == NULL || regex->Matches(basename) ) {
+        out->push_back(basename);
       }
-    } else if ( regex == NULL || regex->Matches(entry->d_name) ) {
-      names->push_back(entry->d_name);
+    }
+    // recursive listing
+    if ( (list_attr & LIST_RECURSIVE) && S_ISDIR(st.st_mode) ) {
+      vector<string> subitems;
+      DirList(abs_path, list_attr, regex, &subitems);
+      for ( uint32 i = 0; i < subitems.size(); i++ ) {
+        out->push_back(strutil::JoinPaths(basename, subitems[i]));
+      }
     }
   }
   free(buf);
-  if ( error ) {
-    closedir(dirp);
-    LOG_ERROR << " error in readdir_r for dir: [" << to_list << "] error: "
-              << GetLastSystemErrorDescription();
-    return false;
-  }
-  closedir(dirp);
-  return true;
-}
-
-
-bool RecursiveListing(const string& dir,
-                      vector<string>* dir_names,
-                      re::RE* regex) {
-  vector<string> local_list;
-  if ( !DirList(dir, &local_list, true) ) {
-    return false;
-  }
-  vector<string> dirs;
-  for ( size_t i = 0; i < local_list.size(); ++i ) {
-    const string crt(strutil::JoinPaths(dir, local_list[i]));
-    if ( (regex == NULL || regex->Matches(local_list[i]) ) ) {
-      if ( io::IsReadableFile(crt.c_str()) ) {
-        dir_names->push_back(crt);
-        continue;
-      }
-    }
-    if ( IsDir(crt) ) {
-      dirs.push_back(crt);
-    }
-  }
-  for ( size_t i = 0; i < dirs.size(); ++i ) {
-    if ( !RecursiveListing(dirs[i], dir_names, regex) ) {
-      return false;
-    }
-  }
+  ::closedir(dirp);
   return true;
 }
 
@@ -256,7 +253,7 @@ int32 GetLastNumberedFile(const string& dir,
                           re::RE* re,
                           int32 file_num_size) {
   vector<string> files;
-  if ( !DirList(dir + "/", &files, false, re) ) {
+  if ( !DirList(dir, LIST_FILES, re,  &files) ) {
     return -2;
   }
   if ( files.empty() ) {
@@ -411,22 +408,20 @@ bool Rename(const string& old_path,
   CHECK(new_is_dir);
 
   vector<string> old_entries;
-  if ( !io::DirList(old_path, &old_entries, true, NULL) ) {
+  if ( !io::DirList(old_path, LIST_EVERYTHING, NULL, &old_entries) ) {
     LOG_ERROR << "io::DirList failed for old_path: [" << old_path
               << "] error: " << GetLastSystemErrorDescription();
     return false;
   }
   bool rename_all_success = true;
-  for ( vector<string>::const_iterator it = old_entries.begin();
-        it != old_entries.end(); ++it ) {
-    const string& old_name = *it;
-    const string old_entry = strutil::JoinPaths(old_path, old_name);
-    const string new_entry = strutil::JoinPaths(new_path, old_name);
-    bool success = Rename(old_entry, new_entry, overwrite);
+  for ( uint32 i = 0; i < old_entries.size(); i++ ) {
+    const string old_entry = strutil::JoinPaths(old_path, old_entries[i]);
+    const string new_entry = strutil::JoinPaths(new_path, old_entries[i]);
+    const bool success = Rename(old_entry, new_entry, overwrite);
     rename_all_success = rename_all_success && success;
   }
   if ( rename_all_success ) {
-    Rm(old_path);
+    Rmdir(old_path);
   }
   return rename_all_success;
 }

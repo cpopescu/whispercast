@@ -51,15 +51,6 @@ DEFINE_int64(media_saver_max_file_size,
              "We initiate a new file when we have written these "
              "many bytes in the old file");
 
-DEFINE_string(saver_file_prefix,
-              "part_",
-              "We write saved partial files with this prefix");
-
-// TODO(cpopescu): diferentiate on this based on content type (i.e. smarter :)
-DEFINE_string(saver_file_suffix,
-              ".part",
-              "We write partial files w/ this suffix");
-
 //////////////////////////////////////////////////////////////////////
 
 #define ILOG(level)  LOG(level) << name() << ": "
@@ -75,34 +66,84 @@ DEFINE_string(saver_file_suffix,
 
 namespace streaming {
 
+const string Saver::kFilePrefix = "part_";
+const string Saver::kFileSuffix = ".part";
+const string Saver::kFileRE = "^part_[0-9]\\{15\\}[NC]\\.part$";
+const string Saver::kTempFileSuffix = ".tmp";
+const string Saver::kTempFileRE = "^part_[0-9]\\{15\\}[NC]\\.part\\.tmp$";
+const string Saver::kMediaInfoFile = "media.info";
+
+string Saver::MakeFilename(int64 ts, bool is_new_chunk) {
+  return strutil::StringPrintf("%s%015"PRId64"%c%s",
+                               kFilePrefix.c_str(),
+                               ts,
+                               is_new_chunk ? 'N' : 'C',
+                               kFileSuffix.c_str());
+}
+string Saver::MakeFilenameNow(bool is_new_chunk) {
+  return MakeFilename(timer::Date::Now(), is_new_chunk);
+}
+string Saver::MakeFilename(const string& temp_filename) {
+  if ( strutil::StrEndsWith(temp_filename, kTempFileSuffix) ) {
+    return temp_filename.substr(0,
+        temp_filename.size() - kTempFileSuffix.size());
+  }
+  return temp_filename;
+}
+string Saver::MakeTempFilename(int64 ts, bool is_new_chunk) {
+  return MakeFilename(ts, is_new_chunk) + kTempFileSuffix;
+}
+string Saver::MakeTempFilenameNow(bool is_new_chunk) {
+  return MakeTempFilename(timer::Date::Now(), is_new_chunk);
+}
+
+bool Saver::ParseFilename(const string& filename,
+                          int64* out_ts,
+                          bool* out_is_new_chunk) {
+  if ( filename.size() != kFilePrefix.size() + kFileSuffix.size() + 16 ||
+       (filename[kFilePrefix.size()+15] != 'N' &&
+        filename[kFilePrefix.size()+15] != 'C') ) {
+    LOG_ERROR << "Invalid saver filename: [" << filename << "]";
+    return false;
+  }
+  *out_ts = ::atoll(filename.c_str() + kFilePrefix.size());
+  if ( out_is_new_chunk != NULL ) {
+    *out_is_new_chunk = filename[kFilePrefix.size()+15] == 'N';
+  }
+  return true;
+}
+
 Saver::Saver(const string& name,
              ElementMapper* mapper,
-             Tag::Type media_type,
+             MediaFormat media_format,
              const string& media_name,
              const string& media_dir,
-             int64 start_time,
-             bool started_on_command,
              StopCallback* stop_callback)
   : name_(name),
     mapper_(mapper),
-    media_type_(media_type),
+    media_format_(media_format),
     media_name_(media_name),
     media_dir_(media_dir),
-    start_time_(start_time),
-    started_on_command_(started_on_command),
     req_(NULL),
+    stop_alarm_(NULL),
     stop_callback_(stop_callback),
     processing_callback_(NewPermanentCallback(this, &Saver::ProcessTag)),
     bootstrapper_(false),
-    serializer_(NULL),
-    source_started_(false) {
+    serializer_(NULL) {
+  if ( mapper_ != NULL ) {
+    stop_alarm_ = new ::util::Alarm(*mapper->selector());
+    stop_alarm_->Set(NewPermanentCallback(this, &Saver::StopSaving), true,
+        0, false, false);
+  }
 }
 
 Saver::~Saver() {
-  if ( stop_callback_ != NULL )  {
-    delete stop_callback_;
-    stop_callback_ = NULL;
-  }
+  delete stop_alarm_;
+  stop_alarm_ = NULL;
+
+  delete stop_callback_;
+  stop_callback_ = NULL;
+
   if ( IsSaving() ) {
     StopSaving();
   }
@@ -111,7 +152,8 @@ Saver::~Saver() {
 
 bool Saver::OpenNextFile(bool new_chunk) {
   CloseFile();
-  const string filename = GetNextFileForSaving(new_chunk);
+  const string filename = strutil::JoinPaths(
+      media_dir_, MakeTempFilenameNow(new_chunk));
   if ( !current_file_.Open(filename,
                            io::File::GENERIC_READ_WRITE,
                            io::File::CREATE_ALWAYS) ) {
@@ -129,49 +171,63 @@ void Saver::CloseFile() {
   }
   serializer_->Finalize(&buffer_);
   Flush();
+  const string filename = current_file_.filename();
   current_file_.Close();
+  // rename temporary file to final file
+  if ( strutil::StrEndsWith(filename, kTempFileSuffix) ) {
+    io::Rename(filename, MakeFilename(filename), false);
+  }
+}
+void Saver::RecoverTempFiles() {
+  // rename all temp files that were left behind by a previous crash, to their
+  // final name
+  re::RE tmp_re(kTempFileRE);
+  vector<string> tmp_files;
+  io::DirList(media_dir_, io::LIST_FILES | io::LIST_RECURSIVE, &tmp_re, &tmp_files);
+  LOG_INFO << "Recovering " << tmp_files.size() << " tmp files"
+              ", probably from a previous crash.";
+  for ( uint32 i = 0; i < tmp_files.size(); i++ ) {
+    const string tmp_full_path = strutil::JoinPaths(media_dir_, tmp_files[i]);
+    io::Rename(tmp_full_path, MakeFilename(tmp_full_path), false);
+  }
 }
 
-bool Saver::StartSaving() {
-  CHECK(!IsSaving());
+bool Saver::StartSaving(uint32 duration_sec) {
+  if ( IsSaving() ) {
+    if ( stop_alarm_ != NULL ) {
+      stop_alarm_->Stop();
+      if ( duration_sec > 0 ) {
+        stop_alarm_->ResetTimeout(duration_sec * 1000LL);
+        stop_alarm_->Start();
+      }
+    }
+    return true;
+  }
   if ( !io::CreateRecursiveDirs(media_dir_) ) {
     ILOG_ERROR << "Cannot create working directory: [" << media_dir_ << "].";
     return false;
   }
 
+  RecoverTempFiles();
+
   // NOTE: we can work without a mapper_: we just need to receive the tags
   //       through ProcessTag
 
   // get media details
-  Capabilities caps(media_type_, kDefaultFlavourMask);
-  if ( mapper_ != NULL ) {
-    if ( !mapper_->HasMedia(media_name_.c_str(), &caps) ) {
-      ILOG_ERROR << "Cannot start because the associated media ["
-                 << media_name_ << "] was not found.";
-      return false;
-    }
+  if ( mapper_ != NULL &&
+       !mapper_->HasMedia(media_name_) ) {
+    ILOG_ERROR << "Cannot start because the associated media ["
+               << media_name_ << "] was not found.";
+    return false;
   }
 
   // create serializer
-  delete serializer_;
-  serializer_ = NULL;
-  switch ( caps.tag_type_ ) {
-    case Tag::TYPE_FLV:
-      serializer_ = new streaming::FlvTagSerializer(true);
-      break;
-    case Tag::TYPE_MP3:
-      serializer_ = new streaming::Mp3TagSerializer();
-      break;
-    case Tag::TYPE_AAC:
-      serializer_ = new streaming::AacTagSerializer();
-      break;
-    case Tag::TYPE_RAW:
-      serializer_ = new streaming::RawTagSerializer();
-      break;
-    default:
-      ILOG_ERROR << "Cannot start because the tag type: "
-                 << caps.tag_type_name() << " cannot be serialized.";
-      return false;
+  CHECK_NULL(serializer_);
+  serializer_ = CreateSerializer(media_format_);
+  if ( serializer_ == NULL ) {
+    ILOG_ERROR << "Cannot start because media_format_: "
+               << MediaFormatName(media_format_) << " cannot be serialized.";
+    return false;
   }
 
   // open output file
@@ -184,14 +240,10 @@ bool Saver::StartSaving() {
     CHECK(req_ == NULL);
     req_ = new streaming::Request();
     req_->mutable_info()->is_internal_ = true;
-    req_->mutable_info()->internal_id_ = "-saver-" + name_;
-    *(req_->mutable_caps()) = caps;
     if ( !mapper_->AddRequest(media_name_.c_str(),
                               req_,
                               processing_callback_) ) {
-      ILOG_INFO << "Cannot AddRequest on media_name_: ["
-                << media_name_ << "], maybe a tag type mismatch: "
-                << req_->caps().tag_type_name();
+      ILOG_INFO << "Cannot AddRequest on media_name_: [" << media_name_ << "]";
       delete req_;
       req_ = NULL;
       io::Rm(current_file_.filename());
@@ -199,6 +251,16 @@ bool Saver::StartSaving() {
       return false;
     }
   }
+
+  // create media info file. Containing nothing for now.
+  io::Touch(strutil::JoinPaths(media_dir_, kMediaInfoFile));
+
+  // schedule the stop alarm
+  if ( stop_alarm_ != NULL && duration_sec > 0 ) {
+    stop_alarm_->ResetTimeout(duration_sec * 1000LL);
+    stop_alarm_->Start();
+  }
+
   ILOG_INFO << "Start saving [" << media_name_ << "] " << " to: '"
             << current_file_.filename() << "'.";
   return true;
@@ -212,9 +274,7 @@ void Saver::StopSaving() {
       req_ = NULL;
     }
     CHECK_NULL(req_);
-    serializer_->Finalize(&buffer_);
-    Flush();
-    current_file_.Close();
+    CloseFile();
     delete serializer_;
     serializer_ = NULL;
     ILOG_INFO << "Stopped saving stream: [" << media_name_ << "]";
@@ -240,21 +300,6 @@ void Saver::ProcessTag(const Tag* tag, int64 timestamp_ms) {
     StopSaving();
     return;
   }
-  // Create a new file on SourceStarted
-  /*
-  if ( tag->type() == Tag::TYPE_SOURCE_STARTED ) {
-    source_started_ = true;
-  } else {
-    if ( source_started_ ) {
-      source_started_ = false;
-      if ( !OpenNextFile(true) ) {
-        ILOG_ERROR << "Failed to open next file to save, stopping";
-        StopSaving();
-        return;
-      }
-    }
-  }
-  */
   // Create a new file (N=NEW) on Metadata
   if ( tag->type() == Tag::TYPE_FLV &&
        static_cast<const FlvTag*>(tag)->body().type() == FLV_FRAMETYPE_METADATA &&
@@ -283,15 +328,6 @@ void Saver::ProcessTag(const Tag* tag, int64 timestamp_ms) {
   serializer_->Serialize(tag, timestamp_ms, &buffer_);
 }
 
-string Saver::GetNextFileForSaving(bool new_chunk) const {
-  return strutil::JoinPaths(media_dir_,
-             strutil::StringPrintf("%s%015"PRId64"%c%s",
-                                   FLAGS_saver_file_prefix.c_str(),
-                                   timer::Date::Now(),
-                                   new_chunk ? 'N' : 'C',
-                                   FLAGS_saver_file_suffix.c_str()));
-}
-
 void Saver::Flush() {
   CHECK(current_file_.is_open());
   ILOG_DEBUG << "Flushing, file_size: " << current_file_.Size()
@@ -299,164 +335,5 @@ void Saver::Flush() {
   current_file_.Write(buffer_);
   current_file_.Flush();
   CHECK(buffer_.IsEmpty());
-}
-
-bool Saver::CreateSignalingFile(const string& fname, const string& content) {
-  const string signal_file(strutil::NormalizePath(
-                               media_dir() + "/" + fname));
-  io::File f;
-  if ( !f.Open(signal_file.c_str(),
-               io::File::GENERIC_READ_WRITE,
-               io::File::CREATE_ALWAYS) ) {
-    ILOG_ERROR << "Error creating the signal file: [" << signal_file << "]";
-    return false;
-  }
-  return f.Write(content) == content.size();
-}
-}
-
-//////////////////////////////////////////////////////////////////////
-
-namespace streaming {
-int64 GetNextStreamMediaFile(
-    const timer::Date& play_time,
-    const string& home_dir,
-    const string& file_prefix,
-    const string& root_media_path,
-    vector<string>* files,
-    int* last_selected,
-    string* crt_media,
-    int64* begin_file_timestamp,
-    int64* playref_time,
-    int64* duration) {
-  *begin_file_timestamp = 0;
-  *duration = 0;
-
-  timer::Date utc_play_time(play_time.GetTime(), true);
-  const string utc_play_time_str(utc_play_time.ToShortString());
-  timer::Date utc_start_time(true);
-  timer::Date utc_end_time(true);
-  bool continuation_file = false;
-  re::RE regex_files(string("^") + string(file_prefix) +
-                     kWhisperProcFileTermination);
-
-  size_t l = 0;
-  size_t r = 0;
-  size_t pos_uscore1 = 0;
-  size_t pos_uscore2 = 0;
-  string crt_file;
-  if ( !crt_media->empty() && *last_selected < 0 ) {
-    pos_uscore1 = crt_media->rfind('_');
-    if ( pos_uscore1 != string::npos &&
-         pos_uscore1 + 1 + utc_play_time_str.size() <= crt_media->size() ) {
-      string crt_media_time_str = crt_media->substr(
-          pos_uscore1 + 1, utc_play_time_str.size());
-      re::RE regex(string("^") + file_prefix + crt_media_time_str +
-                   "_"
-                   "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-"
-                   "[0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]"
-                   ".*");
-      vector<string> local_files;
-      if ( !io::DirList(home_dir + "/", &local_files, false, &regex) ) {
-        LOG_ERROR << "io::DirList failed for: [" << home_dir << "]";
-        local_files.clear();
-      }
-      if ( !local_files.empty() ) {
-        l = -1;
-        pos_uscore1 = local_files[0].rfind('_');
-        DCHECK(pos_uscore1 != string::npos) << "Bad file: " << local_files[0];
-        pos_uscore2 = local_files[0].rfind('_', pos_uscore1 - 1);
-        DCHECK(pos_uscore2 != string::npos) << "Bad file: " << local_files[0];
-        continuation_file = true;
-        crt_file = local_files[0];
-        goto RetryForFile;
-      }
-    } else {
-      crt_media->clear();
-    }
-  }
-
-ReReadFiles:
-  if ( files->empty() ) {
-    if ( !io::DirList(home_dir + "/", files, false, &regex_files) ) {
-      LOG_ERROR << "Error listing under : " << home_dir;
-      return -1;
-    }
-    // this should be cheap as they come already sorted (most of times)
-    sort(files->begin(), files->end());
-  }
-  // binary search ..
-  if ( files->empty() ) {
-    LOG_ERROR << "No files under: " << home_dir << " w/ prefix: "
-              << file_prefix;
-    return -1;
-  }
-  pos_uscore1 = (*files)[0].rfind('_');
-  DCHECK(pos_uscore1 != string::npos) << "Bad file: " << (*files)[0];
-  pos_uscore2 = (*files)[0].rfind('_', pos_uscore1 - 1);
-  DCHECK(pos_uscore2 != string::npos) << "Bad file: " << (*files)[0];
-  if ( *last_selected > 0 ) {
-    l = *last_selected;
-  } else {
-    l = 0;
-    r = files->size();
-    while ( l + 1 < r ) {
-      const size_t mid = (r + l) >> 1;
-      if ( (*files)[mid].substr(pos_uscore2 + 1, utc_play_time_str.size())
-           <= utc_play_time_str ) {
-        l = mid;
-      } else {
-        r = mid;
-      }
-    }
-  }
-  crt_file = (*files)[l];
-  // Now l is our candidate - extract the times
-RetryForFile:
-  if ( !utc_start_time.SetFromShortString(
-           crt_file.substr(pos_uscore2 + 1, utc_play_time_str.size()), true) ||
-       !utc_end_time.SetFromShortString(
-           crt_file.substr(pos_uscore1 + 1, utc_play_time_str.size()), true) ) {
-    LOG_ERROR << "Invalid time for file to check: " << crt_file
-              << " [" << crt_file.substr(pos_uscore2 + 1, utc_play_time_str.size())
-              << "] "
-              << " [" << crt_file.substr(pos_uscore1 + 1, utc_play_time_str.size())
-              << "]"
-              << " -- [" << utc_play_time_str << "] " << utc_play_time_str.size()
-              << " -- " << crt_file;
-    return -1;
-  }
-  if ( utc_end_time.GetTime() < utc_start_time.GetTime() ) {
-    LOG_ERROR << "Really bad file name: " << crt_file;
-    return -1;
-  }
-  if ( utc_end_time.GetTime() <= utc_play_time.GetTime() ) {
-    if ( l == files->size() - 1 ) {
-      return -1;
-    }
-    if ( continuation_file ) {
-      continuation_file = false;
-      crt_media->clear();
-      goto ReReadFiles;
-    } else {
-      l = l + 1;
-      crt_file = (*files)[l];
-      goto RetryForFile;
-    }
-  }
-  *last_selected = l;
-  LOG_DEBUG << "Choosing: [" << crt_file << "] - @: " << utc_play_time_str;
-  *crt_media = root_media_path + "/" + crt_file;
-  if ( utc_start_time.GetTime() > utc_play_time.GetTime() ) {
-    *begin_file_timestamp = 0;
-    *duration = utc_end_time.GetTime() - utc_start_time.GetTime();
-    *playref_time = utc_start_time.GetTime();
-    return utc_start_time.GetTime() - utc_play_time.GetTime();
-  }
-  const int64 delta = utc_play_time.GetTime() - utc_start_time.GetTime();
-  *begin_file_timestamp = delta;
-  *duration = utc_end_time.GetTime() - utc_start_time.GetTime() - delta;
-  *playref_time = utc_play_time.GetTime();
-  return 0;
 }
 }

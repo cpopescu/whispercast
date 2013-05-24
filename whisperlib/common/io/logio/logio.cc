@@ -225,7 +225,7 @@ bool LogWriter::WriteBuffer(bool force_flush) {
     // write to file
     buf_.MarkerSet();
     const int to_write = min(block_size_ * blocks_per_file_ - (int32)pos,
-                             buf_.Size());
+                             (int32)buf_.Size());
     const int cb = file_.Write(buf_, to_write);
     if ( cb < 0 ) {
       LOG_ERROR << "Write failed, restoring data.";
@@ -416,7 +416,7 @@ void LogReader::Rewind() {
   vector<string> files;
   // TODO(cpopescu): well .. this is almost there ..
   //                 as we don't count in the block_size
-  if ( !DirList(log_dir_, &files, false, &re_) ) {
+  if ( !DirList(log_dir_, LIST_FILES, &re_, &files) ) {
     LOG_ERROR << "DirList() failed for dir: [" << log_dir_ << "]";
     return;
   }
@@ -550,7 +550,7 @@ uint32 CleanLog(const string& log_dir, const string& file_base,
       "_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$",
       file_base.c_str(), block_size));
   vector<string> files;
-  if ( !DirList(log_dir, &files, false, &re) ) {
+  if ( !DirList(log_dir, LIST_FILES, &re, &files) ) {
     return 0;
   }
   if ( files.empty() ) {
@@ -588,7 +588,7 @@ bool DetectLogSettings(const string& log_dir, string* out_file_base,
   vector<string> files;
   re::RE re("_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"
             "_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$");
-  if ( !io::DirList(log_dir, &files, false, &re) ) {
+  if ( !io::DirList(log_dir, LIST_FILES, &re, &files) ) {
     LOG_ERROR << "Cannot list directory: [" << log_dir << "]";
     return false;
   }

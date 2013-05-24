@@ -347,14 +347,14 @@ void StateKeeper::GetBounds(const string& prefix,
                             map<string, string>::iterator* begin,
                             map<string, string>::iterator* end) {
   DCHECK_EQ(tid_, pthread_self());
-  return strutil::GetBounds(prefix, &data_, begin, end);
+  strutil::GetBounds(prefix, &data_, begin, end);
 }
 
 void StateKeeper::GetBounds(const string& prefix,
                             map<string, string>::const_iterator* begin,
                             map<string, string>::const_iterator* end) const {
   DCHECK_EQ(tid_, pthread_self());
-  return strutil::GetBounds(prefix, data_, begin, end);
+  strutil::GetBounds(prefix, data_, begin, end);
 }
 const char* StateKeeper::OpCodeName(OpCode op) {
   switch ( op ) {

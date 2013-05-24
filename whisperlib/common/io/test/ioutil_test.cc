@@ -101,13 +101,9 @@ int main(int argc, char* argv[]) {
   //////////////////////////////////////////////////////////////////////
 
   vector<string> res;
-  if ( FLAGS_r ) {
-    re::RE refile(FLAGS_f.empty() ? ".*" : FLAGS_f.c_str());
-    io::RecursiveListing(FLAGS_d, &res, &refile);
-  } else {
-    re::RE refile(FLAGS_f.empty() ? ".*" : FLAGS_f.c_str());
-    io::DirList(FLAGS_d, &res, true, &refile);
-  }
+  re::RE regex(FLAGS_f.empty() ? ".*" : FLAGS_f.c_str());
+  io::DirList(FLAGS_d, io::LIST_FILES | (FLAGS_r ? io::LIST_RECURSIVE : 0),
+      &regex, &res);
   for ( int i = 0; i < res.size(); i++ ) {
     printf("   %s\n", res[i].c_str());
   }

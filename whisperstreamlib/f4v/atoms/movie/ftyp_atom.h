@@ -33,6 +33,7 @@
 #define __MEDIA_F4V_ATOMS_ATOM_FTYP_H__
 
 #include <string>
+#include <vector>
 #include <whisperstreamlib/f4v/atoms/base_atom.h>
 
 namespace streaming {
@@ -44,25 +45,30 @@ class FtypAtom : public BaseAtom {
   static const uint32 kBodyMinSize = 8;
  public:
   FtypAtom();
+  FtypAtom(uint32 major_brand,
+           uint32 minor_version);
   FtypAtom(const FtypAtom& other);
   virtual ~FtypAtom();
 
   uint32 major_brand() const;
   uint32 minor_version() const;
   const vector<uint32>& compatible_brands() const;
-  vector<uint32>& mutable_compatible_brands();
+  void add_compatible_brand(uint32 brand);
 
   void set_major_brand(uint32 major_brand);
   void set_minor_version(uint32 minor_version);
 
   ///////////////////////////////////////////////////////////////////////////
   // Methods from AtomBase
+ public:
+  virtual bool EqualsBody(const BaseAtom& other) const;
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
   virtual BaseAtom* Clone() const;
+  virtual uint64 MeasureBodySize() const;
+ protected:
   virtual TagDecodeStatus DecodeBody(uint64 size, io::MemoryStream& in,
                                      Decoder& decoder);
   virtual void EncodeBody(io::MemoryStream& out, Encoder& encoder) const;
-  virtual uint64 MeasureBodySize() const;
   virtual string ToStringBody(uint32 indent) const;
 
  private:

@@ -18,7 +18,9 @@
 #include <vector>
 #include <stdarg.h>   // va_list
 #ifndef __APPLE__
+#define __GLIB_H_INSIDE__
 #include <glib-2.0/glib/gmacros.h>
+//#include <glib-2.0/glib.h>
 #else
 #define G_GNUC_PRINTF(p1, p2)
 #endif

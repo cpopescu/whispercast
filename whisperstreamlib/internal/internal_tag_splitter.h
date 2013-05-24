@@ -44,10 +44,8 @@ namespace streaming {
 
 class InternalTagSplitter : public streaming::TagSplitter {
  public:
-  static const Type kType;
- public:
   InternalTagSplitter(const string& name)
-      : streaming::TagSplitter(kType, name),
+      : TagSplitter(MFORMAT_INTERNAL, name),
         stream_offset_(0.0),
         crt_tag_(NULL) {
   }

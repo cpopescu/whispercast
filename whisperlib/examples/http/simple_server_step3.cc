@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
   server.AddAcceptor(net::PROTOCOL_TCP, net::HostPort(0, FLAGS_port));
 
   // Register a procesing function. Will process all requests that come under /
-  server.RegisterProcessor("/", NewPermanentCallback(&ProcessRequest),
+  server.RegisterProcessor("", NewPermanentCallback(&ProcessRequest),
       true, true);
 
   // Start the server as soon as networking starts
@@ -129,7 +129,8 @@ const string& GetContentType(const string& filename) {
 void GenerateDirListing(http::ServerRequest* req,
                         const string& url_path, const string& dir_path) {
   vector<string> dir_names;
-  if ( !io::DirList(dir_path, &dir_names, true) ) {
+  if ( !io::DirList(dir_path, io::LIST_FILES | io::LIST_DIRS, NULL,
+                    &dir_names) ) {
     // Dir listing not allowed
     req->ReplyWithStatus(http::FORBIDDEN);
     return;

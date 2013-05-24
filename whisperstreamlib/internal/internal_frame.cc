@@ -149,6 +149,6 @@ streaming::TagReadStatus InternalFrameTag::Read(io::MemoryStream* in) {
     }
   }
   LOG_FATAL << "Illegal state: " << state;
-  return streaming::READ_UNKNOWN;
+  return streaming::READ_CORRUPTED;
 }
 }

@@ -83,6 +83,13 @@ static const uint64 kMaxUInt64 = (static_cast<uint64>(0xffffffffffffffffLL));
 // #endif // _UNICODE
 
 //////////////////////////////////////////////////////////////////////
+// e.g. FourCC<'m', 'p', '4', '1'>::value
+template <uint32 a, uint32 b, uint32 c, uint32 d>
+struct FourCC {
+  static const uint32 value = (((((a << 8) | b) << 8) | c) << 8) | d;
+};
+
+//////////////////////////////////////////////////////////////////////
 
 #define CONSIDER(cond) case cond: return #cond;
 #define NUMBEROF(things)                                            \

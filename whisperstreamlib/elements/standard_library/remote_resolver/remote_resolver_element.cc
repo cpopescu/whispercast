@@ -44,8 +44,7 @@ namespace streaming {
 const char RemoteResolverElement::kElementClassName[] = "remote_resolver";
 
 RemoteResolverElement::RemoteResolverElement(
-    const char* name,
-    const char* id,
+    const string& name,
     ElementMapper* mapper,
     net::Selector* selector,
     int64 cache_expiration_time_ms,
@@ -56,16 +55,14 @@ RemoteResolverElement::RemoteResolverElement(
     int lookup_req_timeout_ms,
     bool local_lookup_first,
     const string& lookup_auth_user,
-    const string& lookup_auth_pass,
-    const Capabilities& default_caps)
-    : Element(kElementClassName, name, id, mapper),
+    const string& lookup_auth_pass)
+    : Element(kElementClassName, name, mapper),
       selector_(selector),
       net_factory_(selector_),
       service_(NULL),
       rpc_connection_(NULL),
       cache_expiration_time_ms_(cache_expiration_time_ms),
       local_lookup_first_(local_lookup_first),
-      default_caps_(default_caps),
       closing_(false),
       call_on_close_(NULL),
       periodic_expiration_callback_(
@@ -88,7 +85,7 @@ RemoteResolverElement::RemoteResolverElement(
       kReopenHttpConnectionIntervalMs,
       "");
   rpc_connection_ = new rpc::FailsafeClientConnectionHTTP(
-      selector, rpc::CID_JSON,  // rpc::CID_BINARY,  //  rpc::CID_JSON
+      selector, rpc::kCodecIdJson,
       failsafe_client,
       lookup_rpc_path,
       lookup_auth_user, lookup_auth_pass);
@@ -118,56 +115,40 @@ bool RemoteResolverElement::Initialize() {
   return true;
 }
 
-bool RemoteResolverElement::AddRequest(
-    const char* media,
-    streaming::Request* req,
-    streaming::ProcessingCallback* callback) {
+bool RemoteResolverElement::AddRequest(const string& media, Request* req,
+                                       ProcessingCallback* callback) {
   if ( closing_ ) {
     LOG_DEBUG << " Closing element cannot add request for: " << media;
     return false;
   }
-  if ( !strutil::StrPrefix(media,
-                           (name() + "/").c_str()) ) {
-    LOG_WARNING << " Cannot add media: [" << media << "] to " << name();
-    return false;
-  }
-  const string sub_media(media + name().length() + 1);
   if ( lookup_ops_.find(req) != lookup_ops_.end() ) {
     LOG_WARNING << "Cannot serve same request twice: " << req->ToString();
     return false;
   }
   if ( local_lookup_first_ ) {
-    LOG_INFO << " Internal lookup for: " << sub_media;
-    if ( mapper_->AddRequest(sub_media.c_str(), req, callback) ) {
+    LOG_INFO << " Internal lookup for: " << media;
+    if ( mapper_->AddRequest(media, req, callback) ) {
       // We basically don't care about this any more..
       DLOG_DEBUG << " Request for [" << media << "] served locally !";
       return true;
     }
     // Need lookup
   }
-  if ( !default_caps_.IsCompatible(req->caps()) ) {
-    LOG_WARNING << " Caps don't match: "
-                << req->caps().ToString() << " v.s. "
-                << default_caps_.ToString();
-    return false;
-  }
-  req->mutable_caps()->IntersectCaps(default_caps_);
 
-  RequestStruct* ls = new RequestStruct(sub_media.c_str(), req, callback);
+  RequestStruct* ls = new RequestStruct(media, req, callback);
   // Lookup Cache
   const LookupCache::iterator it = cache_.find(ls->media_name_);
   if ( it != cache_.end() ) {
-    DLOG_DEBUG << name() << " Internal cache found: " << sub_media << " -> "
+    DLOG_DEBUG << name() << " Internal cache found: " << media << " -> "
                << it->second->media_name_;
     return StartPlaySequence(ls, it->second, true);
   }
-  DLOG_DEBUG << name() << " Starting Remote lookup for: " << sub_media;
+  DLOG_DEBUG << name() << " Starting Remote lookup for: " << media;
   lookup_ops_.insert(make_pair(req, ls));
 
   // VERY important - we need to do not get immediate return from this call..
   ls->rpc_id_ = service_->ResolveMedia(
-      NewCallback(this, &RemoteResolverElement::LookupCompleted, ls),
-      sub_media);
+      NewCallback(this, &RemoteResolverElement::LookupCompleted, ls), media);
   return true;   // for now :)
 }
 
@@ -203,23 +184,13 @@ void RemoteResolverElement::RemoveRequest(streaming::Request* req) {
   }
 }
 
-bool RemoteResolverElement::HasMedia(const char* media, Capabilities* out) {
-  pair<string, string> split(strutil::SplitFirst(media, '/'));
-  if ( split.first != name() ) {
-    return false;
-  }
-  *out = default_caps_;
-  return true;
+bool RemoteResolverElement::HasMedia(const string& media) {
+  return false;
 }
 
-void RemoteResolverElement::ListMedia(
-    const char* media_dir,
-    streaming::ElementDescriptions* medias) {
-  pair<string, string> split(strutil::SplitFirst(media_dir, '/'));
-  if ( split.first != name() ) {
-    return;
-  }
-  mapper_->ListMedia(split.second.c_str(), medias);
+void RemoteResolverElement::ListMedia(const string& media,
+                                      vector<string>* out) {
+  mapper_->ListMedia(media, out);
 }
 bool RemoteResolverElement::DescribeMedia(const string& media,
                                           MediaInfoCallback* callback) {

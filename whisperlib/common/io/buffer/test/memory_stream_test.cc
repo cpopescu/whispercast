@@ -163,7 +163,7 @@ void TestRandomAppends(bool mix_operations,
   while ( num_ints > size ) {
     if ( mix_operations && ((rand_r(&rand_seed) % 5) == 0) ) {
       while ( buf1.Size() > 0 ) {
-        const int32 rec_size = min(buf1.Size(),
+        const int32 rec_size = min((int32)buf1.Size(),
                                    rand_r(&rand_seed) % max_append_record_size);
         expected_size += rec_size;
         buf2.AppendStream(&buf1, rec_size);
@@ -187,7 +187,7 @@ void TestRandomAppends(bool mix_operations,
   LOG_INFO << "Appending... ";
   buf1.MarkerSet();
   while ( buf1.Size() > 0 ) {
-    const int32 rec_size = min(buf1.Size(),
+    const int32 rec_size = min((int32)buf1.Size(),
                                rand_r(&rand_seed) % max_append_record_size);
     expected_size += rec_size;
     buf2.AppendStream(&buf1, rec_size);
@@ -256,11 +256,11 @@ int main(int argc, char* argv[]) {
 
     a.Write("abcdefg");
     a.Write("123456");
-    b.AppendStreamNonDestructive(&a, 6);
+    b.AppendStreamNonDestructive(&a, 0, 6);
     b.ReadString(&s2);
     CHECK_EQ(s2, "abcdef");
     a.Skip(7);
-    b.AppendStreamNonDestructive(&a, 6);
+    b.AppendStreamNonDestructive(&a, 0, 6);
     a.ReadString(&s1);
     b.ReadString(&s2);
     CHECK_EQ(s1, "123456");
@@ -276,17 +276,17 @@ int main(int argc, char* argv[]) {
             "\r\n"
             "abcd");
     string s;
-    CHECK(a.ReadCRLFLine(&s));
-    CHECK_EQ(s, "1234567890\r\n");
-    CHECK(a.ReadCRLFLine(&s));
-    CHECK_EQ(s, "abcdef\r\n");
-    CHECK(a.ReadCRLFLine(&s));
-    CHECK_EQ(s, "123456789012345\r\n");
-    CHECK(a.ReadCRLFLine(&s));
-    CHECK_EQ(s, "abcdefg\r\n");
-    CHECK(a.ReadCRLFLine(&s));
-    CHECK_EQ(s, "\r\n");
-    CHECK(!a.ReadCRLFLine(&s));
+    CHECK(a.ReadLine(&s));
+    CHECK_EQ(s, "1234567890");
+    CHECK(a.ReadLine(&s));
+    CHECK_EQ(s, "abcdef");
+    CHECK(a.ReadLine(&s));
+    CHECK_EQ(s, "123456789012345");
+    CHECK(a.ReadLine(&s));
+    CHECK_EQ(s, "abcdefg");
+    CHECK(a.ReadLine(&s));
+    CHECK_EQ(s, "");
+    CHECK(!a.ReadLine(&s));
   }
   LOG_INFO << "Test Tokens";
   {

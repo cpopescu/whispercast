@@ -97,7 +97,7 @@ int main(int argc, char ** argv) {
                             net_factory, &params,
                             NewPermanentCallback(
                                 &http::SimpleServerConnectionFactory));
-    rpc::HttpServer rpcProcessor(selector, &httpServer, NULL, "/rpc", true,
+    rpc::HttpServer rpcProcessor(selector, &httpServer, NULL, "rpc", true,
                                  true, 100, "");
 
     RPCServiceGigel serviceGigel("gigel");

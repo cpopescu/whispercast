@@ -61,7 +61,7 @@ DEFINE_int32(rtmp_connection_pause_timeout_ms,
              30000,
              "After how long we close a connection in pause / no activity ?");
 DEFINE_int32(rtmp_connection_log_level,
-             1,
+             2,
              "The log level of messages for RTMP connections");
 DEFINE_int32(rtmp_max_num_connections,
              1000,
@@ -92,6 +92,15 @@ DEFINE_string(rtmp_ssl_key,
               "",
               "Path to ssl key file. We need both ssl key & certificate"
               " in order to use SSL on rtmp accepted connections.");
+DEFINE_int64(rtmp_missing_stream_cache_expiration_ms,
+             45000,
+             "We have a cache for missing stream names, to be able to rapidly"
+             " reject them. This is the cache expiration timeout"
+             " in milliseconds.");
+DEFINE_int64(rtmp_reject_delay_ms,
+             7000,
+             "Milliseconds delay before sending 'StreamNotFound' to client."
+             " Helps with fast reconnecting clients on a missing stream.");
 
 // This thing is needed because FlvPlayback objects from Flash does some nasty
 // url breakup and processing.
@@ -137,5 +146,9 @@ void GetProtocolFlags(ProtocolFlags* f) {
       FLAGS_rtmp_ssl_certificate;
   f->ssl_key_ =
       FLAGS_rtmp_ssl_key;
+  f->reject_delay_ms_ =
+      FLAGS_rtmp_reject_delay_ms;
+  f->missing_stream_cache_expiration_ms_ =
+      FLAGS_rtmp_missing_stream_cache_expiration_ms;
 }
 }

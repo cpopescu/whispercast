@@ -46,8 +46,8 @@
 #include <whisperstreamlib/rtmp/events/rtmp_event_invoke.h>
 #include <whisperstreamlib/rtmp/rtmp_flags.h>
 #include <whisperstreamlib/rtmp/rtmp_stream.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol_data.h>
 #include <whisperstreamlib/rtmp/rtmp_coder.h>
+#include <whisperstreamlib/rtmp/rtmp_util.h>
 
 namespace rtmp {
 class StreamManager;
@@ -58,9 +58,6 @@ class ServerConnection {
   // timeout IDs
   static const int64 kConnectTimeoutID = 1;
   static const int64 kWriteTimeoutID   = 2;
-
-  // ???
-  static const int kMaxChunkSize = 65536;
 
  public:
   enum State {
@@ -80,7 +77,8 @@ class ServerConnection {
                    streaming::StatsCollector* stats_collector,
                    Closure* delete_callback,
                    const vector<const net::IpClassifier*>* classifiers,
-                   const rtmp::ProtocolFlags* flags);
+                   const rtmp::ProtocolFlags* flags,
+                   MissingStreamCache* missing_stream_cache);
   virtual ~ServerConnection();
 
   net::Selector* media_selector() { return media_selector_; }
@@ -113,17 +111,14 @@ class ServerConnection {
   Stream* system_stream() {
     return system_stream_;
   }
-  ProtocolData* mutable_protocol_data() {
-    return &protocol_data_;
-  }
 
-  //io::MemoryStream* outbuf() {
-  //  DCHECK(connection_ != NULL);
-  //  return connection_->outbuf();
-  //}
   int32 outbuf_size() const {
     DCHECK(connection_ != NULL);
     return connection_->outbuf()->Size();
+  }
+
+  MissingStreamCache* missing_stream_cache() {
+    return missing_stream_cache_;
   }
 
   // self explanatory
@@ -132,33 +127,33 @@ class ServerConnection {
   // Helpers to create specific events
   scoped_ref<Event> CreateClearPing(int stream_id, int arg) {
     return new rtmp::EventPing(
-        rtmp::EventPing::STREAM_CLEAR, arg,
-        &protocol_data_, kChannelPing, stream_id);
+        Header(kChannelPing, stream_id, rtmp::EVENT_PING, 0, false),
+        rtmp::EventPing::STREAM_CLEAR, arg, -1, -1);
   }
   scoped_ref<Event> CreateClearBufferPing(int stream_id, int arg) {
     return new rtmp::EventPing(
-        rtmp::EventPing::STREAM_CLEAR_BUFFER, arg,
-        &protocol_data_, kChannelPing, stream_id);
+        Header(kChannelPing, stream_id, rtmp::EVENT_PING, 0, false),
+        rtmp::EventPing::STREAM_CLEAR_BUFFER, arg, -1, -1);
   }
   scoped_ref<Event> CreateResetPing(int stream_id, int arg) {
     return new rtmp::EventPing(
-        rtmp::EventPing::STREAM_RESET, arg,
-        &protocol_data_, kChannelPing, stream_id);
+        Header(kChannelPing, stream_id, rtmp::EVENT_PING, 0, false),
+        rtmp::EventPing::STREAM_RESET, arg, -1, -1);
   }
   scoped_ref<Event> Create31Ping(int stream_id, int arg) {
     return new rtmp::EventPing(
-        (rtmp::EventPing::Type)31, arg,
-        &protocol_data_, kChannelPing, stream_id);
+        Header(kChannelPing, stream_id, rtmp::EVENT_PING, 0, false),
+        rtmp::EventPing::PING_31, arg, -1, -1);
   }
   scoped_ref<Event> Create32Ping(int stream_id, int arg) {
     return new rtmp::EventPing(
-        (rtmp::EventPing::Type)32, arg,
-        &protocol_data_, kChannelPing, stream_id);
+        Header(kChannelPing, stream_id, rtmp::EVENT_PING, 0, false),
+        rtmp::EventPing::PING_32, arg, -1, -1);
   }
   scoped_ref<Event> CreatePongPing(int stream_id, int arg) {
       return new rtmp::EventPing(
-          rtmp::EventPing::PONG_SERVER, arg,
-          &protocol_data_, kChannelPing, stream_id);
+          Header(kChannelPing, stream_id, rtmp::EVENT_PING, 0, false),
+          rtmp::EventPing::PONG_SERVER, arg, -1, -1);
   }
   scoped_ref<Event> CreateInvokeResultEvent(const string& method,
                                             int stream_id,
@@ -174,13 +169,14 @@ class ServerConnection {
                                       const char* level = NULL);
   scoped_ref<Event> CreateChunkSize(int stream_id) {
     return new rtmp::EventChunkSize(
-        flags().chunk_size_, &protocol_data_, kChannelPing, stream_id);
+        Header(kChannelPing, stream_id, rtmp::EVENT_CHUNK_SIZE, 0, false),
+        flags().chunk_size_);
   }
 
   // Encode & send the given event to the network.
   // If 'data != NULL', then 'data' is used instead of event->data().
   // If force_write==true, sends to network immediately; otherwise buffers.
-  void SendEvent(rtmp::Event* event, const io::MemoryStream* data,
+  void SendEvent(const rtmp::Event& event, const io::MemoryStream* data,
                  bool force_write = false);
 
   // The protocol puts some data in the output buffer then calls this.
@@ -189,13 +185,11 @@ class ServerConnection {
   void IncRef() {
     CHECK(net_selector_->IsInSelectThread());
     ref_count_++;
-    LOG_WARNING << "IncRef: " << ref_count_;
   }
   void DecRef() {
     CHECK(net_selector_->IsInSelectThread());
     CHECK_GT(ref_count_, 0);
     ref_count_--;
-    LOG_WARNING << "DecRef: " << ref_count_;
     if ( ref_count_ == 0 ) {
       delete this;
     }
@@ -217,14 +211,15 @@ class ServerConnection {
 
   // returns success.
   // On false return: the connection will be automatically closed.
-  bool ProcessEvent(rtmp::Event* event);
+  bool ProcessEvent(const Event* event);
 
-  bool InvokeConnect(rtmp::EventInvoke* invoke);
-  bool InvokeCreateStream(rtmp::EventInvoke* invoke);
-  bool InvokeDeleteStream(rtmp::EventInvoke* invoke);
-  bool InvokePublish(rtmp::EventInvoke* invoke);
-  bool InvokePlay(rtmp::EventInvoke* invoke);
-  bool InvokeUnhandled(rtmp::EventInvoke* invoke);
+  bool InvokeConnect(const EventInvoke* invoke);
+  bool InvokeCreateStream(const Event* event, int invoke_id);
+  bool InvokeDeleteStream(const Event* event, int invoke_id);
+  bool InvokePublish(const Event* event, int invoke_id);
+  bool InvokePlay(const Event* event, int invoke_id);
+
+  bool Unhandled(const Event* event, int invoke_id);
 
   void TimeoutHandler(int64 timeout_id);
 
@@ -251,8 +246,8 @@ class ServerConnection {
   // Protocol parameters:
   const ProtocolFlags* const flags_;
 
-  // ???
-  rtmp::ProtocolData protocol_data_;
+  // a cache of bad stream names
+  MissingStreamCache* missing_stream_cache_;
 
   // Codes and decodes events for us..
   rtmp::Coder coder_;
@@ -260,8 +255,9 @@ class ServerConnection {
   // The params for the next stream to create. Filled by event CONNECT,
   // used by CreateStream, Play, Publish.
   StreamParams next_stream_params_;
-  // The id of the next stream we create - increment..
-  int pending_stream_id_;
+
+  // InvokeCreateStream was executed
+  bool invoke_create_stream_called_;
 
   // ???
   Stream* system_stream_;

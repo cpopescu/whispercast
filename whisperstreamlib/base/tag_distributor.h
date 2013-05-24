@@ -237,7 +237,8 @@ class TagDistributor {
       return;
     }
 
-    // bootstrap new callbacks. These callbacks are also in callbacks_manager_.
+    // bootstrap new callbacks;
+    // These callbacks are also in callbacks_manager_.
     distributing_tag_ = true;
     while ( !to_bootstrap_.empty() ) {
       running_[to_bootstrap_.begin()->first] = to_bootstrap_.begin()->second;

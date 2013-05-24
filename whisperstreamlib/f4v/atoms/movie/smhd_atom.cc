@@ -19,6 +19,11 @@ SmhdAtom::~SmhdAtom() {
 uint16 SmhdAtom::balance() const {
   return balance_;
 }
+bool SmhdAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const SmhdAtom& a = static_cast<const SmhdAtom&>(other);
+  return balance_ == a.balance_ &&
+         reserved_ == a.reserved_;
+}
 void SmhdAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* SmhdAtom::Clone() const {

@@ -195,24 +195,6 @@ void ShiftLeftBuffer(void* buf,
   memset(data + cb, fill_value, shift_size);
 }
 
-string NormalizeUrlPath(const string& path) {
-  if ( path == "" ) {
-    return "/";
-  }
-  string ret(strutil::NormalizePath(path, '/'));
-  int i = 0;
-  while ( i < ret.size() && ret[i] == '/' ) {
-    ++i;
-  }
-  if ( i >= ret.size() ) {
-    return "/";
-  }
-  if ( i == 0 ) {
-    return ret;
-  }
-  return ret.substr(i - 1);
-}
-
 string NormalizePath(const string& path, char sep) {
   string s(path);
   const char sep_str[] = { sep, '\0' };
@@ -377,14 +359,16 @@ void SplitString(const string& s,
   }
 
   size_t pos = 0;
-  size_t last_pos = string::npos;
   while ( true ) {
-    last_pos = s.find(separator, pos);
-    output->push_back(s.substr(pos, last_pos - pos));
-    if ( last_pos == string::npos ) {
+    if ( pos >= s.size() ) { return; }
+    size_t next_pos = s.find(separator, pos);
+    if ( next_pos != pos ) {
+      output->push_back(s.substr(pos, next_pos - pos));
+    }
+    if ( next_pos == string::npos ) {
       return;
     }
-    pos = last_pos + separator.size();
+    pos = next_pos + separator.size();
   }
 }
 
@@ -649,8 +633,6 @@ string JsonStrUnescape(const char* text, size_t size) {
   return string(dest.get(), d - reinterpret_cast<uint8*>(dest.get()));
 }
 
-}
-
 namespace {
 enum StrFormatState {
   IN_TEXT,
@@ -660,7 +642,6 @@ enum StrFormatState {
 };
 }
 
-namespace strutil {
 string StrMapFormat(const char* s,
                     const map<string, string>& m,
                     const char* arg_begin,

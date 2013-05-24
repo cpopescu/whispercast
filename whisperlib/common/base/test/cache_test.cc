@@ -49,7 +49,7 @@ struct CData {
 
 
 void TestLru() {
-  util::Cache<uint32, uint32> cache(util::CacheBase::LRU, 3, 5000, NULL, 0);
+  util::Cache<uint32, uint32> cache(util::CacheBase::LRU, 3, 5000, NULL, 0, false);
   cache.Add(1, 1);
   cache.Add(2, 2);
   cache.Add(3, 3);
@@ -60,7 +60,7 @@ void TestLru() {
   CHECK(cache.Get(4) == 4) << cache.ToString();
 }
 void TestMru() {
-  util::Cache<uint32, uint32> cache(util::CacheBase::MRU, 3, 5000, NULL, 0);
+  util::Cache<uint32, uint32> cache(util::CacheBase::MRU, 3, 5000, NULL, 0, false);
   cache.Add(1, 1);
   cache.Add(2, 2);
   cache.Add(3, 3);
@@ -71,7 +71,7 @@ void TestMru() {
   CHECK(cache.Get(4) == 4) << cache.ToString();
 }
 void TestExp() {
-  util::Cache<string, string> cache(util::CacheBase::LRU, 3, 100, NULL, "");
+  util::Cache<string, string> cache(util::CacheBase::LRU, 3, 100, NULL, "", false);
   // simple test
   //
   cache.Add("a", "a");
@@ -113,7 +113,7 @@ void TestExp() {
 }
 void TestLeak() {
   util::Cache<uint32, const CData*> cache(util::CacheBase::LRU, 3, 1000,
-      &util::DefaultValueDestructor<const CData*>, NULL);
+      &util::DefaultValueDestructor<const CData*>, NULL, false);
   cache.Add(1, new CData());
   cache.Add(2, new CData());
   cache.Add(2, new CData()); // auto deletes the first item with key: 2

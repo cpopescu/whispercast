@@ -49,12 +49,17 @@ class MdatAtom : public BaseAtom {
 
   ///////////////////////////////////////////////////////////////////////////
   // Methods from BaseAtom
+ public:
+  virtual bool EqualsBody(const BaseAtom& other) const;
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
   virtual BaseAtom* Clone() const;
+ protected:
   virtual TagDecodeStatus DecodeBody(uint64 size, io::MemoryStream& in,
                                      Decoder& decoder);
   virtual void EncodeBody(io::MemoryStream& out, Encoder& encoder) const;
+ public:
   virtual uint64 MeasureBodySize() const;
+ protected:
   virtual string ToStringBody(uint32 indent) const;
 };
 }

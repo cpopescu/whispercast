@@ -52,82 +52,20 @@ class EventPing : public Event {
     PONG_SERVER              = 7,
 
     SWF_VERIFY_REQUEST       = 26,
-    SWF_VERIFY_RESPONSE      = 27
+    SWF_VERIFY_RESPONSE      = 27,
+
+    PING_31                  = 31,
+    PING_32                  = 32,
   };
   static const char* TypeName(Type type_id);
-
-  // return: test if the given value correponds to a TYPE constant
-  static bool IsValidType(uint16 val) {
-    switch (val) {
-      case STREAM_CLEAR:
-      case STREAM_CLEAR_BUFFER:
-
-      case CLIENT_BUFFER:
-      case STREAM_RESET:
-
-      case PING_CLIENT:
-      case PONG_SERVER:
-
-      case SWF_VERIFY_REQUEST:
-      case SWF_VERIFY_RESPONSE:
-        return true;
-    }
-    return false;
-  }
+  // return: test if 'val' is a valid Type
+  static bool IsValidType(uint16 val);
 
  public:
-  explicit EventPing(Header* header)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, header),
-        ping_type_(PONG_SERVER), value2_(0), value3_(-1),
-        value4_(-1), value5_(-1) {
-  }
-  EventPing(ProtocolData* protocol_data,
-            uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, protocol_data,
-              channel_id, stream_id),
-        ping_type_(PONG_SERVER), value2_(0), value3_(-1),
-        value4_(-1), value5_(-1) {
-  }
-
-  EventPing(Type value1, int32 value2, Header* header)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, header),
-        ping_type_(value1), value2_(value2), value3_(-1),
-        value4_(-1), value5_(-1) {
-  }
-  EventPing(Type value1, int32 value2,
-            ProtocolData* protocol_data,
-            uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, protocol_data,
-              channel_id, stream_id),
-        ping_type_(value1), value2_(value2), value3_(-1),
-        value4_(-1), value5_(-1) {
-  }
-  EventPing(Type value1, int32 value2, int32 value3,
-            ProtocolData* protocol_data,
-            uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, protocol_data,
-              channel_id, stream_id),
-        ping_type_(value1), value2_(value2), value3_(value3),
-        value4_(-1), value5_(-1) {
-  }
-  EventPing(Type value1, int32 value2, int32 value3, int32 value4,
-            ProtocolData* protocol_data,
-            uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, protocol_data,
-              channel_id, stream_id),
-        ping_type_(value1), value2_(value2), value3_(value3),
-        value4_(value4), value5_(-1) {
-  }
-
-  EventPing(Type value1, int32 value2, int32 value3, Header* header)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, header),
-        ping_type_(value1), value2_(value2), value3_(value3),
-        value4_(-1), value5_(-1) {
-  }
-  EventPing(Type value1, int32 value2, int32 value3, int32 value4,
-            Header* header)
-      : Event(EVENT_PING, SUBTYPE_SYSTEM, header),
-        ping_type_(value1), value2_(value2), value3_(value3),
+  EventPing(const Header& header, Type ping_type,
+            int32 value2, int32 value3, int32 value4)
+      : Event(header, EVENT_PING, SUBTYPE_SYSTEM),
+        ping_type_(ping_type), value2_(value2), value3_(value3),
         value4_(value4), value5_(-1) {
   }
   virtual ~EventPing() {
@@ -170,7 +108,7 @@ class EventPing : public Event {
   virtual bool Equals(const Event* obj) const {
     if ( !Event::Equals(obj) ) return false;
     const EventPing* event =
-        reinterpret_cast<const EventPing*>(obj);
+        static_cast<const EventPing*>(obj);
     return (event->ping_type() == ping_type() &&
             event->value2() == value2() &&
             event->value3() == value3() &&
@@ -182,10 +120,9 @@ class EventPing : public Event {
         ", value4: %d, value5: %d",
         GetPingTypeName(), value2_, value3_, value4_, value5_);
   }
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(
-      io::MemoryStream* in, AmfUtil::Version version);
-  virtual void WriteToMemoryStream(
-      io::MemoryStream* out, AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,
+      AmfUtil::Version v);
+  virtual void EncodeBody(io::MemoryStream* out, AmfUtil::Version v) const;
 
  protected:
   Type  ping_type_;

@@ -35,10 +35,11 @@
 #include <whisperlib/common/io/buffer/io_memory_stream.h>
 #include <whisperlib/common/io/ioutil.h>
 
+#include <whisperstreamlib/libav_mts/libav_mts_encoder.h>
+
 #include "elements/standard_library/standard_library.h"
 
 #include "elements/standard_library/aio_file/aio_file_element.h"
-#include "elements/standard_library/debugger/debugger_element.h"
 #include "elements/standard_library/dropping/dropping_element.h"
 #include "elements/standard_library/keyframe/keyframe_element.h"
 #include "elements/standard_library/stream_renamer/stream_renamer_element.h"
@@ -46,7 +47,6 @@
 #include "elements/standard_library/normalizing/normalizing_element.h"
 #include "elements/standard_library/load_balancing/load_balancing_element.h"
 #include "elements/standard_library/saving/saving_element.h"
-#include "elements/standard_library/splitting/splitting_element.h"
 #include "elements/standard_library/switching/switching_element.h"
 #include "elements/standard_library/http_client/http_client_element.h"
 #include "elements/standard_library/http_poster/http_poster_element.h"
@@ -61,6 +61,8 @@
 #include "elements/standard_library/redirect/redirecting_element.h"
 
 #include "elements/standard_library/auto/standard_library_invokers.h"
+
+DECLARE_bool(enable_libav_mts);
 
 //////////////////////////////////////////////////////////////////////
 
@@ -81,11 +83,13 @@ extern "C" {
 //////////////////////////////////////////////////////////////////////
 
 namespace streaming {
-const char DebuggerElement::kElementClassName[] = "debugger";
 
 StandardLibrary::StandardLibrary()
     : ElementLibrary("standard_library"),
       rpc_impl_(NULL) {
+  if ( FLAGS_enable_libav_mts ) {
+    libav_mts::GlobalInit();
+  }
 }
 
 StandardLibrary::~StandardLibrary() {
@@ -96,7 +100,6 @@ StandardLibrary::~StandardLibrary() {
 void StandardLibrary::GetExportedElementTypes(vector<string>* element_types) {
   element_types->push_back(AioFileElement::kElementClassName);
   element_types->push_back(DroppingElement::kElementClassName);
-  element_types->push_back(DebuggerElement::kElementClassName);
   element_types->push_back(HttpClientElement::kElementClassName);
   element_types->push_back(HttpPosterElement::kElementClassName);
   element_types->push_back(RemoteResolverElement::kElementClassName);
@@ -107,7 +110,6 @@ void StandardLibrary::GetExportedElementTypes(vector<string>* element_types) {
   element_types->push_back(NormalizingElement::kElementClassName);
   element_types->push_back(LoadBalancingElement::kElementClassName);
   element_types->push_back(SavingElement::kElementClassName);
-  element_types->push_back(SplittingElement::kElementClassName);
   element_types->push_back(SwitchingElement::kElementClassName);
   element_types->push_back(TimeSavingElement::kElementClassName);
   element_types->push_back(LookupElement::kElementClassName);
@@ -131,33 +133,25 @@ int64 StandardLibrary::GetElementNeeds(const string& element_type) {
   if ( element_type == AioFileElement::kElementClassName ) {
     return (NEED_SELECTOR |
             NEED_AIO_FILES |
-            NEED_MEDIA_DIR |
-            NEED_SPLITTER_CREATOR);
-  } else if ( element_type == DebuggerElement::kElementClassName ) {
-    return (NEED_SELECTOR);
+            NEED_MEDIA_DIR);
   } else if ( element_type == DroppingElement::kElementClassName ) {
     return (NEED_SELECTOR);
   } else if ( element_type == HttpClientElement::kElementClassName ) {
-    return (NEED_SELECTOR |
-            NEED_SPLITTER_CREATOR |
-            NEED_HOST2IP_MAP);
+    return (NEED_SELECTOR);
   } else if ( element_type == HttpPosterElement::kElementClassName ) {
-    return (NEED_SELECTOR |
-            NEED_HOST2IP_MAP);
+    return (NEED_SELECTOR);
   } else if ( element_type == RemoteResolverElement::kElementClassName ) {
     return (NEED_SELECTOR);
   } else if ( element_type == HttpServerElement::kElementClassName ) {
     return (NEED_SELECTOR |
             NEED_MEDIA_DIR |
             NEED_RPC_SERVER |
-            NEED_SPLITTER_CREATOR |
             NEED_HTTP_SERVER |
             NEED_STATE_KEEPER);
   } else if ( element_type == RtmpPublishingElement::kElementClassName ) {
     return (NEED_SELECTOR |
             NEED_MEDIA_DIR |
             NEED_RPC_SERVER |
-            NEED_SPLITTER_CREATOR |
             NEED_STATE_KEEPER);
   } else if ( element_type == KeyFrameExtractorElement::kElementClassName ) {
     return (NEED_SELECTOR);
@@ -166,17 +160,12 @@ int64 StandardLibrary::GetElementNeeds(const string& element_type) {
   } else if ( element_type == NormalizingElement::kElementClassName ) {
     return (NEED_SELECTOR);
   } else if ( element_type == LookupElement::kElementClassName ) {
-    return (NEED_SELECTOR |
-            NEED_SPLITTER_CREATOR |
-            NEED_HOST2IP_MAP);
+    return (NEED_SELECTOR);
   } else if ( element_type == LoadBalancingElement::kElementClassName ) {
     return (NEED_SELECTOR);
   } else if ( element_type == SavingElement::kElementClassName ) {
     return (NEED_SELECTOR |
             NEED_MEDIA_DIR);
-  } else if ( element_type == SplittingElement::kElementClassName ) {
-    return (NEED_SPLITTER_CREATOR |
-            NEED_SELECTOR);
   } else if ( element_type == SwitchingElement::kElementClassName ) {
     return (NEED_RPC_SERVER |
             NEED_SELECTOR);
@@ -231,15 +220,13 @@ streaming::Element* StandardLibrary::CreateElement(
     const string& element_params,
     const streaming::Request* req,
     const CreationObjectParams& params,
+    bool is_temporary_template,
     // Output:
     vector<string>* needed_policies,
     string* error_description) {
   streaming::Element* ret = NULL;
   if ( element_type == AioFileElement::kElementClassName ) {
     CREATE_ELEMENT_HELPER(AioFile);
-    return ret;
-  } else if ( element_type == DebuggerElement::kElementClassName ) {
-    CREATE_ELEMENT_HELPER(Debugger);
     return ret;
   } else if ( element_type == DroppingElement::kElementClassName ) {
     CREATE_ELEMENT_HELPER(Dropping);
@@ -273,9 +260,6 @@ streaming::Element* StandardLibrary::CreateElement(
     return ret;
   } else if ( element_type == SavingElement::kElementClassName ) {
     CREATE_ELEMENT_HELPER(Saving);
-    return ret;
-  } else if ( element_type == SplittingElement::kElementClassName ) {
-    CREATE_ELEMENT_HELPER(Splitting);
     return ret;
   } else if ( element_type == SwitchingElement::kElementClassName ) {
     CREATE_ELEMENT_HELPER(Switching);
@@ -355,24 +339,18 @@ streaming::Element* StandardLibrary::CreateAioFileElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   CHECK(mapper_ != NULL);
-  const string home_dir(spec.home_dir_.c_str());
-  const string full_home_dir(params.media_dir_ + "/" + home_dir);
-  if ( !io::IsDir(full_home_dir.c_str()) ) {
+  const string& home_dir = spec.home_dir_;
+  const string full_home_dir = strutil::JoinPaths(params.media_dir_, home_dir);
+  if ( !io::IsDir(full_home_dir) ) {
     LOG_ERROR << "Cannot create media element under directory : ["
               << home_dir << "] (looking under: ["
               << full_home_dir << "]";
-    delete params.splitter_creator_;
     return NULL;
   }
-  Tag::Type tag_type;
-  if ( !GetStreamType(spec.media_type_, &tag_type) ) {
-    *error = "Invalid media type specified for AioFileElement";
-    delete params.splitter_creator_;
-    return NULL;
-  }
-  const char* data_key_prefix =
+  const string data_key_prefix =
       spec.data_key_prefix_.is_set()
       ? spec.data_key_prefix_.c_str() : "";
   const bool disable_pause = (spec.disable_pause_.is_set() &&
@@ -381,44 +359,21 @@ streaming::Element* StandardLibrary::CreateAioFileElement(
                              spec.disable_seek_.get());
   const bool disable_duration = (spec.disable_duration_.is_set() &&
                                  spec.disable_duration_.get());
-  const char* default_index_file =
+  const string default_index_file =
       spec.default_index_file_.is_set()
       ? spec.default_index_file_.c_str() : "";
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId() : element_name);
-  return new AioFileElement(element_name.c_str(),
-                            id.c_str(),
+  return new AioFileElement(element_name,
                             mapper_,
                             params.selector_,
-                            params.splitter_creator_,
                             params.aio_managers_,
                             params.buffer_manager_,
-                            tag_type,
-                            full_home_dir.c_str(),
-                            spec.file_pattern_.c_str(),
+                            full_home_dir,
+                            spec.file_pattern_,
                             default_index_file,
                             data_key_prefix,
                             disable_pause,
                             disable_seek,
                             disable_duration);
-}
-
-/////// Debugger
-
-streaming::Element* StandardLibrary::CreateDebuggerElement(
-    const string& element_name,
-    const DebuggerElementSpec& spec,
-    const streaming::Request* req,
-    const CreationObjectParams& params,
-    vector<string>* needed_policies,
-    string* error) {
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId() : element_name);
-  return new streaming::DebuggerElement(
-      element_name.c_str(),
-      id.c_str(),
-      mapper_,
-      params.selector_);
 }
 
 /////// Dropping
@@ -429,15 +384,13 @@ streaming::Element* StandardLibrary::CreateDroppingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId() : element_name);
   return new streaming::DroppingElement(
-      element_name.c_str(),
-      id.c_str(),
+      element_name,
       mapper_,
       params.selector_,
-      spec.media_filtered_.c_str(),
+      spec.media_filtered_,
       spec.audio_accept_period_ms_,
       spec.audio_drop_period_ms_,
       spec.video_accept_period_ms_,
@@ -453,6 +406,7 @@ streaming::Element* StandardLibrary::CreateHttpClientElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   const int media_http_maximum_tag_size =
       spec.media_http_maximum_tag_size_.is_set()
@@ -464,38 +418,27 @@ streaming::Element* StandardLibrary::CreateHttpClientElement(
       spec.advance_media_ms_.is_set()
       ? spec.advance_media_ms_ : 2000;
 
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   HttpClientElement* const src =
       new streaming::HttpClientElement(
-          element_name.c_str(),
-          id.c_str(),
+          element_name,
           mapper_,
           params.selector_,
-          params.host_aliases_,
-          params.splitter_creator_,
           prefill_buffer_ms,
           advance_media_ms,
           media_http_maximum_tag_size);
   for ( int i = 0; spec.http_data_.size() > i; ++i )  {
     const HttpClientElementDataSpec&
         crt_spec = spec.http_data_[i];
-    Tag::Type tag_type;
-    if ( !GetStreamType(crt_spec.media_type_.c_str(), &tag_type) ) {
-      LOG_ERROR << " Unknown media type: " << crt_spec.media_type_.c_str();
-      continue;
-    }
     bool fetch_only_on_request = false;
     if ( crt_spec.fetch_only_on_request_.is_set() ) {
       fetch_only_on_request = crt_spec.fetch_only_on_request_;
     }
-    if ( !src->AddElement(crt_spec.name_.c_str(),
-                          crt_spec.host_ip_.c_str(),
+    if ( !src->AddElement(crt_spec.name_,
+                          crt_spec.host_ip_,
                           crt_spec.port_,
-                          crt_spec.path_escaped_.c_str(),
+                          crt_spec.path_escaped_,
                           crt_spec.should_reopen_,
-                          fetch_only_on_request,
-                          tag_type) ) {
+                          fetch_only_on_request) ) {
       // TODO(cpopescu): should we report an error on this one ?
       LOG_ERROR << "Cannot AddElement " << crt_spec.ToString()
                 << "  for HttpClientElement " << element_name;
@@ -507,8 +450,7 @@ streaming::Element* StandardLibrary::CreateHttpClientElement(
       const string pass(crt_spec.remote_password_.is_set()
                         ? crt_spec.remote_password_.c_str()
                         : "");
-      src->SetElementRemoteUser(crt_spec.name_.c_str(),
-                                user.c_str(), pass.c_str());
+      src->SetElementRemoteUser(crt_spec.name_, user, pass);
     }
   }
   return src;
@@ -522,10 +464,11 @@ streaming::Element* StandardLibrary::CreateHttpPosterElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  Tag::Type tag_type;
-  if ( !GetStreamType(spec.media_type_.c_str(), &tag_type) ) {
-    LOG_ERROR << " Unknown media type: " << spec.media_type_.c_str();
+  MediaFormat media_format;
+  if ( !MediaFormatFromSmallType(spec.post_media_format_, &media_format) ) {
+    LOG_ERROR << "Unknown POST media format: " << spec.post_media_format_.get();
     return NULL;
   }
 
@@ -553,20 +496,16 @@ streaming::Element* StandardLibrary::CreateHttpPosterElement(
                     ? spec.remote_password_.c_str()
                     : "");
 
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   return new streaming::HttpPosterElement(
-      element_name.c_str(),
-      id.c_str(),
+      element_name,
       mapper_,
       params.selector_,
-      params.host_aliases_,
-      spec.media_name_.c_str(),
-      spec.host_ip_.c_str(),
+      spec.media_name_,
+      spec.host_ip_,
       spec.port_,
-      spec.path_escaped_.c_str(),
-      tag_type,
-      user.c_str(), pass.c_str(),
+      spec.path_escaped_,
+      media_format,
+      user, pass,
       max_buffer_size,
       desired_http_chunk_size,
       media_retry_timeout_ms,
@@ -582,12 +521,14 @@ streaming::Element* StandardLibrary::CreateLookupElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
 
   streaming::Element* http_client_element =
       CreateHttpClientElement(element_name + "_http_client",
                               spec.http_spec_,
-                              req, params, needed_policies, error);
+                              req, params, needed_policies,
+                              is_temporary_template, error);
   if ( http_client_element == NULL ) {
     return NULL;
   }
@@ -617,7 +558,7 @@ streaming::Element* StandardLibrary::CreateLookupElement(
   }
   vector<net::HostPort> servers;
   for ( int i = 0; i < spec.lookup_servers_.size(); ++i ) {
-    net::HostPort hp(spec.lookup_servers_[i].c_str());
+    net::HostPort hp(spec.lookup_servers_[i]);
     if ( !hp.IsInvalid() ) {
       servers.push_back(hp);
     }
@@ -636,10 +577,7 @@ streaming::Element* StandardLibrary::CreateLookupElement(
   bool local_lookup_first = spec.local_lookup_first_.is_set()
                             ? spec.local_lookup_first_
                             : true;
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new LookupElement(element_name.c_str(),
-                           id.c_str(),
+  return new LookupElement(element_name,
                            mapper_,
                            params.selector_,
                            reinterpret_cast<HttpClientElement*>(
@@ -662,17 +600,8 @@ streaming::Element* StandardLibrary::CreateRemoteResolverElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  Tag::Type tag_type;
-  if ( !GetStreamType(spec.media_type_.c_str(), &tag_type) ) {
-    *error = string(" Unknown media type: ") + spec.media_type_.get();
-    LOG_ERROR << " Unknown media type: " << spec.media_type_.c_str();
-    return NULL;
-  }
-  const uint32 flavour_mask =
-      spec.flavour_mask_.is_set()
-      ? spec.flavour_mask_ : streaming::kDefaultFlavourMask;
-
   const int num_retries =
       spec.lookup_num_retries_.is_set()
       ? spec.lookup_num_retries_ : 3;
@@ -696,7 +625,7 @@ streaming::Element* StandardLibrary::CreateRemoteResolverElement(
   }
   vector<net::HostPort> servers;
   for ( int i = 0; i < spec.lookup_servers_.size(); ++i ) {
-    net::HostPort hp(spec.lookup_servers_[i].c_str());
+    net::HostPort hp(spec.lookup_servers_[i]);
     if ( !hp.IsInvalid() ) {
       servers.push_back(hp);
     }
@@ -719,11 +648,8 @@ streaming::Element* StandardLibrary::CreateRemoteResolverElement(
   bool local_lookup_first = spec.local_lookup_first_.is_set()
                             ? spec.local_lookup_first_
                             : true;
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   return new RemoteResolverElement(
-      element_name.c_str(),
-      id.c_str(),
+      element_name,
       mapper_,
       params.selector_,
       spec.cache_expiration_time_ms_,
@@ -733,8 +659,7 @@ streaming::Element* StandardLibrary::CreateRemoteResolverElement(
       max_concurrent_requests,
       req_timeout_ms,
       local_lookup_first,
-      auth_user, auth_pass,
-      streaming::Capabilities(tag_type, flavour_mask));
+      auth_user, auth_pass);
 }
 
 /////// HttpServer
@@ -745,39 +670,36 @@ streaming::Element* StandardLibrary::CreateHttpServerElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   delete params.local_state_keeper_;
   if ( req != NULL ) {
     delete params.state_keeper_;
-    delete params.splitter_creator_;
-    LOG_ERROR << " Cannot create temporary HttpServerElement";
+    *error = " Cannot create temporary HttpServerElement";
+    LOG_ERROR << *error;
     return NULL;
   }
   string rpc_path(name() + "/" + element_name + "/");
-  string authorizer_name;
-  if ( spec.authorizer_name_.is_set() ) {
-    authorizer_name = spec.authorizer_name_;
-  }
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   HttpServerElement* const src =
       new streaming::HttpServerElement(element_name,
-                                       id,
                                        mapper_,
-                                       spec.path_escaped_,
+                                       spec.base_listen_path_.get(),
                                        params.selector_,
-                                       params.media_dir_,
                                        params.http_server_,
-                                       rpc_path.c_str(),
+                                       rpc_path,
                                        params.rpc_server_,
                                        params.state_keeper_,
-                                       params.splitter_creator_,
-                                       authorizer_name);
-  for ( int i = 0; i < spec.http_data_.size(); ++i ) {
-    const HttpServerElementDataSpec& crt_spec = spec.http_data_[i];
-    MediaOperationErrorData ret;
-    src->AddImport(&ret, crt_spec, false);  // do not save to state ..
+                                       spec.authorizer_name_.get());
+  // This function is used for both:
+  // - rpc element creation: this needs SaveState()
+  // - from config element creation: DON'T save, let it LoadState()
+  if ( !spec.imports_.empty() ) {
+    for ( int i = 0; i < spec.imports_.size(); ++i ) {
+      src->AddImport(spec.imports_[i], false, error);
+    }
+    src->SaveState();
   }
+
   return src;
 }
 
@@ -789,37 +711,28 @@ streaming::Element* StandardLibrary::CreateRtmpPublishingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   delete params.local_state_keeper_;
   string rpc_path(name() + "/" + element_name + "/");
   if ( req != NULL ) {
     delete params.state_keeper_;
-    delete params.splitter_creator_;
-    LOG_ERROR << " Cannot create temporary RtmpPublishingElement";
+    *error = "Cannot create temporary RtmpPublishingElement";
+    LOG_ERROR << *error;
     return NULL;   // Only global publishing elements pls
   }
-  string authorizer_name;
-  if ( spec.authorizer_name_.is_set() ) {
-    authorizer_name = spec.authorizer_name_;
-  }
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   RtmpPublishingElement* const src =
       new streaming::RtmpPublishingElement(element_name,
-                                           id,
                                            mapper_,
                                            params.selector_,
-                                           params.media_dir_,
                                            rpc_path,
                                            params.rpc_server_,
                                            params.state_keeper_,
-                                           params.splitter_creator_,
-                                           authorizer_name);
-  for ( int i = 0; i < spec.rtmp_data_.size(); ++i ) {
-    const RtmpPublishingElementDataSpec& crt_spec = spec.rtmp_data_[i];
-    MediaOperationErrorData ret;
-    src->AddImport(&ret, crt_spec, false);  // do not save to state ..
+                                           spec.authorizer_name_);
+  for ( int i = 0; i < spec.imports_.size(); ++i ) {
+    src->AddImport(spec.imports_[i], false, error);
   }
+  src->SaveState();
   return src;
 }
 
@@ -831,15 +744,12 @@ streaming::Element* StandardLibrary::CreateKeyFrameExtractorElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   return new KeyFrameExtractorElement(
-      element_name.c_str(),
-      id.c_str(),
+      element_name,
       mapper_,
       params.selector_,
-      spec.media_filtered_.c_str(),
       spec.ms_between_video_frames_,
       spec.drop_audio_);
 }
@@ -852,12 +762,10 @@ streaming::Element* StandardLibrary::CreateStreamRenamerElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   return new StreamRenamerElement(
-      element_name.c_str(),
-      id.c_str(),
+      element_name,
       mapper_,
       params.selector_,
       spec.pattern_,
@@ -872,6 +780,7 @@ streaming::Element* StandardLibrary::CreateNormalizingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   const int64 flow_control_write_ahead_ms =
       spec.flow_control_write_ahead_ms_.is_set()
@@ -881,10 +790,7 @@ streaming::Element* StandardLibrary::CreateNormalizingElement(
       spec.flow_control_extra_write_ahead_ms_.is_set()
       ? spec.flow_control_extra_write_ahead_ms_
       : 500;
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new streaming::NormalizingElement(element_name.c_str(),
-                                           id.c_str(),
+  return new streaming::NormalizingElement(element_name,
                                            mapper_,
                                            params.selector_,
                                            flow_control_write_ahead_ms,
@@ -899,6 +805,7 @@ streaming::Element* StandardLibrary::CreateLoadBalancingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   if ( spec.sub_elements_.size() == 0 ) {
     *error = "Please specify some sub elements";
@@ -908,10 +815,7 @@ streaming::Element* StandardLibrary::CreateLoadBalancingElement(
   for ( int i = 0; i < spec.sub_elements_.size(); ++i ) {
     sub_elements.push_back(spec.sub_elements_[i]);
   }
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new streaming::LoadBalancingElement(element_name.c_str(),
-                                             id.c_str(),
+  return new streaming::LoadBalancingElement(element_name,
                                              mapper_,
                                              params.selector_,
                                              sub_elements);
@@ -925,49 +829,14 @@ streaming::Element* StandardLibrary::CreateSavingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new streaming::SavingElement(element_name.c_str(),
-                                      id.c_str(),
+  return new streaming::SavingElement(element_name,
                                       mapper_,
                                       params.selector_,
                                       params.media_dir_,
                                       spec.media_.get(),
                                       spec.save_dir_.get());
-}
-
-/////// Splitting
-
-streaming::Element* StandardLibrary::CreateSplittingElement(
-    const string& element_name,
-    const SplittingElementSpec& spec,
-    const streaming::Request* req,
-    const CreationObjectParams& params,
-    vector<string>* needed_policies,
-    string* error) {
-  Tag::Type tag_type;
-  if ( !GetStreamType(spec.splitter_media_type_.c_str(), &tag_type) ) {
-    *error = string(" Unknown media type: ") +
-             spec.splitter_media_type_.get();
-    LOG_ERROR << " Unknown media type: "
-              << spec.splitter_media_type_.ToString();
-    delete params.splitter_creator_;
-    return NULL;
-  }
-  const int max_tag_size =
-      spec.max_tag_size_.is_set()
-      ? spec.max_tag_size_
-      : (1 << 18);
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new streaming::SplittingElement(element_name.c_str(),
-                                         id.c_str(),
-                                         mapper_,
-                                         params.selector_,
-                                         params.splitter_creator_,
-                                         tag_type,
-                                         max_tag_size);
 }
 
 /////// Switching
@@ -978,13 +847,8 @@ streaming::Element* StandardLibrary::CreateSwitchingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  Tag::Type tag_type;
-  if ( !GetStreamType(spec.media_type_.c_str(), &tag_type) ) {
-    *error = string(" Unknown media type: ") + spec.media_type_.get();
-    LOG_ERROR << " Unknown media type: " << spec.media_type_.c_str();
-    return NULL;
-  }
   const uint32 flavour_mask =
       spec.flavour_mask_.is_set()
       ? 1 * spec.flavour_mask_ : streaming::kDefaultFlavourMask;
@@ -1006,22 +870,20 @@ streaming::Element* StandardLibrary::CreateSwitchingElement(
       spec.write_ahead_ms_.is_set()
       ? spec.write_ahead_ms_ : 1000;
   needed_policies->push_back(spec.policy_name_);
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
   return new streaming::SwitchingElement(
-      element_name.c_str(),
-      id.c_str(),
+      element_name,
       mapper_,
       params.selector_,
-      rpc_path.c_str(),
+      rpc_path,
       params.rpc_server_,
-      streaming::Capabilities(tag_type, flavour_mask),
+      streaming::Capabilities(flavour_mask),
       default_flavour_id,
       tag_timeout_ms,
       write_ahead_ms,
       media_only_when_used,
       // Save media bootstrap only for global
-      req == NULL);
+      req == NULL,
+      is_temporary_template);
 }
 
 /////// TimeSaving
@@ -1032,12 +894,10 @@ streaming::Element* StandardLibrary::CreateTimeSavingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
   delete params.state_keeper_;
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new streaming::TimeSavingElement(element_name.c_str(),
-                                          id.c_str(),
+  return new streaming::TimeSavingElement(element_name,
                                           mapper_,
                                           params.selector_,
                                           params.local_state_keeper_);
@@ -1051,11 +911,9 @@ streaming::Element* StandardLibrary::CreateF4vToFlvConverterElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new streaming::F4vToFlvConverterElement(element_name.c_str(),
-                                                 id.c_str(),
+  return new streaming::F4vToFlvConverterElement(element_name,
                                                  mapper_,
                                                  params.selector_);
 }
@@ -1068,11 +926,9 @@ streaming::Element* StandardLibrary::CreateRedirectingElement(
     const streaming::Request* req,
     const CreationObjectParams& params,
     vector<string>* needed_policies,
+    bool is_temporary_template,
     string* error) {
-  const string id(req != NULL
-                  ? element_name + "-" + req->GetUrlId(): element_name);
-  return new streaming::RedirectingElement(element_name.c_str(),
-                                           id.c_str(),
+  return new streaming::RedirectingElement(element_name,
                                            mapper_,
                                            spec.redirections_);
 }
@@ -1099,7 +955,7 @@ streaming::Policy* StandardLibrary::CreateRandomPolicy(
     params.local_state_keeper_->set_timeout_ms(to_ms);
   }
   return new RandomPolicy(
-      name.c_str(),
+      name,
       element,
       req != NULL,
       params.state_keeper_,
@@ -1138,14 +994,14 @@ streaming::Policy* StandardLibrary::CreatePlaylistPolicy(
     rpc_server = NULL;
   }
   return new PlaylistPolicy(
-      policy_name.c_str(),
+      policy_name,
       element,
       req != NULL,
       params.state_keeper_,
       params.local_state_keeper_,
       playlist, loop_playlist,
-      rpc_path.c_str(),
-      local_rpc_path.c_str(),
+      rpc_path,
+      local_rpc_path,
       rpc_server);
 }
 
@@ -1179,7 +1035,7 @@ streaming::Policy* StandardLibrary::CreateTimedPlaylistPolicy(
     params.local_state_keeper_->set_timeout_ms(to_ms);
   }
   return new TimedPlaylistPolicy(
-      policy_name.c_str(),
+      policy_name,
       element,
       params.selector_,
       req != NULL,
@@ -1210,7 +1066,7 @@ streaming::Policy* StandardLibrary::CreateFailoverPolicy(
     failover_timeout_sec = spec.failover_timeout_sec_;
   }
   return new FailoverPolicy(
-      policy_name.c_str(),
+      policy_name,
       element,
       mapper_,
       params.selector_,
@@ -1248,14 +1104,14 @@ streaming::Policy* StandardLibrary::CreateOnCommandPolicy(
     rpc_server = NULL;
   }
   return new OnCommandPolicy(
-      policy_name.c_str(),
+      policy_name,
       element,
       req != NULL,
       params.state_keeper_,
       params.local_state_keeper_,
       spec.default_element_,
-      rpc_path.c_str(),
-      local_rpc_path.c_str(),
+      rpc_path,
+      local_rpc_path,
       rpc_server);
 }
 
@@ -1264,23 +1120,16 @@ streaming::Authorizer* StandardLibrary::CreateSimpleAuthorizer(
     const SimpleAuthorizerSpec& spec,
     const CreationObjectParams& params,
     string* error) {
-  string rpc_path(name() + "/" + auth_name + "/");
-  int32 reauthorize_interval_ms = 0;
-  if ( spec.reauthorize_interval_ms_.is_set() ) {
-    reauthorize_interval_ms = spec.reauthorize_interval_ms_;
-  }
   int32 time_limit_ms = 0;
   if ( spec.time_limit_ms_.is_set() ) {
     time_limit_ms = spec.time_limit_ms_;
   }
   delete params.local_state_keeper_;
-  return new SimpleAuthorizer(
-      auth_name.c_str(),
-      reauthorize_interval_ms,
-      time_limit_ms,
-      params.state_keeper_,
-      rpc_path.c_str(),
-      params.rpc_server_);
+  return new SimpleAuthorizer(auth_name,
+                              time_limit_ms,
+                              params.state_keeper_,
+                              strutil::JoinPaths(name(), auth_name),
+                              params.rpc_server_);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1306,23 +1155,15 @@ class ServiceInvokerStandardLibraryServiceImpl
 
  private:
   virtual void AddAioFileElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
       const AioFileElementSpec& spec) {
     STANDARD_RPC_ELEMENT_ADD(AioFile);
   }
-  virtual void AddDebuggerElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
-      const string& name,
-      bool is_global,
-      bool disable_rpc,
-      const DebuggerElementSpec& spec) {
-    STANDARD_RPC_ELEMENT_ADD(Debugger);
-  }
   virtual void AddDroppingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1330,7 +1171,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(Dropping);
   }
   virtual void AddHttpClientElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1338,7 +1179,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(HttpClient);
   }
   virtual void AddHttpPosterElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1346,7 +1187,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(HttpPoster);
   }
   virtual void AddRemoteResolverElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1354,7 +1195,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(RemoteResolver);
   }
   virtual void AddHttpServerElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1362,7 +1203,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(HttpServer);
   }
   virtual void AddRtmpPublishingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1370,7 +1211,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(RtmpPublishing);
   }
   virtual void AddKeyFrameExtractorElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1378,7 +1219,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(KeyFrameExtractor);
   }
   virtual void AddStreamRenamerElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1386,7 +1227,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(StreamRenamer);
   }
   virtual void AddNormalizingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1394,7 +1235,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(Normalizing);
   }
   virtual void AddLoadBalancingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1402,23 +1243,15 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(LoadBalancing);
   }
   virtual void AddSavingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
       const SavingElementSpec& spec) {
     STANDARD_RPC_ELEMENT_ADD(Saving);
   }
-  virtual void AddSplittingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
-      const string& name,
-      bool is_global,
-      bool disable_rpc,
-      const SplittingElementSpec& spec) {
-    STANDARD_RPC_ELEMENT_ADD(Splitting);
-  }
   virtual void AddSwitchingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1426,7 +1259,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(Switching);
   }
   virtual void AddTimeSavingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1434,7 +1267,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(TimeSaving);
   }
   virtual void AddLookupElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1442,7 +1275,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(Lookup);
   }
   virtual void AddF4vToFlvConverterElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1450,7 +1283,7 @@ class ServiceInvokerStandardLibraryServiceImpl
     STANDARD_RPC_ELEMENT_ADD(F4vToFlvConverter);
   }
   virtual void AddRedirectingElementSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       bool is_global,
       bool disable_rpc,
@@ -1461,37 +1294,37 @@ class ServiceInvokerStandardLibraryServiceImpl
   /////
 
   virtual void AddRandomPolicySpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       const RandomPolicySpec& spec) {
     STANDARD_RPC_POLICY_ADD(Random);
   }
   virtual void AddPlaylistPolicySpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       const PlaylistPolicySpec& spec) {
     STANDARD_RPC_POLICY_ADD(Playlist);
   }
   virtual void AddTimedPlaylistPolicySpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       const TimedPlaylistPolicySpec& spec) {
     STANDARD_RPC_POLICY_ADD(TimedPlaylist);
   }
   virtual void AddFailoverPolicySpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       const FailoverPolicySpec& spec) {
     STANDARD_RPC_POLICY_ADD(Failover);
   }
   virtual void AddOnCommandPolicySpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       const OnCommandPolicySpec& spec) {
     STANDARD_RPC_POLICY_ADD(OnCommand);
   }
   virtual void AddSimpleAuthorizerSpec(
-      rpc::CallContext< MediaOperationErrorData >* call,
+      rpc::CallContext< MediaOpResult >* call,
       const string& name,
       const SimpleAuthorizerSpec& spec) {
     STANDARD_RPC_AUTHORIZER_ADD(Simple);
@@ -1592,14 +1425,14 @@ void ServiceInvokerStandardLibraryServiceImpl::ResolveMedia(
       for ( int i = 0; i < policy->playlist().size(); ++i ) {
         const string& crt = policy->playlist()[i];
         ret.media_.ref().push_back(
-            MediaAliasSpec(crt, mapper_->TranslateMedia(crt.c_str())));
+            MediaAliasSpec(crt, mapper_->TranslateMedia(crt)));
       }
     } else {
-      const string alias = mapper_->TranslateMedia(media.c_str());
+      const string alias = mapper_->TranslateMedia(media);
       ret.media_.ref().push_back(MediaAliasSpec(media, alias));
     }
   } else {
-    const string alias = mapper_->TranslateMedia(media.c_str());
+    const string alias = mapper_->TranslateMedia(media);
     ret.media_.ref().push_back(MediaAliasSpec(media, alias));
   }
   call->Complete(ret);

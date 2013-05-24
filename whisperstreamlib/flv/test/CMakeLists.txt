@@ -29,36 +29,27 @@
 
 project (whisperstreamlib)
 
-ADD_EXECUTABLE(flv_tag_printer
-  flv_tag_printer.cc)
-ADD_DEPENDENCIES(flv_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-TARGET_LINK_LIBRARIES(flv_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-
 ADD_EXECUTABLE(flv_join_files
   flv_join_files.cc)
 ADD_DEPENDENCIES(flv_join_files
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(flv_join_files
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 
 ADD_EXECUTABLE(flv_split_file
   flv_split_file.cc)
 ADD_DEPENDENCIES(flv_split_file
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(flv_split_file
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 
 ADD_CUSTOM_TARGET(flv_tag_test)
-ADD_DEPENDENCIES(flv_tag_test flv_tag_printer)
-ADD_TEST(flv_tag_test ${CMAKE_CURRENT_SOURCE_DIR}/flv_tag_test.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+ADD_DEPENDENCIES(flv_tag_test media_file_printer)
+ADD_TEST(flv_tag_test ${CMAKE_CURRENT_SOURCE_DIR}/flv_tag_test.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/whisperstreamlib/utils)
 
 ADD_CUSTOM_TARGET(flv_join_test)
 ADD_DEPENDENCIES(flv_join_test flv_join_files)
@@ -70,8 +61,6 @@ endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_data/join_test.flv)
 
 # Actually these utilities are rather handy ...
 INSTALL (TARGETS flv_join_files
-         DESTINATION bin)
-INSTALL (TARGETS flv_tag_printer
          DESTINATION bin)
 INSTALL (TARGETS flv_split_file
          DESTINATION bin)

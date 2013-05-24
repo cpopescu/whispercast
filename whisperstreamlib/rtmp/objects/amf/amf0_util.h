@@ -58,10 +58,8 @@ class Amf0Util {
   static void WriteGenericObjectBegin(io::MemoryStream* out);
   static void WriteGenericObjectEnd(io::MemoryStream* out);
 
-  // Reads and creates the next object in the input stream - In case
-  // of not enough data or corrupted stream we return NULL.
-  // In any case we leave the read pointer of the stream in the position
-  // we were able to advance to. (Is your job to reverse it)..
+  // Reads and creates the next object in the input stream.
+  // Returns NULL in case of not enough data or corrupted stream.
   static AmfUtil::ReadStatus ReadNextObject(io::MemoryStream* in,
                                             CObject** obj);
 

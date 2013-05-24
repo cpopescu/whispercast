@@ -225,6 +225,7 @@ class UdpConnection : private Selectable {
   //////////////////////////////////////////////////////////////////////
 
  private:
+  net::Selector* selector_;
   // callbacks into the application
   ReadHandler* read_handler_;
   WriteHandler* write_handler_;

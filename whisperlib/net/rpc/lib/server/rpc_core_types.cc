@@ -29,9 +29,8 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/io/input_stream.h"
-#include "common/io/buffer/io_memory_stream.h"
-#include "net/rpc/lib/server/rpc_core_types.h"
+#include <whisperlib/net/rpc/lib/server/rpc_core_types.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
 
 namespace rpc {
 
@@ -40,19 +39,18 @@ rpc::Query::Query(const rpc::Transport& transport,
                   const string& service,
                   const string& method,
                   const io::MemoryStream& args,
-                  const rpc::Codec& codec,
+                  const CodecId codec,
                   uint32 rid)
     : transport_(transport),
-      codec_(codec.Clone()),
       qid_(qid),
       service_(service),
       method_(method),
+      codec_(codec),
       args_(),
-      args_decoder_(codec_->CreateDecoder(args_)),
+      args_decoder_(CreateDecoder(codec)),
       args_decoding_initialized_(false),
       status_(static_cast<rpc::REPLY_STATUS>(-1)),
       result_(),
-      result_encoder_(codec_->CreateEncoder(result_)),
       query_params_(NULL),
       completion_callback_(NULL),
       rid_(rid) {
@@ -62,12 +60,9 @@ rpc::Query::Query(const rpc::Transport& transport,
 }
 
 rpc::Query::~Query() {
-  delete codec_;
-  codec_ = NULL;
+  args_.MarkerRestore();
   delete args_decoder_;
   args_decoder_ = NULL;
-  delete result_encoder_;
-  result_encoder_ = NULL;
   delete query_params_;
   query_params_ = NULL;
 }
@@ -80,8 +75,7 @@ io::MemoryStream& rpc::Query::RewindParams() {
 }
 bool rpc::Query::InitDecodeParams() {
   CHECK ( !args_decoding_initialized_ );
-  uint32 item_count;
-  if ( DECODE_RESULT_SUCCESS != args_decoder_->DecodeArrayStart(item_count) ) {
+  if ( DECODE_RESULT_SUCCESS != args_decoder_->DecodeArrayStart(args_) ) {
     return false;
   }
   // initialized
@@ -90,9 +84,9 @@ bool rpc::Query::InitDecodeParams() {
 }
 bool rpc::Query::HasMoreParams() {
   CHECK ( args_decoding_initialized_ );
-  bool has_more_items;
-  DECODE_RESULT result = args_decoder_->DecodeArrayContinue(has_more_items);
-  return result == DECODE_RESULT_SUCCESS && has_more_items;
+  bool more_items = false;
+  DECODE_RESULT r = args_decoder_->DecodeArrayContinue(args_, &more_items);
+  return r == DECODE_RESULT_SUCCESS && more_items;
 }
 
 void rpc::Query::SetParams(rpc::Query::Params* params) {
@@ -110,15 +104,14 @@ void rpc::Query::SetCompletionCallback(
 string rpc::Query::ToString() const {
   ostringstream oss;
   oss << "rpc::Query {"
-      << " qid=" << qid_
-      << " service=" << service_
-      << " method=" << method_
-      << " codec=" << codec_->ToString()
-      << " args=" << args_.DebugString()
-      << " status=" << status_ << "(" << rpc::ReplyStatusName(status_) << ")"
-      << " result=" << result_.DebugString()
-      << " rid=" << rid_
-      << "}";
+      << ", qid_: " << qid_
+      << ", service_: " << service_
+      << ", method_: " << method_
+      << ", codec_: " << CodecName(codec_)
+      << ", args_: " << args_.DebugString()
+      << ", status_: " << status_ << "(" << rpc::ReplyStatusName(status_) << ")"
+      << ", result_: " << result_.DebugString()
+      << ", rid_: " << rid_ << "}";
   return oss.str();
 }
 }

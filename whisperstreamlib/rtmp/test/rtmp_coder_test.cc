@@ -40,7 +40,6 @@
 #include <whisperstreamlib/rtmp/objects/amf/amf_util.h>
 #include <whisperstreamlib/rtmp/events/rtmp_event.h>
 #include <whisperstreamlib/rtmp/rtmp_coder.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol_data.h>
 
 //////////////////////////////////////////////////////////////////////
 
@@ -49,12 +48,12 @@ DEFINE_int32(num_ops,
              " Number of operations in the test");
 DEFINE_int32(fixed_event,
              -1,
-             "Write just one type of events..");
+             "Write just one type of event..");
 
 //////////////////////////////////////////////////////////////////////
 
 template<class C>
-C* PrepareBulkData(int size, rtmp::Header* header) {
+C* PrepareBulkData(const rtmp::Header& header, int size) {
   C* ret = new C(header);
   for ( int i = 0; i < size; i++ ) {
     const int x = random();
@@ -63,114 +62,78 @@ C* PrepareBulkData(int size, rtmp::Header* header) {
   return ret;
 }
 
+uint32 rnd() { return random() % 0xffffffff; }
 
 int main(int argc, char* argv[]) {
   common::Init(argc, argv);
 
   vector <scoped_ref<rtmp::Event> > initial;
-  vector <bool> is_bulk;
-  rtmp::ProtocolData protocol;
 
-  initial.push_back(new rtmp::EventChunkSize(256,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(new rtmp::EventBytesRead(123,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(new rtmp::EventServerBW(324566,
-                                            new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+  initial.push_back(new rtmp::EventChunkSize(rtmp::Header(2, 1,
+      rtmp::EVENT_CHUNK_SIZE, rnd(), false), 256));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 123));
+  initial.push_back(new rtmp::EventServerBW(rtmp::Header(2, 1,
+      rtmp::EVENT_SERVER_BANDWIDTH, rnd(), false), 324566));
   initial.push_back(PrepareBulkData<rtmp::EventSharedObject>(
-                      20847, new rtmp::Header(&protocol)));
-  is_bulk.push_back(true);
-  initial.push_back(new rtmp::EventClientBW(3262434, 23,
-                                            new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(new rtmp::EventBytesRead(20973,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(new rtmp::EventBytesRead(
-                        1037, new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(new rtmp::EventBytesRead(
-                        2734, new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(new rtmp::EventServerBW(324566,
-                                            new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+      rtmp::Header(2, 1, rtmp::EVENT_SHARED_OBJECT, rnd(), false), 20847));
+  initial.push_back(new rtmp::EventClientBW(rtmp::Header(2, 1,
+      rtmp::EVENT_CLIENT_BANDWIDTH, rnd(), false), 3262434, 23));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 20973));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 1037));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 2734));
+  initial.push_back(new rtmp::EventServerBW(rtmp::Header(2, 1,
+      rtmp::EVENT_SERVER_BANDWIDTH, rnd(), false), 324566));
   initial.push_back(PrepareBulkData<rtmp::EventVideoData>(
-                      100, new rtmp::Header(&protocol)));
-  is_bulk.push_back(true);
-  initial.push_back(new rtmp::EventBytesRead(2983,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(PrepareBulkData<rtmp::EventAudioData>(
-                      261, new rtmp::Header(&protocol)));
-  is_bulk.push_back(true);
+      rtmp::Header(2, 1, rtmp::EVENT_VIDEO_DATA, rnd(), false), 100));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 2983));
+  initial.push_back(PrepareBulkData<rtmp::EventAudioData>(rtmp::Header(
+      2, 1, rtmp::EVENT_AUDIO_DATA, rnd(), false), 261));
 
-  initial.push_back(new rtmp::EventBytesRead(18272364,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
-  initial.push_back(new rtmp::EventServerBW(324566,
-                                            new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 18272364));
+  initial.push_back(new rtmp::EventServerBW(rtmp::Header(2, 1,
+      rtmp::EVENT_SERVER_BANDWIDTH, rnd(), false), 324566));
   initial.push_back(PrepareBulkData<rtmp::EventSharedObject>(
-                      2183, new rtmp::Header(&protocol)));
-  is_bulk.push_back(true);
-  initial.push_back(new rtmp::EventBytesRead(208364,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+      rtmp::Header(2, 1, rtmp::EVENT_SHARED_OBJECT, rnd(), false), 2183));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 208364));
 
   initial.push_back(PrepareBulkData<rtmp::EventAudioData>(
-                      30283, new rtmp::Header(&protocol)));
-  is_bulk.push_back(true);
-  initial.push_back(new rtmp::EventBytesRead(1297973,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+      rtmp::Header(2, 1, rtmp::EVENT_AUDIO_DATA, rnd(), false), 30283));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 1297973));
 
-  initial.push_back(new rtmp::EventBytesRead(39743,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 39743));
   initial.push_back(PrepareBulkData<rtmp::EventFlexSharedObject>(
-                      156, new rtmp::Header(&protocol)));
-  is_bulk.push_back(true);
-  initial.push_back(new rtmp::EventBytesRead(394573,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+      rtmp::Header(2, 1, rtmp::EVENT_FLEX_SHARED_OBJECT, rnd(), false), 15));
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 394573));
 
-  rtmp::EventFlexMessage* const flex =
-    new rtmp::EventFlexMessage(new rtmp::Header(&protocol));
+  rtmp::EventFlexMessage* const flex = new rtmp::EventFlexMessage(
+      rtmp::Header(2, 1, rtmp::EVENT_FLEX_MESSAGE, rnd(), false));
   flex->mutable_data()->push_back(new rtmp::CString("test string"));
   flex->mutable_data()->push_back(new rtmp::CNumber(1234.344));
   initial.push_back(flex);
-  is_bulk.push_back(false);
 
-  initial.push_back(new rtmp::EventBytesRead(333,
-                                             new rtmp::Header(&protocol)));
-  is_bulk.push_back(false);
+  initial.push_back(new rtmp::EventBytesRead(rtmp::Header(2, 1,
+      rtmp::EVENT_BYTES_READ, rnd(), false), 333));
   initial.push_back(PrepareBulkData<rtmp::EventSharedObject>(
-                      20847, new rtmp::Header(&protocol)));
-  is_bulk.push_back(true);
+      rtmp::Header(2, 1, rtmp::EVENT_SHARED_OBJECT, rnd(), false), 20847));
 
   CHECK_LT(FLAGS_fixed_event, static_cast<int32>(initial.size()));
-  CHECK_EQ(initial.size(), is_bulk.size());
   for ( int i = 0; i < initial.size(); ++i ) {
     rtmp::Header* const h = initial[i]->mutable_header();
     io::MemoryStream tmp;
-
-    h->set_stream_id(1);  // avoid notigy ..
-    h->set_channel_id(2);
-    h->set_event_type(initial[i]->event_type());
-    h->set_timestamp_ms(random() % 0xffffff);
-    initial[i]->WriteToMemoryStream(&tmp, rtmp::AmfUtil::AMF0_VERSION);
-    h->set_event_size(tmp.Size());
-    scoped_ref<rtmp::Event> p = rtmp::Coder::CreateEvent(
-        new rtmp::Header(&protocol, *h));
-    if ( i == 12 ) {
-      LOG_INFO << " Break Here !!!";
-    }
-    const rtmp::AmfUtil::ReadStatus err =
-        p->ReadFromMemoryStream(&tmp, rtmp::AmfUtil::AMF0_VERSION);
+    initial[i]->EncodeBody(&tmp, rtmp::AmfUtil::AMF0_VERSION);
+    scoped_ref<rtmp::Event> p = rtmp::Coder::CreateEvent(*h);
+    const rtmp::AmfUtil::ReadStatus err = p->DecodeBody(&tmp,
+        rtmp::AmfUtil::AMF0_VERSION);
     CHECK(err == rtmp::AmfUtil::READ_OK) << " Encountered: "
                                          << rtmp::AmfUtil::ReadStatusName(err)
                                          << " ID: " << i
@@ -180,49 +143,40 @@ int main(int argc, char* argv[]) {
       << "ID: " << i << " Error for: \n" << *initial[i] << "\nvs.\n" << *p;
   }
   {
-    rtmp::Coder coder0(&protocol, 4 << 20);
-    rtmp::Coder coder1(&protocol, 4 << 20);
+    rtmp::Coder coder0(4 << 20);
+    rtmp::Coder coder1(4 << 20);
     scoped_ref<rtmp::EventAudioData> ev = PrepareBulkData<rtmp::EventAudioData>(
-        101, new rtmp::Header(&protocol));
-    ev->mutable_header()->set_stream_id(1);  // avoid notify ..
-    ev->mutable_header()->set_channel_id(5);
-    ev->mutable_header()->set_event_type(ev->event_type());
-    ev->mutable_header()->set_timestamp_ms(0);
-    ev->mutable_header()->set_is_timestamp_relative(false);
-    ev->mutable_header()->set_event_size(ev->data().Size());
+        rtmp::Header(5, 1, rtmp::EVENT_AUDIO_DATA, 0, false), 101);
 
     io::MemoryStream buf0;
 
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
+    coder0.Encode(*ev.get(), rtmp::AmfUtil::AMF0_VERSION, &buf0);
     ev->mutable_header()->set_is_timestamp_relative(true);
     ev->mutable_header()->set_timestamp_ms(50);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
+    coder0.Encode(*ev.get(), rtmp::AmfUtil::AMF0_VERSION, &buf0);
     ev->mutable_header()->set_timestamp_ms(25);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
+    coder0.Encode(*ev.get(), rtmp::AmfUtil::AMF0_VERSION, &buf0);
     ev->mutable_header()->set_timestamp_ms(50);
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
-    coder0.Encode(&buf0, rtmp::AmfUtil::AMF0_VERSION, ev.get());
+    coder0.Encode(*ev.get(), rtmp::AmfUtil::AMF0_VERSION, &buf0);
+    coder0.Encode(*ev.get(), rtmp::AmfUtil::AMF0_VERSION, &buf0);
+    coder0.Encode(*ev.get(), rtmp::AmfUtil::AMF0_VERSION, &buf0);
     for ( int i = 0; i < 6; ++i ) {
       scoped_ref<rtmp::Event> crt;
       rtmp::AmfUtil::ReadStatus err = coder1.Decode(
-          &buf0,
-          rtmp::AmfUtil::AMF0_VERSION,
-          &crt);
+          &buf0, rtmp::AmfUtil::AMF0_VERSION, &crt);
       CHECK_EQ(err, rtmp::AmfUtil::READ_OK);
     }
   }
 
-  rtmp::Coder coder(&protocol, 4 << 20);
+  rtmp::Coder coder(4 << 20);
 
   deque <scoped_ref<rtmp::Event> > written;
-  deque <bool> written_is_bulk;
   io::MemoryStream written_buffer;
   io::MemoryStream decode_buffer;
 
   for ( int i = 0; i < FLAGS_num_ops; i++ ) {
     int rnd_op = random() % 10;
-    bool read_op;
+    bool read_op = true;
     if ( written.size() < 1 ) {
       read_op = false;
     } else if ( written.size() < 10 ) {
@@ -231,25 +185,21 @@ int main(int argc, char* argv[]) {
       read_op = rnd_op >= 5;
     } else if ( written.size() < 30 ) {
       read_op = rnd_op >= 3;
-    } else {
-      read_op = true;
     }
     if ( read_op ) {
+      // transfer some bytes from written_buffer to decode_buffer
       const int64 num_to_transfer =
           min(static_cast<int>((random() % 100 + 1)
-                               * protocol.read_chunk_size()
+                               * coder.read_chunk_size()
                                / (random() % 10 + 1)),
               static_cast<int>(written_buffer.Size()));
-      decode_buffer.AppendStreamNonDestructive(&written_buffer,
-                                               num_to_transfer);
-      CHECK_EQ(written_buffer.Skip(num_to_transfer), num_to_transfer);
+      decode_buffer.AppendStream(&written_buffer, num_to_transfer);
 
+      // read as many events as possible from decode_buffer
       while ( true ) {
         scoped_ref<rtmp::Event> event;
         rtmp::AmfUtil::ReadStatus err = coder.Decode(
-            &decode_buffer,
-            rtmp::AmfUtil::AMF0_VERSION,
-            &event);
+            &decode_buffer, rtmp::AmfUtil::AMF0_VERSION, &event);
         if ( err == rtmp::AmfUtil::READ_NO_DATA ) {
           break;
         }
@@ -259,20 +209,19 @@ int main(int argc, char* argv[]) {
           << " Error for: \n" << *written.front() << "\nvs.\n" << *event;
         LOG_INFO << " ===> READ : " << event->ToString();
         written.pop_front();
-        written_is_bulk.pop_front();
-      };
-    } else {
-      int id = (FLAGS_fixed_event < 0
-                ? random() % initial.size()
-                : FLAGS_fixed_event);
-
-      coder.Encode(&written_buffer, rtmp::AmfUtil::AMF0_VERSION,
-                   initial[id].get());
-      written.push_back(initial[id]);
-      written_is_bulk.push_back(is_bulk[id]);
-      LOG_INFO << " ===> WRIT: " << *initial[id]
-               << " NOW: " << written_buffer.Size();
+      }
+      continue;
     }
+
+    // write an Event into written_buffer
+    const int id = (FLAGS_fixed_event < 0 ? random() % initial.size()
+                                          : FLAGS_fixed_event);
+
+    coder.Encode(*initial[id].get(), rtmp::AmfUtil::AMF0_VERSION,
+        &written_buffer);
+    written.push_back(initial[id]);
+    LOG_INFO << " ===> WRIT: " << *initial[id]
+             << " NOW: " << written_buffer.Size();
   }
   LOG_INFO << "PASS";
 }

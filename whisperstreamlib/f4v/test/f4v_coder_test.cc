@@ -28,15 +28,6 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Authors: Cosmin Tudorache
-//
-// There are 3 tests in here:
-// - for every f4v tag from file:
-//     .Decoding + Encoding produces the same data
-//     .Decoding + Clone + Encoding produces the same data
-// - Decoding in timestamp order verifies the timestamp order
-// - Decoding in timestamp order + Serializing in offset order
-//     => produces the same file
-//
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -55,11 +46,12 @@
 #include <whisperlib/common/io/file/file_input_stream.h>
 #include <whisperlib/common/io/buffer/memory_stream.h>
 
+#include <whisperstreamlib/base/media_file_reader.h>
+#include <whisperstreamlib/base/media_file_writer.h>
 #include <whisperstreamlib/f4v/atoms/base_atom.h>
 #include <whisperstreamlib/f4v/f4v_tag.h>
 #include <whisperstreamlib/f4v/f4v_decoder.h>
 #include <whisperstreamlib/f4v/f4v_encoder.h>
-#include <whisperstreamlib/f4v/f4v_file_reader.h>
 
 //////////////////////////////////////////////////////////////////////
 
@@ -120,84 +112,25 @@ bool TestClone(const streaming::f4v::BaseAtom& atom) {
       return false;
     }
   }
-  const streaming::f4v::BaseAtom* pclone = atom.Clone();
-  scoped_ptr<const streaming::f4v::BaseAtom> auto_del_clone(pclone);
-  const streaming::f4v::BaseAtom& clone = *pclone;
-
-  if ( atom.ToString() != clone.ToString() ) {
-    LOG_ERROR << "Clone ToString differs: " << endl
-              << "# original: " << atom.ToString() << endl
-              << "# clone: " << clone.ToString() << endl;
-    return false;
-  }
-
-  io::MemoryStream atom_out;
-  streaming::f4v::Encoder().WriteAtom(atom_out, atom);
-  const uint32 atom_data_size = atom_out.Size();
-  uint8* atom_data = new uint8[atom_data_size];
-  scoped_ptr<uint8> auto_del_atom_data(atom_data);
-  atom_out.Read(atom_data, atom_data_size);
-
-  io::MemoryStream clone_out;
-  streaming::f4v::Encoder().WriteAtom(clone_out, clone);
-  const uint32 clone_data_size = clone_out.Size();
-  uint8* clone_data = new uint8[clone_data_size];
-  scoped_ptr<uint8> auto_del_clone_data(clone_data);
-  clone_out.Read(clone_data, clone_data_size);
-
-  if ( atom_data_size != clone_data_size ||
-       ::memcmp(atom_data, clone_data, atom_data_size) != 0 ) {
-    LOG_ERROR << "Clone encoding error: " << endl
-              << "# atom: " << atom.ToString() << endl
-              << "# difference at position: " << DiffIndex(atom_data, atom_data_size, clone_data, clone_data_size) << endl
-              //<< "# atom data buffer size: " << atom_data_size << endl
-              << "# atom data buffer: "
-              << strutil::PrintableDataBuffer(atom_data, atom_data_size) << endl
-              //<< "# clone data buffer size: " << clone_data_size << endl;
-              << "# clone tag buffer: "
-              << strutil::PrintableDataBuffer(clone_data, clone_data_size) << endl;
+  streaming::f4v::BaseAtom* clone = atom.Clone();
+  scoped_ptr<streaming::f4v::BaseAtom> auto_del_clone(clone);
+  if ( !atom.Equals(*clone) ) {
+    LOG_ERROR << "Clone error:" << endl
+        << "# Original: " << atom.ToString() << endl
+        << "# Clone: " << clone->ToString();
     return false;
   }
   return true;
 }
 // Test that frame.Encode() and frame.Clone()->Encode() produce the same output.
 bool TestClone(const streaming::f4v::Frame& frame) {
-  const streaming::f4v::Frame* pclone = frame.Clone();
-  scoped_ptr<const streaming::f4v::Frame> auto_del_clone(pclone);
-  const streaming::f4v::Frame& clone = *pclone;
+  const streaming::f4v::Frame* clone = frame.Clone();
+  scoped_ptr<const streaming::f4v::Frame> auto_del_clone(clone);
 
-  if ( frame.ToString() != clone.ToString() ) {
-    LOG_ERROR << "Clone ToString differs: " << endl
+  if ( !frame.Equals(*clone) ) {
+    LOG_ERROR << "Clone error: " << endl
               << "# original: " << frame.ToString() << endl
-              << "# clone: " << clone.ToString() << endl;
-    return false;
-  }
-
-  io::MemoryStream frame_out;
-  streaming::f4v::Encoder().WriteFrame(frame_out, frame);
-  const uint32 frame_data_size = frame_out.Size();
-  uint8* frame_data = new uint8[frame_data_size];
-  scoped_ptr<uint8> auto_del_frame_data(frame_data);
-  frame_out.Read(frame_data, frame_data_size);
-
-  io::MemoryStream clone_out;
-  streaming::f4v::Encoder().WriteFrame(clone_out, clone);
-  const uint32 clone_data_size = clone_out.Size();
-  uint8* clone_data = new uint8[clone_data_size];
-  scoped_ptr<uint8> auto_del_clone_data(clone_data);
-  clone_out.Read(clone_data, clone_data_size);
-
-  if ( frame_data_size != clone_data_size ||
-       ::memcmp(frame_data, clone_data, frame_data_size) != 0 ) {
-    LOG_ERROR << "Clone encoding error: " << endl
-              << "# frame: " << frame.ToString() << endl
-              << "# difference at position: " << DiffIndex(frame_data, frame_data_size, clone_data, clone_data_size) << endl
-              << "# frame data buffer size: " << frame_data_size << endl
-              //<< "# expected tag buffer: " << endl
-              //<< strutil::PrintableDataBuffer(expected_data, expected_data_size) << endl
-              << "# clone data buffer size: " << clone_data_size << endl;
-              //<< "# output tag buffer: " << endl
-              //<< strutil::PrintableDataBuffer(output_data, output_data_size) << endl;
+              << "# clone: " << clone->ToString() << endl;
     return false;
   }
   return true;
@@ -205,17 +138,14 @@ bool TestClone(const streaming::f4v::Frame& frame) {
 bool TestClone(const streaming::F4vTag& tag) {
   if ( tag.is_atom() ) {
     return TestClone(*tag.atom());
-  } else {
-    CHECK(tag.is_frame());
-    return TestClone(*tag.frame());
   }
-
+  CHECK(tag.is_frame());
+  return TestClone(*tag.frame());
 }
 
 // Encode 'tag' and compare output data to 'expected_data'
 //
 bool TestEncode(streaming::f4v::Encoder& encoder,
-                const string& tag_name,
                 const streaming::F4vTag& tag,
                 const io::MemoryStream& expected_data) {
   // encode tag and get the data buffer
@@ -226,25 +156,75 @@ bool TestEncode(streaming::f4v::Encoder& encoder,
   if ( Compare(out, expected_data) ) {
     return true;
   }
-  LOG_ERROR << tag_name << " Encoding error: " << endl
+  LOG_ERROR << "Encoding error: " << endl
             << "# tag: " << tag.ToString() << endl
-            << "#encoded as: " << out.DumpContentHex() << endl
-            << "#expected: " << expected_data.DumpContentHex();
+            << "#encoded as: " << out.DumpContent() << endl
+            << "#expected: " << expected_data.DumpContent();
   return false;
 }
-// serializes tag using the "serializer" and writes output data into "file"
-void SerializeToFile(const streaming::f4v::Tag& tag,
-                     streaming::f4v::Serializer& serializer,
-                     io::File& file) {
-  io::MemoryStream ms;
-  bool success = serializer.Serialize(tag, 0, &ms);
-  CHECK(success);
-  while ( !ms.IsEmpty() ) {
-    uint8 tmp[512] = {0};
-    int32 read = ms.Read(tmp, sizeof(tmp));
-    int32 write = file.Write(tmp, read);
-    CHECK_EQ(read, write);
+
+// Encode 'atom' to memory, decode from memory,
+// and compare the result with the original 'atom'
+bool TestEncode(const streaming::f4v::BaseAtom& atom) {
+  // exclude MDAT atom, because it requires a previously serialized MOOV
+  if ( atom.type() == streaming::f4v::ATOM_MDAT ) { return true; }
+
+  // recursively test subatoms
+  vector<const streaming::f4v::BaseAtom*> subatoms;
+  atom.GetSubatoms(subatoms);
+  for ( uint32 i = 0; i < subatoms.size(); i++ ) {
+    if ( !TestEncode(*subatoms[i]) ) {
+      return false;
+    }
   }
+
+  io::MemoryStream ms;
+  streaming::f4v::Encoder().WriteAtom(ms, atom);
+  ms.MarkerSet();
+  scoped_ref<streaming::F4vTag> result;
+  streaming::f4v::TagDecodeStatus status =
+      streaming::f4v::Decoder().ReadTag(ms, &result);
+  ms.MarkerRestore();
+  if ( status != streaming::f4v::TAG_DECODE_SUCCESS ) {
+    LOG_ERROR << "Atom: " << atom.ToString() << " was encoded to: "
+              << ms.DumpContentHex() << " but the decoder cannot decode it;"
+                 " result: " << streaming::f4v::TagDecodeStatusName(status);
+    return false;
+  }
+  if ( !result->is_atom() ) {
+    LOG_ERROR << "Encoded an atom: " << atom.ToString()
+              << ", decoded something else: " << result->ToString();
+    return false;
+  }
+  if ( !atom.Equals(*result->atom()) ) {
+    LOG_ERROR << " Encoding error: " << endl
+              << "# Original atom: " << atom.ToString() << endl
+              << "# Decoded atom: " << result->atom()->ToString();
+    return false;
+  }
+  return true;
+}
+
+// Encode 'atom' and compare the encoding size to atom->MeasureSize()
+//
+bool TestMeasureSize(const streaming::f4v::BaseAtom& atom) {
+  io::MemoryStream ms;
+  streaming::f4v::Encoder().WriteAtom(ms, atom);
+  if ( ms.Size() != atom.MeasureSize() ) {
+    LOG_ERROR << "WRONG MeasureSize(), for atom: " << atom.ToString() << "\n"
+                 " - MeasureSize(): " << atom.MeasureSize() << "\n"
+                 " - encoding size: " << ms.Size();
+    return false;
+  }
+  // recursively check subatoms
+  vector<const streaming::f4v::BaseAtom*> subatoms;
+  atom.GetSubatoms(subatoms);
+  for ( uint32 i = 0; i < subatoms.size(); i++ ) {
+    if ( !TestMeasureSize(*subatoms[i]) ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 int main(int argc, char* argv[]) {
@@ -253,70 +233,85 @@ int main(int argc, char* argv[]) {
     LOG_ERROR << "Please specify f4v_path parameter !";
     common::Exit(1);
   }
-  if ( !io::IsReadableFile(FLAGS_f4v_path) ) {
-    LOG_ERROR << "No such file: " << FLAGS_f4v_path;
-    common::Exit(1);
-  }
-  const int64 kMaxFileSize = (1LL << 31); // 2GB
-  if ( io::GetFileSize(FLAGS_f4v_path) >= kMaxFileSize ) {
-    LOG_ERROR << "File too big: " << FLAGS_f4v_path
-              << ", size: " << io::GetFileSize(FLAGS_f4v_path) << "(bytes)"
-                 " is larger than kMaxFileSize: " << kMaxFileSize;
-    common::Exit(1);
-  }
 
+  /*
   ///////////////////////////////////////////////////////////////////////
   // TEST 1:
-  //  - read frames in offset order
-  //  - test offset order
-  //  - test encoding: data->decode->encode == data
-  //  - test clone: tag->encode == tag->clone->encode for every tag in file
-  //                This test should be done with various tags, not just with
-  //                file tags.
+  //  - read f4v tags (using direct decoding, rather than generic tags)
+  //  - check that they really come in offset order
+  //  - check atom->MeasureSize() == atom's encoding size
+  //  - check encoding: data->decode->encode == data
+  //                    atom->encode->decode == atom
+  //  - check clone: tag->clone == tag. For every tag in file. This test should
+  //                 be done with various tags, not just with file tags.
   {
-    streaming::f4v::FileReader reader;
+    LOG_WARNING << "Checking the atoms and frames of original file";
+    streaming::MediaFileReader reader;
     if ( !reader.Open(FLAGS_f4v_path) ) {
       LOG_ERROR << "Failed to open file: [" << FLAGS_f4v_path << "]";
       common::Exit(1);
     }
-    // we want frames in physical offset order
-    reader.decoder().set_order_frames_by_timestamp(false);
-    streaming::f4v::Encoder original_encoder; // for original tags
-    streaming::f4v::Encoder clone_encoder; // for cloned tags
+    CHECK_EQ(reader.splitter()->media_format(), streaming::MFORMAT_F4V);
+    reader.splitter()->set_generic_tags(false);
+    streaming::f4v::Encoder encoder; // for original tags
 
-    streaming::f4v::FrameHeader prev_frame_header; // offset 0
+    streaming::f4v::FrameHeader prev_frame_header; // timestamp 0
     uint32 frame_index = 0;
     while ( true ) {
-      scoped_ref<streaming::F4vTag> tag;
+      scoped_ref<streaming::Tag> tag;
+      int64 ts = 0;
       io::MemoryStream tag_data;
       uint64 file_pos = reader.Position();
 
-      // read tag and tag binary data from stream
-      streaming::f4v::TagDecodeStatus result = reader.Read(&tag, &tag_data);
-      if ( result == streaming::f4v::TAG_DECODE_ERROR ) {
-        LOG_ERROR << "Failed to decode tag, at file_pos: " << file_pos;
-        common::Exit(1);
-      }
-      if ( result == streaming::f4v::TAG_DECODE_NO_DATA ) {
+      // read tag
+      streaming::TagReadStatus result = reader.Read(&tag, &ts, &tag_data);
+      if ( result == streaming::READ_SKIP ) { continue; }
+      if ( result == streaming::READ_EOF ) {
+        LOG_INFO << "EOF";
         if ( reader.Remaining() != 0 ) {
-          LOG_ERROR << "Leftover data at file end: " << reader.Remaining()
-                    << " bytes, at file_pos: " << file_pos;
+          LOG_ERROR << "Leftover data at file end: " << reader.Remaining() << " bytes";
           common::Exit(1);
         }
         break;
       }
-      CHECK_EQ(result, streaming::f4v::TAG_DECODE_SUCCESS);
+      CHECK_EQ(result, streaming::READ_OK);
       CHECK_NOT_NULL(tag.get());
+      // because generic tags are disabled, we should receive only F4V tags
+      CHECK_EQ(tag->type(), streaming::Tag::TYPE_F4V);
 
-      if ( tag->is_atom() ) {
-        streaming::f4v::BaseAtom* atom = tag->atom();
+      const streaming::F4vTag& f4v_tag =
+          *static_cast<const streaming::F4vTag*>(tag.get());
+
+      if ( !TestClone(f4v_tag) ) {
+        LOG_ERROR << "TestClone failed";
+        common::Exit(1);
+      }
+
+      // check encoding: tag->encode == original data
+      if ( !TestEncode(encoder, f4v_tag, tag_data) ) {
+        LOG_ERROR << "TestEncode failed";
+        common::Exit(1);
+      }
+
+      if ( f4v_tag.is_atom() ) {
+        const streaming::f4v::BaseAtom* atom = f4v_tag.atom();
         LOG_INFO << "@" << file_pos << " [tag size: " << tag_data.Size() << "]"
                     " Checking atom: " << atom->base_info();
+        // check atom->MeasureSize() == atom's encoding size
+        if ( !TestMeasureSize(*atom) ) {
+          LOG_ERROR << "TestMeasureSize failed";
+          common::Exit(1);
+        }
+        // check encoding: atom->encode->decode == atom
+        if ( !TestEncode(*atom) ) {
+          LOG_ERROR << "TestEncode failed";
+          common::Exit(1);
+        }
       } else {
-        CHECK(tag->is_frame());
-        streaming::f4v::Frame* frame = tag->frame();
-        LOG_INFO << "@" << file_pos << " [tag size: " << tag_data.Size() << "]"
-                    " Checking frame: " << frame->ToString();
+        CHECK(f4v_tag.is_frame());
+        const streaming::f4v::Frame* frame = f4v_tag.frame();
+        //LOG_INFO << "@" << file_pos << " [tag size: " << tag_data.Size() << "]"
+        //            " Checking frame: " << frame->ToString();
 
         // check frames come in offset order
         if ( prev_frame_header.offset() >= frame->header().offset() ) {
@@ -326,127 +321,126 @@ int main(int argc, char* argv[]) {
                     << ", at file_pos: " << file_pos;
           common::Exit(1);
         }
+
         prev_frame_header = frame->header();
         frame_index++;
       }
-
-      if ( !TestClone(*tag) ) {
-        common::Exit(1);
-      }
-
-      // make a clone of the original tag
-      //
-      scoped_ref<const streaming::F4vTag> clone(
-          static_cast<const streaming::F4vTag*>(tag->Clone()));
-
-      // test tag->encode == original data
-      // test tag->clone->encode == original data
-      if ( !TestEncode(original_encoder, "ORIGINAL", *tag, tag_data) ||
-           !TestEncode(clone_encoder, "CLONE", *clone, tag_data) ) {
-        common::Exit(1);
-      }
     }
+    reader.Close();
+    LOG_WARNING << "Test1 done";
   }
-
+  */
 
   ///////////////////////////////////////////////////////////////////////
   // TEST 2:
-  //  - read frames in timestamp order
-  //  - verify timestamp order
-  //  - verify that f4v::Serializer writes frames in offset order producing
-  //    the same output as the original file
-  //
+  //  - read generic frames
+  //  - write to a temporary file
+  //  - verify that the temporary file contains the same frames
   {
-    streaming::f4v::FileReader reader;
+    streaming::MediaFileReader reader;
     if ( !reader.Open(FLAGS_f4v_path) ) {
       LOG_ERROR << "Failed to open file: [" << FLAGS_f4v_path << "]";
       common::Exit(1);
     }
-    streaming::f4v::Serializer serializer;
-    // the serializer will write the output in this file
-    io::File tmp_file;
+    CHECK_EQ(reader.splitter()->media_format(), streaming::MFORMAT_F4V);
+    streaming::f4v::Encoder encoder; // for original tags
+
     const string tmp_filename = "/tmp/f4v_coder_test_serialized_" + strutil::Basename(FLAGS_f4v_path);
-    if ( !tmp_file.Open(tmp_filename.c_str(), io::File::GENERIC_READ_WRITE, io::File::CREATE_ALWAYS) ) {
+    streaming::MediaFileWriter writer;
+    if ( !writer.Open(tmp_filename, streaming::MFORMAT_F4V) ) {
       LOG_ERROR << "Failed to open tmp file: [" << tmp_filename << "]";
       common::Exit(1);
     }
 
-    streaming::f4v::FrameHeader prev_frame_header; // timestamp 0
-    uint32 frame_index = 0;
+    LOG_WARNING << "Serializing original file into: " << tmp_filename;
     while ( true ) {
-      scoped_ref<streaming::F4vTag> tag;
+      scoped_ref<streaming::Tag> tag;
+      int64 ts = 0;
 
       // read tag
-      streaming::f4v::TagDecodeStatus result = reader.Read(&tag);
-      if ( result == streaming::f4v::TAG_DECODE_ERROR ) {
-        LOG_ERROR << "Failed to decode tag";
-        common::Exit(1);
-      }
-      if ( result == streaming::f4v::TAG_DECODE_NO_DATA ) {
+      streaming::TagReadStatus result = reader.Read(&tag, &ts);
+      if ( result == streaming::READ_SKIP ) { continue; }
+      if ( result == streaming::READ_EOF ) {
+        LOG_INFO << "EOF";
         if ( reader.Remaining() != 0 ) {
           LOG_ERROR << "Leftover data at file end: " << reader.Remaining() << " bytes";
           common::Exit(1);
         }
         break;
       }
-      CHECK_EQ(result, streaming::f4v::TAG_DECODE_SUCCESS);
+      CHECK_EQ(result, streaming::READ_OK);
       CHECK_NOT_NULL(tag.get());
 
       // serialize tag to file
-      SerializeToFile(*tag, serializer, tmp_file);
-
-      // check frames come in timestamp order
-      if ( tag->is_frame() ) {
-        streaming::f4v::Frame* frame = tag->frame();
-        LOG_INFO << "#" << frame_index
-                 << " Checking frame: " << frame->ToString();
-
-        if ( prev_frame_header.timestamp() > frame->header().timestamp() ) {
-          LOG_ERROR << "Out of order #" << frame_index
-                    << " frame: " << frame->header().ToString()
-                    << ", prev frame: " << prev_frame_header.ToString();
-          common::Exit(1);
-        }
-        prev_frame_header = frame->header();
-        frame_index++;
-      }
+      writer.Write(tag.get(), ts);
     }
-    tmp_file.Close();
+    writer.Finalize(NULL, NULL);
     reader.Close();
+    LOG_WARNING << "Tmp file done";
 
     // check serializer's output file is identical to original file
     {
-      LOG_INFO << "Checking serializer output file..";
-      streaming::f4v::FileReader org_reader;
+      LOG_WARNING << "Checking serializer Tmp Output file..";
+      streaming::MediaFileReader org_reader;
       CHECK(org_reader.Open(FLAGS_f4v_path));
-      streaming::f4v::FileReader tmp_reader;
+      streaming::MediaFileReader tmp_reader;
       CHECK(tmp_reader.Open(tmp_filename));
       while ( true ) {
-        scoped_ref<streaming::f4v::Tag> org_tag;
+        scoped_ref<streaming::Tag> org_tag;
+        int64 org_ts = 0;
         io::MemoryStream org_data;
-        streaming::f4v::TagDecodeStatus result =
-            org_reader.Read(&org_tag, &org_data);
-        if ( result == streaming::f4v::TAG_DECODE_NO_DATA ) {
-          break;
-        }
-        CHECK_EQ(result, streaming::f4v::TAG_DECODE_SUCCESS);
+        streaming::TagReadStatus result =
+            org_reader.Read(&org_tag, &org_ts, &org_data);
+        if ( result == streaming::READ_SKIP ) { continue; }
+        if ( result == streaming::READ_EOF ) { break; }
+        CHECK_EQ(result, streaming::READ_OK);
 
-        scoped_ref<streaming::f4v::Tag> tmp_tag;
+        scoped_ref<streaming::Tag> tmp_tag;
         io::MemoryStream tmp_data;
-        result = tmp_reader.Read(&tmp_tag, &tmp_data);
-        CHECK_EQ(result, streaming::f4v::TAG_DECODE_SUCCESS);
+        int64 tmp_ts = 0;
+        result = tmp_reader.Read(&tmp_tag, &tmp_ts, &tmp_data);
+        CHECK(result == streaming::READ_OK)
+            << " Result: " << streaming::TagReadStatusName(result)
+            << ", org_tag: " << org_tag->ToString();
 
-        if ( !Compare(org_data, tmp_data) ) {
-          LOG_ERROR << "Serializing error, original tag: " << org_tag->ToString()
-                    << " differs from serialized tag: " << tmp_tag->ToString();
-          common::Exit(1);
+        // check that MediaInfo is the same
+        if ( org_tag->type() == streaming::Tag::TYPE_MEDIA_INFO ) {
+          CHECK_EQ(tmp_tag->type(), streaming::Tag::TYPE_MEDIA_INFO);
+          const streaming::MediaInfo& org_info =
+              static_cast<streaming::MediaInfoTag*>(org_tag.get())->info();
+          const streaming::MediaInfo& tmp_info =
+              static_cast<streaming::MediaInfoTag*>(tmp_tag.get())->info();
+          if ( org_info.ToString() != tmp_info.ToString() ) {
+            LOG_ERROR << "MediaInfo differs: \n"
+                      << "Original: " << org_info.ToString() << "\n"
+                      << "Output: " << tmp_info.ToString();
+            common::Exit(1);
+          }
+        }
+
+        // check that audio/video frames are the same
+        if ( org_tag->is_video_tag() || org_tag->is_audio_tag() ) {
+          CHECK_NOT_NULL(org_tag->Data());
+          CHECK_EQ(org_tag->is_video_tag(), tmp_tag->is_video_tag());
+          CHECK_EQ(org_tag->is_audio_tag(), tmp_tag->is_audio_tag());
+          if ( !Compare(*org_tag->Data(), *tmp_tag->Data()) ) {
+            LOG_ERROR << "Serializing error:"
+                      << "\n - original tag: " << org_tag->ToString()
+                      << "\n - original data: " << org_tag->Data()->DumpContentInline()
+                      << "\n - serialized tag: " << tmp_tag->ToString()
+                      << "\n - serialized data: " << tmp_tag->Data()->DumpContentInline();
+            common::Exit(1);
+          }
         }
       }
       CHECK_EQ(org_reader.Remaining(), 0);
+      org_reader.Close();
       CHECK_EQ(tmp_reader.Remaining(), 0);
+      tmp_reader.Close();
+      LOG_WARNING << "Tmp Output file is identical to original";
     }
+    LOG_WARNING << "Test2 done";
   }
-
 
   LOG_WARNING << "Pass";
   common::Exit(0);

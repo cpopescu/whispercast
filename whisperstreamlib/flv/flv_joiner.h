@@ -55,15 +55,12 @@ class FlvJoinProcessor : public streaming::JoinProcessor {
       : timestamp_(timestamp), position_(position) {}
   };
  public:
-  // keep_all_metadata: the output file will contain all the metadata found in
-  //                    in the input files.
-  FlvJoinProcessor(bool keep_all_metadata);
-  ~FlvJoinProcessor();
+  // cue_ms_time: milliseconds between consecutive cue points
+  FlvJoinProcessor(uint32 cue_ms);
+  virtual ~FlvJoinProcessor();
 
   // Call this after constructor to initialize the save state.
-  virtual bool InitializeOutput(
-      const string& out_file,  // write output here
-      int cue_ms_time);        // with  cue points at this time
+  virtual bool Initialize(const string& out_file);
   // Call this before starting to read a new file
   virtual void MarkNewFile();
 
@@ -74,7 +71,8 @@ class FlvJoinProcessor : public streaming::JoinProcessor {
   virtual int64 FinalizeFile();
 
   // Main tag processor
-  virtual PROCESS_STATUS ProcessTag(const streaming::Tag* media_tag);
+  virtual PROCESS_STATUS ProcessTag(const streaming::Tag* media_tag,
+      int64 timestamp_ms);
  private:
   // Helper - writes a cue point to writer_
   void WriteCuePoint(int crt_cue, double position, int64 timestamp_ms);
@@ -101,15 +99,14 @@ class FlvJoinProcessor : public streaming::JoinProcessor {
  private:
   // we use this as temporarily output
   string out_file_tmp_;
+  // final output file
+  string out_file_;
 
   // simple writer
   FlvFileWriter writer_;
 
-  // true = output file will contain multiple metadata. Useful when the input
-  //        files have different encoding.
-  // false = output file will contain 1 single metadata. All input files must
-  //         be metadata compatbile.
-  const bool keep_all_metadata_;
+  // milliseconds between consecutive cuepoints
+  const uint32 cue_ms_;
 
   // the metadata saved from the 1st file
   rtmp::CMixedMap metadata_;
@@ -134,6 +131,24 @@ class FlvJoinProcessor : public streaming::JoinProcessor {
 
   DISALLOW_EVIL_CONSTRUCTORS(FlvJoinProcessor);
 };
+
+// Joins multiple files into a single big flv file.
+// The input file format The output file will
+// contain cuePoints to enable seek.
+// return: the duration of the output file in milliseconds,
+//         or -1 on failure.
+//         It return 0 is the files contain only metadata.
+int64 JoinFilesIntoFlv(const vector<string>& in_files,
+                       const string& out_file,
+                       uint32 cue_ms_time);
+
+// Same JoinFiles but with only 1 input file -> 1 output file..
+// The reason for 1 file -> 1 file transformation is that
+// the output file contains cuePoints thus becoming seekable.
+int64 JoinFilesIntoFlv(const string& in_file,
+                       const string& out_file,
+                       uint32 cue_ms_time);
+
 }
 
 #endif  // __MEDIA_FLV_FLV_JOINER_H__

@@ -34,15 +34,12 @@
 #include <whisperstreamlib/base/media_info_util.h>
 namespace streaming {
 
-const TagSplitter::Type Mp3TagSplitter::kType = TagSplitter::TS_MP3;
-
 streaming::TagReadStatus Mp3TagSplitter::GetNextTagInternal(
     io::MemoryStream* in,
     scoped_ref<Tag>* tag,
     int64* timestamp_ms,
     bool is_at_eos) {
-  *tag = NULL;
-  if ( crt_tag_ == NULL ) {
+  if ( crt_tag_.get() == NULL ) {
     crt_tag_ = new Mp3FrameTag(
         Tag::ATTR_AUDIO | Tag::ATTR_CAN_RESYNC | Tag::ATTR_DROPPABLE,
         kDefaultFlavourMask, 0);
@@ -55,16 +52,23 @@ streaming::TagReadStatus Mp3TagSplitter::GetNextTagInternal(
     do_synchronize_ = false;
   }
 
-  // Update media_info
-  if ( !media_info_.has_audio() ) {
-    util::ExtractMediaInfoFromMp3(*crt_tag_, &media_info_);
+  // Update & send media_info
+  if ( !media_info_extracted_ ) {
+    util::ExtractMediaInfoFromMp3(*crt_tag_.get(), &media_info_);
+    next_tag_to_send_ = crt_tag_.get();
+    next_tag_to_send_ts_ = crt_tag_->timestamp_ms();
+    crt_tag_ = NULL;
+    *tag = new MediaInfoTag(0, kDefaultFlavourMask, media_info_);
+    *timestamp_ms = 0;
+    media_info_extracted_ = true;
+    return READ_OK;
   }
 
   crt_tag_->set_timestamp_ms(stream_offset_ms_);
   stream_offset_ms_ += crt_tag_->duration_ms();
 
-  *timestamp_ms = 0;
-  *tag = crt_tag_;
+  *tag = crt_tag_.get();
+  *timestamp_ms = crt_tag_->timestamp_ms();
 
   crt_tag_ = NULL;
   return streaming::READ_OK;

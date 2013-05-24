@@ -50,9 +50,8 @@ class Element {
  public:
   Element(const string& type,
           const string& name,
-          const string& id,
           ElementMapper* mapper)
-      : type_(type), name_(name), id_(id), mapper_(mapper) {
+      : type_(type), name_(name), mapper_(mapper) {
     LOG_DEBUG << "Creating element: " << name_ << " of type: " << type_;
   }
   virtual ~Element() {
@@ -92,18 +91,15 @@ class Element {
   //     that callback
   //       (though you may get some other types too - especially control :)
   //     we update the req->caps() caps to match whatever we can provide.
-  virtual bool AddRequest(const char* media,
+  virtual bool AddRequest(const string& media,
                           streaming::Request* req,
                           streaming::ProcessingCallback* callback) = 0;
   virtual void RemoveRequest(streaming::Request* req) = 0;
 
   // test if this element contains the specified media name.
-  // On success: returns true, and 'out' is filled with media capabilities.
-  // On failure: returns false, 'out' is empty.
-  virtual bool HasMedia(const char* media_name, Capabilities* out) = 0;
+  virtual bool HasMedia(const string& media) = 0;
   // list the name of the contained medias (under the given media path)
-  virtual void ListMedia(const char* media_dir,
-                         ElementDescriptions* medias) = 0;
+  virtual void ListMedia(const string& media, vector<string>* out) = 0;
 
   // asynchronously returns media description through the given 'callback'.
   typedef Callback1<const MediaInfo*> MediaInfoCallback;
@@ -128,11 +124,10 @@ class Element {
 
   const string& type() const { return type_; }
   const string& name() const { return name_; }
-  const string& id() const { return id_; }
- protected:
+ private:
   const string type_;
   const string name_;
-  const string id_;
+ protected:
   ElementMapper* mapper_;
 
   DISALLOW_EVIL_CONSTRUCTORS(Element);
@@ -143,7 +138,7 @@ class PolicyDrivenElement;
 // A policy stands by and commands a PolicyDrivenElement.
 class Policy {
  public:
-  Policy(const char* type, const char* name, PolicyDrivenElement* element);
+  Policy(const string& type, const string& name, PolicyDrivenElement* element);
   virtual ~Policy() {
   }
   // Initializes any necessary scheduling etc.
@@ -193,17 +188,10 @@ class Policy {
 //
 class PolicyDrivenElement : public Element {
  public:
-  PolicyDrivenElement(const char* type,
-                      const char* name,
-                      const char* id,
-                      ElementMapper* mapper)
-      : Element(type, name, id, mapper) {
-  }
-  PolicyDrivenElement(const char* type,
+  PolicyDrivenElement(const string& type,
                       const string& name,
-                      const string& id,
                       ElementMapper* mapper)
-      : Element(type, name, id, mapper) {
+      : Element(type, name, mapper) {
   }
 
   // Usually called by the policy, to set to serve under a media name
@@ -214,11 +202,11 @@ class PolicyDrivenElement : public Element {
   virtual const string& current_media() const = 0;
 
   // Basically a way to interrogate the underneath media mapper
-  bool HasElementMedia(const char* media_name, Capabilities* out) {
-    return mapper_->HasMedia(media_name, out);
+  bool HasElementMedia(const string& media_name) {
+    return mapper_->HasMedia(media_name);
   }
-  void ListElementMedia(const char* media_dir,
-                        ElementDescriptions* media) {
+  void ListElementMedia(const string& media_dir,
+                        vector<string>* media) {
     mapper_->ListMedia(media_dir, media);
   }
   const Policy* policy() const    { return policy_; }
@@ -229,8 +217,8 @@ class PolicyDrivenElement : public Element {
   DISALLOW_EVIL_CONSTRUCTORS(PolicyDrivenElement);
 };
 
-inline Policy::Policy(const char* type,
-                      const char* name,
+inline Policy::Policy(const string& type,
+                      const string& name,
                       PolicyDrivenElement* element)
     : type_(type),
       name_(name),

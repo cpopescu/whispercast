@@ -15,6 +15,9 @@ StcoRecord::StcoRecord(const StcoRecord& other)
 }
 StcoRecord::~StcoRecord() {
 }
+bool StcoRecord::Equals(const StcoRecord& other) const {
+  return chunk_offset_ == other.chunk_offset_;
+}
 StcoRecord* StcoRecord::Clone() const {
   return new StcoRecord(*this);
 }

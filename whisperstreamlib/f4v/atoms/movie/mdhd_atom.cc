@@ -65,6 +65,15 @@ void MdhdAtom::set_reserved(uint16 reserved) {
   reserved_ = reserved;
 }
 
+bool MdhdAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const MdhdAtom& a = static_cast<const MdhdAtom&>(other);
+  return creation_time_ == a.creation_time_ &&
+         modification_time_ == a.modification_time_ &&
+         time_scale_ == a.time_scale_ &&
+         duration_ == a.duration_ &&
+         language_ == a.language_ &&
+         reserved_ == a.reserved_;
+}
 void MdhdAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* MdhdAtom::Clone() const {

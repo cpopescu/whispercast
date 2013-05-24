@@ -11,6 +11,6 @@ fi
 EXE=$1
 TEST_DATA_DIR=$2
 
-`$EXE --loglevel 2 --f4v_path $TEST_DATA_DIR/backcountry.f4v --f4v_log_level 3 2>> /tmp/f4v_coder_test-stderr.LOG`
-`$EXE --loglevel 2 --f4v_path $TEST_DATA_DIR/sample1_150kbps.f4v --f4v_log_level 3 2>> /tmp/f4v_coder_test-stderr.LOG`
-`$EXE --loglevel 2 --f4v_path $TEST_DATA_DIR/sample2_1000kbps.f4v --f4v_log_level 3 2>> /tmp/f4v_coder_test-stderr.LOG`
+`$EXE --f4v_path $TEST_DATA_DIR/backcountry.f4v --f4v_log_level 3 2>> /tmp/f4v_coder_test-stderr.LOG`
+`$EXE --f4v_path $TEST_DATA_DIR/sample1_150kbps.f4v --f4v_log_level 3 2>> /tmp/f4v_coder_test-stderr.LOG`
+`$EXE --f4v_path $TEST_DATA_DIR/sample2_1000kbps.f4v --f4v_log_level 3 2>> /tmp/f4v_coder_test-stderr.LOG`

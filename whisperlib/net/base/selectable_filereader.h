@@ -47,8 +47,15 @@ class SelectableFilereader : public Selectable {
                        int block_size = io::DataBlock::kDefaultBufferSize);
   virtual ~SelectableFilereader();
 
+  // fd: the file descriptor to read
+  // data_callback: called from time to time to deliver read data
+  //                Must be a permanent callback.
+  // auto_delete_data_callback: true = we own data_callback
+  // close_callback: called just once, when fd contains no more data.
+  //                 Can be NULL.
   bool InitializeFd(int fd,
                     DataCallback* data_callback,
+                    bool auto_delete_data_callback,
                     Closure* close_callback);
 
   virtual bool HandleReadEvent(const SelectorEventData& event);
@@ -58,17 +65,12 @@ class SelectableFilereader : public Selectable {
   virtual int GetFd() const { return fd_; }
   virtual void Close();
 
-  // Enables or disables reading from the underneath file descriptor
-  void EnableRead(bool enable);
-
-  io::MemoryStream* inbuf() {
-    return &inbuf_;
-  }
-
  private:
+  net::Selector* selector_;
   int fd_;
   io::MemoryStream inbuf_;
   DataCallback* data_callback_;
+  bool auto_delete_data_callback_;
   Closure* close_callback_;
 };
 }

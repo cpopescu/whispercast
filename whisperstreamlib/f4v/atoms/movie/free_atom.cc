@@ -18,6 +18,10 @@ FreeAtom::FreeAtom(const FreeAtom& other)
 }
 FreeAtom::~FreeAtom() {
 }
+bool FreeAtom::EqualsBody(const BaseAtom& other) const {
+  const FreeAtom& a = static_cast<const FreeAtom&>(other);
+  return body_size_ == a.body_size_;
+}
 void FreeAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* FreeAtom::Clone() const {

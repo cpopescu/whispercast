@@ -44,13 +44,8 @@ namespace rtmp {
 
 class EventNotify : public Event {
  public:
-  explicit EventNotify(Header* header)
-      : Event(EVENT_NOTIFY, SUBTYPE_SERVICE_CALL, header) {
-  }
-  EventNotify(ProtocolData* protocol_data,
-              uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_NOTIFY, SUBTYPE_SERVICE_CALL,
-              protocol_data, channel_id, stream_id) {
+  explicit EventNotify(const Header& header)
+      : Event(header, EVENT_NOTIFY, SUBTYPE_SERVICE_CALL) {
   }
   virtual ~EventNotify() {
     Clear();
@@ -76,11 +71,10 @@ class EventNotify : public Event {
     return s;
   }
 
-  // Reading / writting
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(io::MemoryStream* in,
-                                                   AmfUtil::Version version);
-  virtual void WriteToMemoryStream(io::MemoryStream* out,
-                                   AmfUtil::Version version) const;
+  virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,
+                                         AmfUtil::Version v);
+  virtual void EncodeBody(io::MemoryStream* out,
+                          AmfUtil::Version v) const;
 
  protected:
   CString name_;

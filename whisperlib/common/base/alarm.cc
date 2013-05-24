@@ -65,10 +65,10 @@ void Alarm::Set(Closure * closure, bool auto_delete, int64 timeout,
     Start();
   }
 }
-bool Alarm::IsSet() {
+bool Alarm::IsSet() const {
   return alarm_ != NULL;
 }
-bool Alarm::IsStarted() {
+bool Alarm::IsStarted() const {
   return IsSet() && last_start_ts_ >= 0;
 }
 

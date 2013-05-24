@@ -32,25 +32,20 @@
 #ifndef __MEDIA_BASE_JOINER_H__
 #define __MEDIA_BASE_JOINER_H__
 
-#include <string>
-#include <vector>
-
 #include <whisperlib/common/base/types.h>
-#include <whisperlib/common/io/buffer/memory_stream.h>
-#include <whisperlib/common/io/file/file_output_stream.h>
 #include <whisperstreamlib/base/tag.h>
+#include <whisperstreamlib/base/tag_splitter.h>
 
 namespace streaming {
-class TagSplitter;
 
 class JoinProcessor {
  public:
-  explicit JoinProcessor();
+  JoinProcessor();
   virtual ~JoinProcessor();
 
   // Call this after constructor to initialize the save state.
-  virtual bool InitializeOutput(const string& out_file, // write output here
-                                int cue_interval);      // w/ cues at this ms.
+  // out_file: write output here
+  virtual bool Initialize(const string& out_file) = 0;
 
   // Call this before starting to read a new file. Used for resetting internal
   // counters, as new tags will probably arrive with timestamps starting from 0
@@ -67,31 +62,12 @@ class JoinProcessor {
     PROCESS_SKIP_FILE, // error in current file, go to next file.
     PROCESS_ABANDON,   // serious error, abandon processing.
   };
-  virtual PROCESS_STATUS ProcessTag(const streaming::Tag* media_tag) = 0;
+  virtual PROCESS_STATUS ProcessTag(const streaming::Tag* media_tag,
+      int64 timestamp_ms) = 0;
 
- protected:
-  int cue_ms_time_;               // put cues at this interval
-  string out_file_;               // we write the output to this guy
  private:
   DISALLOW_EVIL_CONSTRUCTORS(JoinProcessor);
 };
-
-// Joins multiple flv files into a single big flv file. The output file will
-// contain cuePoints to enable seek.
-// return: the duration of the output file in milliseconds,
-//         or 0 on failure.
-int64 JoinFlvFiles(const vector<string>& in_files,
-                   const string& out_file,
-                   int cue_ms_time,
-                   bool keep_all_metadata);
-
-// Same JoinFiles but with only 1 input file -> 1 output file..
-// Q: What's the reason for 1 file -> 1 file transformation?
-// A: The output file contains cuePoints thus becoming seekable.
-int64 JoinFlvFiles(const string& in_file,
-                   const string& out_file,
-                   int cue_ms_time,
-                   bool keep_all_metadata);
 
 }
 

@@ -42,76 +42,34 @@ namespace rtmp {
 
 class EventInvoke : public Event {
  public:
-  explicit EventInvoke(Header* header)
-      : Event(EVENT_INVOKE, SUBTYPE_SERVICE_CALL, header),
-        rtmp_pending_call_(NULL) {
-  }
-  EventInvoke(ProtocolData* protocol_data,
-              uint32 channel_id, uint32 stream_id)
-      : Event(EVENT_INVOKE, SUBTYPE_SERVICE_CALL,
-              protocol_data, channel_id, stream_id),
-        rtmp_pending_call_(NULL) {
+  explicit EventInvoke(const Header& header, PendingCall* call)
+      : Event(header, EVENT_INVOKE, SUBTYPE_SERVICE_CALL),
+        pending_call_(call) {
   }
   virtual ~EventInvoke() {
-    delete rtmp_pending_call_;
+    delete pending_call_;
   }
-
   const PendingCall* call() const {
-    return rtmp_pending_call_;
+    return pending_call_;
   }
-  PendingCall* mutable_call() const {
-    return rtmp_pending_call_;
-  }
-  // Setter for call (we take control of the provided object)
-  void set_call(PendingCall* rtmp_call) {
-    delete rtmp_pending_call_;
-    rtmp_pending_call_ = rtmp_call;
-  }
-  // Transfers the call to another EventInvoke object
-  void move_call_to(EventInvoke* event) {
-    event->rtmp_pending_call_ = rtmp_pending_call_;
-    rtmp_pending_call_ = NULL;
-  }
-
   const CObject* connection_params() const {
-    if ( rtmp_pending_call_ == NULL ) return NULL;
-    return rtmp_pending_call_->connection_params();
-  }
-  // Setter for connection_params_ (we take control of the provided object)
-  void set_connection_params(CObject* connection_params) {
-    CHECK(rtmp_pending_call_ != NULL);
-    rtmp_pending_call_->set_connection_params(connection_params);
+    return pending_call_ == NULL ? NULL : pending_call_->connection_params();
   }
   uint32 invoke_id() const {
-    if ( rtmp_pending_call_ == NULL ) return 0;
-    return rtmp_pending_call_->invoke_id();
-  }
-  void set_invoke_id(uint32 invoke_id) {
-    if ( rtmp_pending_call_ == NULL ) return;
-    return rtmp_pending_call_->set_invoke_id(invoke_id);
+    return pending_call_ == NULL ? 0 : pending_call_->invoke_id();
   }
 
+  virtual AmfUtil::ReadStatus DecodeBody(io::MemoryStream* in,
+                                         AmfUtil::Version version);
+  virtual void EncodeBody(io::MemoryStream* out,
+                          AmfUtil::Version version) const;
   virtual string ToStringAttr() const {
-    if ( rtmp_pending_call_ == NULL ) {
-      return "NULL CALL";
-    }
-    return "Call: " + rtmp_pending_call_->ToString();
+    return strutil::StringPrintf("Call: %s",
+        pending_call_ == NULL ? "NULL" : pending_call_->ToString().c_str());
   }
 
-  // Reading / writting
-  virtual AmfUtil::ReadStatus ReadFromMemoryStream(io::MemoryStream* in,
-                                                   AmfUtil::Version version);
-  virtual void WriteToMemoryStream(io::MemoryStream* out,
-                                   AmfUtil::Version version) const;
-
- protected:
-  PendingCall* rtmp_pending_call_;
-
-  void Clear() {
-    delete rtmp_pending_call_;
-    rtmp_pending_call_ = NULL;
-  }
  private:
+  PendingCall* pending_call_;
   DISALLOW_EVIL_CONSTRUCTORS(EventInvoke);
 };
 }

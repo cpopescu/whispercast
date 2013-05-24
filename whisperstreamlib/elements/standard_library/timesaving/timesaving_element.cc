@@ -74,23 +74,29 @@ struct TimedMediaState {
 
 class TimedMediaData : public streaming::FilteringCallbackData {
  public:
-  TimedMediaData(const char* media_name,
+  TimedMediaData(const string& media_name,
                  net::Selector* selector,
                  streaming::Request* req,
                  io::StateKeepUser* state_keeper)
     : streaming::FilteringCallbackData(),
       selector_(selector),
-      state_key_(req->info().GetId() + "/" + media_name),
+      state_key_(req->info().is_temporary_requestor_ ? string("")
+                   : req->info().GetId() + "/" + media_name),
       state_keeper_(state_keeper) {
+    if ( state_keeper_ == NULL || state_key_ == "" ) {
+      // timesaving disabled
+      return;
+    }
     string value;
-    if ( state_keeper_ == NULL ||
-         !state_keeper_->GetValue(state_key_, &value) ||
+    if ( !state_keeper_->GetValue(state_key_, &value) ||
          !state_.StrDecode(value) ) {
-      DLOG_DEBUG << state_key_ << ": Cannot load state, assuming clean start";
+      DLOG_DEBUG << "[key: " << state_key_ << "]: "
+                    "Cannot load state, assuming clean start";
       return;
     }
 
-    LOG_INFO << state_key_ << ": Loaded state: " << state_.ToString();
+    DLOG_DEBUG << "[key: " << state_key_ << "]: "
+                  "Loaded state: " << state_.ToString();
     req->mutable_info()->seek_pos_ms_ = state_.media_ms_;
   }
 
@@ -106,7 +112,7 @@ class TimedMediaData : public streaming::FilteringCallbackData {
     // we update our internal state, and always FORWARD the tag
     out->push_back(FilteredTag(tag, timestamp_ms));
 
-    if ( state_keeper_ == NULL ) {
+    if ( state_keeper_ == NULL || state_key_ == "" ) {
       return;
     }
 
@@ -119,7 +125,8 @@ class TimedMediaData : public streaming::FilteringCallbackData {
       state_.media_ms_ = stream_time_calculator_.media_time_ms();
       state_.utc_ms_ = now;
       state_keeper_->SetValue(state_key_, state_.StrEncode());
-      DLOG_DEBUG << state_key_ << ": Save state: " << state_.ToString();
+      DLOG_DEBUG << "[key: " << state_key_ << "]: "
+                    "Save state: " << state_.ToString();
     }
   }
 
@@ -143,13 +150,11 @@ namespace streaming {
 
 const char TimeSavingElement::kElementClassName[] = "timesaving";
 
-TimeSavingElement::TimeSavingElement(const char* name,
-                                     const char* id,
+TimeSavingElement::TimeSavingElement(const string& name,
                                      ElementMapper* mapper,
                                      net::Selector* selector,
                                      io::StateKeepUser* state_keeper)
-    : streaming::FilteringElement(kElementClassName, name, id,
-                                  mapper, selector),
+    : streaming::FilteringElement(kElementClassName, name, mapper, selector),
       state_keeper_(state_keeper),
       purge_keys_alarm_(*selector) {
 }
@@ -163,20 +168,20 @@ bool TimeSavingElement::Initialize() {
 }
 
 FilteringCallbackData* TimeSavingElement::CreateCallbackData(
-    const char* media_name, Request* req) {
+    const string& media_name, Request* req) {
   return new TimedMediaData(media_name, selector_, req, state_keeper_);
 }
 
 void TimeSavingElement::PurgeKeys() {
-  DLOG_INFO << name() << " purging keys.. ";
   CHECK(state_keeper_ != NULL);
 
-  map<string, string>::const_iterator begin, end;
-  state_keeper_->GetBounds("", &begin, &end);
+  map<string, string> keys;
+  state_keeper_->GetKeyValues("", &keys);
 
   const int64 now = timer::Date::Now();
   uint32 count = 0;
-  for ( map<string, string>::const_iterator it = begin; it != end; ++it ) {
+  for ( map<string, string>::const_iterator it = keys.begin();
+        it != keys.end(); ++it ) {
     TimedMediaState state;
     if ( !state.StrDecode(it->second) ) {
       LOG_ERROR << "Failed to decode TimedMediaState from: ["
@@ -186,10 +191,13 @@ void TimeSavingElement::PurgeKeys() {
       continue;
     }
     if ( now - state.utc_ms_ > kPurgeTimeMs ) {
-      state_keeper_->DeleteValue(it->first);
+      bool success = state_keeper_->DeleteValue(it->first);
+      DLOG_DEBUG << name() << " Deleting: [" << it->first << "]"
+                 << ", prefix: " << state_keeper_->prefix()
+                 << ", success: " << strutil::BoolToString(success);
       count++;
     }
   }
-  DLOG_INFO << name() << " deleting: #" << count << " entries from the state";
+  DLOG_DEBUG << name() << " PurgeKeys: deleted #" << count << " entries";
 }
 }

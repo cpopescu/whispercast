@@ -32,9 +32,11 @@
 #ifndef __MEDIA_F4V_F4V_ENCODER_H__
 #define __MEDIA_F4V_F4V_ENCODER_H__
 
+#include <list>
 #include <whisperlib/common/io/buffer/memory_stream.h>
+#include <whisperstreamlib/base/media_info.h>
 #include <whisperstreamlib/base/tag.h>
-#include <whisperstreamlib/f4v/f4v_tag_reorder.h>
+#include <whisperstreamlib/base/tag_serializer.h>
 
 namespace streaming {
 namespace f4v {
@@ -64,22 +66,34 @@ class Serializer : public streaming::TagSerializer {
   Serializer();
   virtual ~Serializer();
 
-  bool Serialize(const f4v::Tag& f4v_tag,
-                 int64 timestamp_ms,
-                 io::MemoryStream* out);
-
   ////////////////////////////////////////////////////////////////////////
   // methods from streaming::TagSerializer
   //
- private:
   virtual void Initialize(io::MemoryStream* out);
   virtual void Finalize(io::MemoryStream* out);
+ protected:
   virtual bool SerializeInternal(const streaming::Tag* tag,
                                  int64 timestamp_ms,
                                  io::MemoryStream* out);
  private:
+  uint64 FramesSize() const;
+  static bool IsFrameMatch(const streaming::Tag* tag,
+                           int64 tag_ts,
+                           const MediaInfo::Frame& frame,
+                           string* out_err);
+ private:
   Encoder encoder_;
-  TagReorder reorder_;
+  // expected frames.
+  // When MOOV is serialized, this array is filled.
+  // The next incoming tags must coincide with these expected frames, so that
+  // the output file is correct. When a mismatch is found, SerializeInternal()
+  // returns false and the serialization should be aborted.
+  vector<MediaInfo::Frame> frames_;
+  uint32 frame_index_;
+  // we have to write the Mdat header just once, before the frames
+  bool mdat_header_written_;
+  // bug trap. Set true on the first failed SerializeInternal().
+  bool failed_;
 };
 
 }

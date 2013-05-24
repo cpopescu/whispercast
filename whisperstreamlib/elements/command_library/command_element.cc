@@ -55,17 +55,15 @@ class CommandElementData {
  public:
   typedef Callback1<CommandElementData*> CloseCallback;
   CommandElementData(net::Selector* selector,
-                     streaming::SplitterCreator* splitter_creator,
                      CloseCallback* close_callback,
                      const string& name,
-                     streaming::Tag::Type tag_type,
-                     const char* command,
+                     MediaFormat media_format,
+                     const string& command,
                      bool should_reopen)
     : selector_(selector),
-      splitter_creator_(splitter_creator),
       close_callback_(close_callback),
       name_(name),
-      caps_(tag_type, streaming::kDefaultFlavourMask),
+      media_format_(media_format),
       command_(command),
       should_reopen_(should_reopen),
       splitter_(NULL),
@@ -83,9 +81,6 @@ class CommandElementData {
     CHECK_NULL(reader_);
   }
 
-  const Capabilities caps() const {
-    return caps_;
-  }
   const TagSplitter* splitter() const {
     return splitter_;
   }
@@ -118,7 +113,7 @@ class CommandElementData {
                << command_ << "] - pid: " << pid_;
       if ( splitter_ == NULL ) {
         // TODO(cpopescu): create this w/ a function
-        splitter_ = splitter_creator_->CreateSplitter(name_, caps_.tag_type_);
+        splitter_ = CreateSplitter(name_, media_format_);
       }
       CHECK(reader_ == NULL);
       reader_ = new net::SelectableFilereader(selector_);
@@ -126,6 +121,7 @@ class CommandElementData {
       CHECK(reader_->InitializeFd(
               fd[0],
               NewPermanentCallback(this, &CommandElementData::ProcessElementData),
+              true,
               NewCallback(this, &CommandElementData::ClosedElement)));
     }
   }
@@ -135,12 +131,6 @@ class CommandElementData {
   }
 
   bool AddRequest(Request* req, ProcessingCallback* callback) {
-    if ( !caps_.IsCompatible(req->caps()) ) {
-      LOG_ERROR << "Caps do not match: req: " << req->ToString()
-                << " v.s. out caps: " << caps_.ToString();
-      return false;
-    }
-    req->mutable_caps()->IntersectCaps(caps_);
     distributor_.add_callback(req, callback);
     return true;
   }
@@ -161,10 +151,9 @@ class CommandElementData {
       scoped_ref<Tag> tag;
       TagReadStatus status = splitter_->GetNextTag(
           io, &tag, &timestamp_ms, true);
-      if ( status == streaming::READ_UNKNOWN ||
-           status == streaming::READ_CORRUPTED_FAIL ||
+      if ( status == streaming::READ_CORRUPTED ||
            status == streaming::READ_EOF ||
-           status == streaming::READ_OVERSIZED_TAG ) {
+           status == streaming::READ_CORRUPTED ) {
         LOG_ERROR << "Error on element: " << name_
                   << ", status: " << TagReadStatusName(status)
                   << ", cmd: [" << command_ << "]"
@@ -232,15 +221,13 @@ class CommandElementData {
  private:
   // Main network selector
   net::Selector* const selector_;
-  // Factory for the splitter
-  streaming::SplitterCreator* const splitter_creator_;
   // We call this when we are totally done
   CloseCallback* close_callback_;
   // name of the element
   const string name_;
   const string path_;
-  // Types of tags to expect
-  streaming::Capabilities caps_;
+  // Media Format to expect
+  MediaFormat media_format_;
   // command to execute for the element
   const string command_;
   // should the command be reopened in case of error ?
@@ -270,14 +257,11 @@ class CommandElementData {
 // CommandElement implementation
 //
 CommandElement::CommandElement(
-  const char* name,
-  const char* id,
+  const string& name,
   ElementMapper* mapper,
-  net::Selector* selector,
-  streaming::SplitterCreator* splitter_creator)
-    : Element(kElementClassName, name, id, mapper),
+  net::Selector* selector)
+    : Element(kElementClassName, name, mapper),
     selector_(selector),
-    splitter_creator_(splitter_creator),
     close_completed_(NULL) {
 }
 
@@ -286,10 +270,9 @@ CommandElement::~CommandElement() {
         it != elements_.end(); ++it ) {
     delete it->second;
   }
-  delete splitter_creator_;
 }
 
-CommandElementData* CommandElement::GetElement(const char* name) {
+CommandElementData* CommandElement::GetElement(const string& name) {
   ElementMap::const_iterator it = elements_.find(string(name));
   if ( it == elements_.end() ) {
     LOG_INFO << " Command finding element for: " << name << " - none";
@@ -308,27 +291,26 @@ void CommandElement::ClosedElementNotification(CommandElementData* data) {
   }
 }
 
-bool CommandElement::AddElement(const char* name,
-                                Tag::Type tag_type,
-                                const char* command,
+bool CommandElement::AddElement(const string& ename,
+                                MediaFormat media_format,
+                                const string& command,
                                 bool should_reopen) {
-  const string full_name(name_ + "/" + name);
+  const string full_name = strutil::JoinPaths(name(), ename);
   ElementMap::const_iterator it = elements_.find(string(full_name));
   if ( it != elements_.end() ) {
     return false;
   }
   CommandElementData* cmd = new CommandElementData(
-    selector_, splitter_creator_,
+    selector_,
     NewCallback(this, &CommandElement::ClosedElementNotification),
-    full_name, tag_type, command, should_reopen);
+    full_name, media_format, command, should_reopen);
   elements_.insert(make_pair(full_name, cmd));
   cmd->Initialize();
   return true;
 }
 
-bool CommandElement::AddRequest(const char* media,
-                                streaming::Request* req,
-                                streaming::ProcessingCallback* callback) {
+bool CommandElement::AddRequest(const string& media, Request* req,
+                                ProcessingCallback* callback) {
   CommandElementData* const src = GetElement(media);
   if ( src == NULL ) {
     LOG_ERROR << "Cannot find element, media: [" << media << "]";
@@ -348,23 +330,14 @@ void CommandElement::RemoveRequest(streaming::Request* req) {
   it->second->RemoveRequest(req);
 }
 
-bool CommandElement::HasMedia(const char* media, Capabilities* out) {
-  CommandElementData* const src = GetElement(media);
-  if ( src == NULL ) {
-    return false;
-  }
-  *out = src->caps();
-  return true;
+bool CommandElement::HasMedia(const string& media) {
+  return GetElement(media) != NULL;
 }
 
-void CommandElement::ListMedia(const char* media_dir,
-                               ElementDescriptions* media) {
+void CommandElement::ListMedia(const string& media, vector<string>* out) {
   for ( ElementMap::const_iterator it = elements_.begin();
         it != elements_.end(); ++it ) {
-    if ( *media_dir == '\0' || it->first == media_dir ) {
-      media->push_back(make_pair(it->first,
-                                 it->second->caps()));
-    }
+    out->push_back(it->first);
   }
 }
 bool CommandElement::DescribeMedia(const string& media,

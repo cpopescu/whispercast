@@ -47,6 +47,9 @@
 #include <whisperlib/common/io/file/file_input_stream.h>
 #include <whisperlib/common/io/buffer/memory_stream.h>
 
+#include <whisperstreamlib/base/media_info.h>
+#include <whisperstreamlib/base/media_info_util.h>
+
 #include <whisperstreamlib/f4v/f4v_to_flv.h>
 #include <whisperstreamlib/f4v/f4v_util.h>
 #include <whisperstreamlib/f4v/f4v_file_reader.h>
@@ -68,7 +71,8 @@
 namespace streaming {
 
 F4vToFlvConverter::F4vToFlvConverter()
-    : previous_tag_size_(0) {
+  : audio_format_(MediaInfo::Audio::FORMAT_AAC),
+    video_format_(MediaInfo::Video::FORMAT_H264) {
 }
 F4vToFlvConverter::~F4vToFlvConverter() {
 }
@@ -78,20 +82,27 @@ void F4vToFlvConverter::ConvertTag(const F4vTag* tag,
   if ( tag->is_atom() ) {
     const f4v::BaseAtom* atom = tag->atom();
     ConvertAtom(tag->timestamp_ms(), atom, flv_tags);
-  } else {
-    CHECK(tag->is_frame());
-    const f4v::Frame* frame = tag->frame();
-    FlvTag* flv_tag = NULL;
-    if ( frame->header().type() == f4v::FrameHeader::AUDIO_FRAME ) {
-      flv_tag = CreateAudioTag(tag->timestamp_ms(), false, frame->data());
-    } else if ( frame->header().type() == f4v::FrameHeader::VIDEO_FRAME ) {
-      flv_tag = CreateVideoTag(tag->timestamp_ms(), false,
-                               frame->header().is_keyframe(), frame->data());
-    }
-    CHECK_NOT_NULL(flv_tag);
-    CHECK_EQ(tag->timestamp_ms(), flv_tag->timestamp_ms());
-    AppendTag(flv_tag, flv_tags);
+    return;
   }
+  CHECK(tag->is_frame());
+  const f4v::Frame* frame = tag->frame();
+  FlvTag* flv_tag = NULL;
+  switch ( frame->header().type() ) {
+    case f4v::FrameHeader::AUDIO_FRAME:
+      flv_tag = CreateAudioTag(tag->timestamp_ms(), false, frame->data());
+      break;
+    case f4v::FrameHeader::VIDEO_FRAME:
+      flv_tag = CreateVideoTag(tag->timestamp_ms(),
+                              tag->composition_offset_ms(),
+                              false, frame->header().is_keyframe(),
+                              frame->data());
+      break;
+    case f4v::FrameHeader::RAW_FRAME:
+      return;
+  }
+  CHECK_NOT_NULL(flv_tag);
+  CHECK_EQ(tag->timestamp_ms(), flv_tag->timestamp_ms());
+  AppendTag(flv_tag, flv_tags);
 }
 FlvTag* F4vToFlvConverter::CreateCuePoint(
     const streaming::f4v::FrameHeader& frame_header,
@@ -127,13 +138,21 @@ void F4vToFlvConverter::ConvertAtom(int64 timestamp,
 
 void F4vToFlvConverter::AppendTag(FlvTag* flv_tag,
                                   vector< scoped_ref<FlvTag> >* flv_tags) {
-  flv_tag->set_previous_tag_size(previous_tag_size_);
-  previous_tag_size_ = flv_tag->body().Size();
   flv_tags->push_back(scoped_ref<FlvTag>(flv_tag));
 }
 void F4vToFlvConverter::ConvertMoov(int64 timestamp,
                                     const f4v::MoovAtom* moov,
                                     vector< scoped_ref<FlvTag> >* flv_tags) {
+  vector<f4v::FrameHeader*> empty_frames;
+  MediaInfo info;
+  if ( !util::ExtractMediaInfoFromMoov(*moov, empty_frames, &info) ) {
+    LOG_ERROR << "ExtractMediaInfoFromMoov() failed for moov: "
+              << moov->ToString();
+    return;
+  }
+  if ( info.has_audio() ) { audio_format_ = info.audio().format_; }
+  if ( info.has_video() ) { video_format_ = info.video().format_; }
+
   AppendTag(GetMetadata(timestamp, moov), flv_tags);
   const f4v::AvccAtom* avcc = f4v::util::GetAvccAtom(*moov);
   if ( avcc != NULL ) {
@@ -148,14 +167,24 @@ void F4vToFlvConverter::ConvertMoov(int64 timestamp,
 FlvTag* F4vToFlvConverter::CreateAudioTag(int64 timestamp,
                                           bool is_aac_header,
                                           const io::MemoryStream& data) {
-  static const char audio_aac_header[] = {0xaf, 0};
-  static const char audio_header[] = {0xaf, 1};
-  io::MemoryStream buf;
-  if ( is_aac_header ) {
-    buf.Write(audio_aac_header, sizeof(audio_aac_header));
-  } else {
-    buf.Write(audio_header, sizeof(audio_aac_header));
+  // Extract from adobe-video_file_format_spec_v10.pdf
+  // Audio frame format:
+  //  4 bits: Sound format (2 = MP3, 10 = AAC)
+  //  2 bits: Sound rate (0 - 5.5kHz, 1 - 11, 2 - 22, 3 - 44;  always 3 on AAC)
+  //  1 bit : Sound size (0 - 8 bit, 1 - 16 bit)
+  //  1 bit : Sound type (0 - mono, 1 - stereo)
+  //  8 bits: Packet type (0 - AAC header, 1 - AAC raw data)
+  //  ....... data
+  uint8 audio_first_byte = 0x0f; // assume: 44kHz, 16 bit, stereo
+  switch ( audio_format_ ) {
+    case MediaInfo::Audio::FORMAT_AAC: audio_first_byte |= 0xa0; break;
+    case MediaInfo::Audio::FORMAT_MP3: audio_first_byte |= 0x20; break;
   }
+  uint8 audio_second_byte = is_aac_header ? 1 : 0;
+
+  io::MemoryStream buf;
+  io::NumStreamer::WriteByte(&buf, audio_first_byte);
+  io::NumStreamer::WriteByte(&buf, audio_second_byte);
   buf.AppendStreamNonDestructive(&data);
 
   FlvTag* flv_tag = new FlvTag(Tag::ATTR_AUDIO, kDefaultFlavourMask,
@@ -166,22 +195,37 @@ FlvTag* F4vToFlvConverter::CreateAudioTag(int64 timestamp,
 }
 
 FlvTag* F4vToFlvConverter::CreateVideoTag(int64 timestamp,
+                                          int64 composition_offset_ms,
                                           bool is_avc_header,
                                           bool is_keyframe,
                                           const io::MemoryStream& data) {
-  static const char video_avc_header[] = {0x17, 0, 0, 0, 0};
-  static const char video_keyframe_header[] = {0x17, 1, 0, 0, 0};
-  static const char video_frame_header[] = {0x27, 1, 0, 0, 0};
-  io::MemoryStream buf;
-  if ( is_avc_header ) {
-    buf.Write(video_avc_header, sizeof(video_avc_header));
-  } else {
-    if ( is_keyframe ) {
-      buf.Write(video_keyframe_header, sizeof(video_keyframe_header));
-    } else {
-      buf.Write(video_frame_header, sizeof(video_frame_header));
-    }
+  // Extract from adobe-video_file_format_spec_v10.pdf
+  // Video frame format:
+  //  4 bits: Frame type (1 keyframe, 2 interframe, 3 disposable H263 interframe)
+  //  4 bits: Codec ID (1 = JPEG, 2 = Sorenson H263, 3 = Screen Video, 4 = VP6,
+  //                    5 = VP6 with Alpha, 6 = Screen Video v2, 7 = AVC)
+  //
+  // If codecID==7: the AVCVideoPacket follows:
+  //  8 bits: Packet type (0 = sequence header, 1 = NALU, 2 = end of sequence)
+  // 24 bits: Composition time offset (only if Packet Type == 1, otherwise 0)
+  // .......: data (if Packet Type == 0: decoder config
+  //                if Packet Type == 1: 1 or more NALUs
+  //                if Packet Type == 2: empty)
+  uint8 video_first_byte = (is_avc_header || is_keyframe) ? 0x10 : 0x20;
+  switch ( video_format_ ) {
+    case MediaInfo::Video::FORMAT_H263:   video_first_byte |= 0x02; break;
+    case MediaInfo::Video::FORMAT_H264:   video_first_byte |= 0x07; break;
+    case MediaInfo::Video::FORMAT_ON_VP6: video_first_byte |= 0x04; break;
   }
+
+  io::MemoryStream buf;
+  io::NumStreamer::WriteByte(&buf, video_first_byte);
+  if ( is_avc_header ) {
+    io::NumStreamer::WriteByte(&buf, 0x00); // 0 = sequence header
+  } else {
+    io::NumStreamer::WriteByte(&buf, 0x01); // 1 = NALUs
+  }
+  io::NumStreamer::WriteUInt24(&buf, composition_offset_ms, common::BIGENDIAN);
   buf.AppendStreamNonDestructive(&data);
 
   FlvTag* flv_tag = new FlvTag(Tag::ATTR_VIDEO, kDefaultFlavourMask,
@@ -200,74 +244,106 @@ FlvTag* F4vToFlvConverter::GetAvcc(int64 timestamp,
                                 const f4v::AvccAtom* avcc) {
   // Extra data is the whole AVCC body, without type & size (8 bytes).
   io::MemoryStream ms;
-  f4v_encoder_.WriteAtom(ms, *avcc);
+  f4v::Encoder().WriteAtom(ms, *avcc);
   ms.Skip(8);
-  return CreateVideoTag(timestamp, true, true, ms);
+  return CreateVideoTag(timestamp, 0, true, true, ms);
 }
 
 FlvTag* F4vToFlvConverter::GetMetadata(int64 timestamp,
                                        const f4v::MoovAtom* moov) {
-  f4v::util::MediaInfo media_info;
-  f4v::util::ExtractMediaInfo(*moov, &media_info);
+  MediaInfo info;
+  f4v::util::ExtractMediaInfo(*moov, &info);
+
+  string audio_codec_id; // specific FLV 'audiocodecid' constants
+  switch ( info.audio().format_ ) {
+    case MediaInfo::Audio::FORMAT_AAC: audio_codec_id = "mp4a"; break;
+    case MediaInfo::Audio::FORMAT_MP3: audio_codec_id = "2"; break;
+  }
+
+  string video_codec_id; // specific FLV 'videocodecid' constants
+  switch ( info.video().format_ ) {
+    case MediaInfo::Video::FORMAT_H263: video_codec_id = "2"; break;
+    case MediaInfo::Video::FORMAT_H264: video_codec_id = "avc1"; break;
+    case MediaInfo::Video::FORMAT_ON_VP6: video_codec_id = "4"; break;
+  }
 
   // Create metadata with stream info
   //
   FlvTag::Metadata* metadata = new FlvTag::Metadata();
+  rtmp::CStringMap* audio_track = NULL;
+  rtmp::CStringMap* video_track = NULL;
   metadata->mutable_name()->set_value(kOnMetaData);
-  metadata->mutable_values()->Set("aacaot",
-      new rtmp::CNumber(media_info.aacaot_));
-  metadata->mutable_values()->Set("audiochannels",
-      new rtmp::CNumber(media_info.audio_channels_));
-  metadata->mutable_values()->Set("audiocodecid",
-      new rtmp::CString(media_info.audio_codec_id_));
-  metadata->mutable_values()->Set("avclevel",
-      new rtmp::CNumber(media_info.avc_level_));
-  metadata->mutable_values()->Set("avcprofile",
-      new rtmp::CNumber(media_info.avc_profile_));
+  if ( info.has_audio() ) {
+    metadata->mutable_values()->Set("audiocodecid",
+        new rtmp::CString(audio_codec_id));
+    metadata->mutable_values()->Set("audiochannels",
+        new rtmp::CNumber(info.audio().channels_));
+    if ( info.audio().format_ == MediaInfo::Audio::FORMAT_AAC ) {
+      //TODO(cosmin): Compute 'aacaot' from somewhere.
+      //   According to Adobe AS3 Class FLVMetaData:
+      //   aacaot = The AAC audio object type; 0, 1, or 2 are supported.
+      metadata->mutable_values()->Set("aacaot",
+          new rtmp::CNumber(2)); // harcoded
+    }
+
+    audio_track = new rtmp::CStringMap();
+    audio_track->Set("timescale",
+        new rtmp::CNumber(info.audio().sample_rate_));
+    audio_track->Set("length",
+        new rtmp::CNumber(info.duration_ms() / 1000.0 *
+                          info.audio().sample_rate_));
+    audio_track->Set("language",
+        new rtmp::CString(info.audio().mp4_language_));
+    rtmp::CStringMap* audio_track_sampledescription_0 = new rtmp::CStringMap();
+    audio_track_sampledescription_0->Set("sampletype",
+        new rtmp::CString(audio_codec_id));
+    rtmp::CArray* audio_track_sampledescription = new rtmp::CArray(1);
+    audio_track_sampledescription->mutable_data()[0] =
+        audio_track_sampledescription_0;
+    audio_track->Set("sampledescription", audio_track_sampledescription);
+  }
+  if ( info.has_video() ) {
+    metadata->mutable_values()->Set("videocodecid",
+        new rtmp::CString(video_codec_id));
+    metadata->mutable_values()->Set("width",
+        new rtmp::CNumber(info.video().width_));
+    metadata->mutable_values()->Set("height",
+        new rtmp::CNumber(info.video().height_));
+    metadata->mutable_values()->Set("videoframerate",
+        new rtmp::CNumber(info.video().frame_rate_));
+    if ( info.video().format_ == MediaInfo::Video::FORMAT_H264 ) {
+      metadata->mutable_values()->Set("avclevel",
+          new rtmp::CNumber(info.video().h264_level_));
+      metadata->mutable_values()->Set("avcprofile",
+          new rtmp::CNumber(info.video().h264_profile_));
+    }
+
+    video_track = new rtmp::CStringMap();
+    video_track->Set("timescale",
+        new rtmp::CNumber(info.video().timescale_));
+    video_track->Set("length",
+        new rtmp::CNumber(info.duration_ms() / 1000.0 *
+                          info.video().timescale_));
+    video_track->Set("language",
+        new rtmp::CString(""));
+    rtmp::CStringMap* video_track_sampledescription_0 = new rtmp::CStringMap();
+    video_track_sampledescription_0->Set("sampletype",
+        new rtmp::CString(video_codec_id));
+    rtmp::CArray* video_track_sampledescription = new rtmp::CArray(1);
+    video_track_sampledescription->mutable_data()[0] =
+        video_track_sampledescription_0;
+    video_track->Set("sampledescription", video_track_sampledescription);
+  }
   metadata->mutable_values()->Set("duration",
-      new rtmp::CNumber(media_info.duration_ / 1000.0f));
-  metadata->mutable_values()->Set("height",
-      new rtmp::CNumber(media_info.height_));
-  metadata->mutable_values()->Set("videocodecid",
-      new rtmp::CString(media_info.video_codec_id_));
-  metadata->mutable_values()->Set("videoframerate",
-      new rtmp::CNumber(media_info.video_frame_rate_));
-  metadata->mutable_values()->Set("width",
-      new rtmp::CNumber(media_info.width_));
+      new rtmp::CNumber(info.duration_ms() / 1000.0));
 
-  rtmp::CStringMap* video_track = new rtmp::CStringMap();
-  video_track->Set("length",
-      new rtmp::CNumber(media_info.video_.length_));
-  video_track->Set("timescale",
-      new rtmp::CNumber(media_info.video_.timescale_));
-  video_track->Set("language",
-      new rtmp::CString(media_info.video_.language_));
-  rtmp::CStringMap* video_track_sampledescription_0 = new rtmp::CStringMap();
-  video_track_sampledescription_0->Set("sampletype",
-      new rtmp::CString(media_info.video_codec_id_));
-  rtmp::CArray* video_track_sampledescription = new rtmp::CArray(1);
-  video_track_sampledescription->mutable_data()[0] =
-      video_track_sampledescription_0;
-  video_track->Set("sampledescription", video_track_sampledescription);
-
-  rtmp::CStringMap* audio_track = new rtmp::CStringMap();
-  audio_track->Set("length",
-      new rtmp::CNumber(media_info.audio_.length_));
-  audio_track->Set("timescale",
-      new rtmp::CNumber(media_info.audio_.timescale_));
-  audio_track->Set("language",
-      new rtmp::CString(media_info.audio_.language_));
-  rtmp::CStringMap* audio_track_sampledescription_0 = new rtmp::CStringMap();
-  audio_track_sampledescription_0->Set("sampletype",
-      new rtmp::CString(media_info.audio_codec_id_));
-  rtmp::CArray* audio_track_sampledescription = new rtmp::CArray(1);
-  audio_track_sampledescription->mutable_data()[0] =
-      audio_track_sampledescription_0;
-  audio_track->Set("sampledescription", audio_track_sampledescription);
-
-  rtmp::CArray* trackinfo = new rtmp::CArray(2);
-  trackinfo->mutable_data()[0] = video_track;
-  trackinfo->mutable_data()[1] = audio_track;
+  rtmp::CArray* trackinfo = new rtmp::CArray();
+  if ( video_track != NULL ) {
+    trackinfo->mutable_data().push_back(video_track);
+  }
+  if ( audio_track != NULL ) {
+    trackinfo->mutable_data().push_back(audio_track);
+  }
   metadata->mutable_values()->Set("trackinfo", trackinfo);
 
   return new FlvTag(Tag::ATTR_METADATA, kDefaultFlavourMask,
@@ -318,7 +394,7 @@ bool ConvertF4vToFlv(const string& in_f4v_file, const string& out_flv_file) {
          f4v_tag->atom()->type() == streaming::f4v::ATOM_MOOV ) {
       const streaming::f4v::MoovAtom& moov =
         static_cast<const streaming::f4v::MoovAtom&>(*f4v_tag->atom());
-      streaming::f4v::util::MediaInfo media_info;
+      streaming::MediaInfo media_info;
       streaming::f4v::util::ExtractMediaInfo(moov, &media_info);
       LOG_INFO << "F4V MediaInfo: " << media_info.ToString();
     }

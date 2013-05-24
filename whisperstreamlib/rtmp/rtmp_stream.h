@@ -52,30 +52,19 @@
 namespace rtmp {
 
 struct StreamParams {
-  int stream_id_;               // identifies us inside the protocol
+  int stream_id_;               // identifies us inside the connection
   string application_name_;     // from tcUrl in connect
   string application_url_;      // the tcUrl itself
 
-  string command_;              // from the 'publish' request.
-                                // can be "live", "record" or "append"
-
-  streaming::AuthorizerRequest auth_req_;  // credentials & stuff
+  streaming::AuthorizerRequest auth_req_;  // credentials
 
   StreamParams()
       : stream_id_(0) {
   }
-  StreamParams(const StreamParams& s)
-      : stream_id_(s.stream_id_),
-        application_name_(s.application_name_),
-        application_url_(s.application_url_),
-        command_(s.command_),
-        auth_req_(s.auth_req_) {
-  }
   string ToString() const {
     return strutil::StringPrintf("StreamParams{stream_id_: %d"
-        ", application_name_: %s, application_url_: %s, command_: %s}",
-        stream_id_, application_name_.c_str(), application_url_.c_str(),
-        command_.c_str());
+        ", application_name_: %s, application_url_: %s}",
+        stream_id_, application_name_.c_str(), application_url_.c_str());
   }
 };
 
@@ -105,15 +94,20 @@ class Stream {
                  const io::MemoryStream* buffer = NULL,
                  bool force_write = false,
                  bool dec_ref = false);
+  void SendEventOnSystemStream(scoped_ref<Event> event,
+                               int64 timestamp_ms = -1,
+                               const io::MemoryStream* buffer = NULL,
+                               bool force_write = false,
+                               bool dec_ref = false);
 
   // returns: true -> success, continue connection
   //          false -> error, terminate connection
-  bool ReceiveEvent(rtmp::Event* event);
+  bool ReceiveEvent(const rtmp::Event* event);
 
   virtual void NotifyOutbufEmpty(int32 outbuf_size) = 0;
 
  protected:
-  virtual bool ProcessEvent(rtmp::Event* event, int64 timestamp_ms) = 0;
+  virtual bool ProcessEvent(const rtmp::Event* event, int64 timestamp_ms) = 0;
 
  public:
   virtual void Close() = 0;

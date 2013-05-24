@@ -123,23 +123,10 @@ void rpc::ExecutionPool::QueryCompleted(const rpc::Query& q) {
 }
 
 bool rpc::ExecutionPool::InternalQueueRPC(rpc::Query* q) {
-  uint32 nQueries = 0;
-  // queue & signal the new job
-  {
-    synch::MutexLocker lock(&sync_queries_);
-    q->SetCompletionCallback(completion_callback_);
-    queries_.push_back(q);
-    nQueries = queries_.size();
-    new_query_.Signal();
-  }
-
-  // TODO(cosmin): load limit is performed in IRPCAsyncQueryExecutor::QueueRPC.
-  /*
-  if ( nQueries > 100 ) {
-    // TODO(cpopescu): Usleep is really BAD
-    ::usleep(nQueries * 1);
-  }
-  */
+  synch::MutexLocker lock(&sync_queries_);
+  q->SetCompletionCallback(completion_callback_);
+  queries_.push_back(q);
+  new_query_.Signal();
   return true;
 }
 }

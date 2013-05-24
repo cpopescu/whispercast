@@ -64,14 +64,14 @@ const string ExporterCC::kLanguageName("cc");
 //static
 const map<string, string>
 ExporterCC::kBaseTypesCorrespondence
-(ExporterCC::BuildBaseTypesCorrespondenceMap());
+(ExporterCC::BuildBaseTypesCorrespondence());
 
-const map<string, string>
-ExporterCC::kBaseTypesArgCorrespondence
-(ExporterCC::BuildBaseTypesArgCorrespondenceMap());
+//static
+const set<string>
+ExporterCC::kSimpleBaseTypes
+(ExporterCC::BuildSimpleBaseTypes());
 
-const map<string, string>
-ExporterCC::BuildBaseTypesCorrespondenceMap() {
+const map<string, string> ExporterCC::BuildBaseTypesCorrespondence() {
   map<string, string> btc;
   btc[string(RPC_VOID)]   = string("rpc::Void");
   btc[string(RPC_BOOL)]   = string("bool");
@@ -83,23 +83,13 @@ ExporterCC::BuildBaseTypesCorrespondenceMap() {
   btc[string(RPC_MAP)]    = string("map");
   return btc;
 }
-const map<string, string>
-ExporterCC::BuildBaseTypesArgCorrespondenceMap() {
-  map<string, string> btc;
-  btc[string(RPC_VOID)]   = string("/* %s %s */");
-  btc[string(RPC_BOOL)]   = string(", %s %s");
-  btc[string(RPC_INT)]    = string(", %s %s");
-  btc[string(RPC_BIGINT)] = string(", %s %s");
-  btc[string(RPC_FLOAT)]  = string(", %s %s");
-  btc[string(RPC_STRING)] = string(", const %s& %s");
-  btc[string(RPC_ARRAY)]  = string(", const %s& %s");
-  btc[string(RPC_MAP)]    = string(", const %s& %s");
-  return btc;
-}
-
-// static
-const map<string, string>& ExporterCC::BaseTypeCorrespondence() {
-  return ExporterCC::kBaseTypesCorrespondence;
+const set<string> ExporterCC::BuildSimpleBaseTypes() {
+  set<string> s;
+  s.insert(string(RPC_BOOL));
+  s.insert(string(RPC_INT));
+  s.insert(string(RPC_BIGINT));
+  s.insert(string(RPC_FLOAT));
+  return s;
 }
 
 //static
@@ -175,13 +165,12 @@ const string ExporterCC::TranslateAttribute(const PType& type) {
                                  TranslateType(type).c_str());
   }
 }
-
 const string ExporterCC::TranslateType(const PType& type) {
   string translatedType;
 
   map<string, string>::const_iterator it =
-      BaseTypeCorrespondence().find(type.name_);
-  if ( it == BaseTypeCorrespondence().end() ) {
+      kBaseTypesCorrespondence.find(type.name_);
+  if ( it == kBaseTypesCorrespondence.end() ) {
     // cannot find typename correspondence. It probably is a custom type.
 
     // We can accept some undefined custom types, as they can be included
@@ -204,6 +193,9 @@ const string ExporterCC::TranslateType(const PType& type) {
                        TranslateType(*type.subtype2_) + string(" >"));
   }
   return translatedType;
+}
+bool ExporterCC::IsSimpleType(const PType& type) {
+  return kSimpleBaseTypes.find(type.name_) != kSimpleBaseTypes.end();
 }
 
 const map<string, string> ExporterCC::paramsDescription_(
@@ -254,7 +246,8 @@ void ExporterCC::ExportAutoGenFileHeader(ostream& out) {
 bool ExporterCC::ExportTypesH(const char* types_h_file) {
   ofstream out(types_h_file, ios::out | ios::trunc);
   if ( !out.is_open() ) {
-    LOG_INFO << "Cannot open output file: " << types_h_file;
+    LOG_ERROR << "Cannot open output file: " << types_h_file
+              << ", err: " << GetLastSystemErrorDescription();
     return false;
   }
   ExportAutoGenFileHeader(out);
@@ -359,8 +352,10 @@ bool ExporterCC::ExportTypesH(const char* types_h_file) {
     out << "  " << endl;
 
     out << "public:" << endl;
-    out << "  rpc::DECODE_RESULT SerializeLoad(rpc::Decoder& in);" << endl;
-    out << "  void SerializeSave(rpc::Encoder& out) const;" << endl;
+    out << "  rpc::DECODE_RESULT SerializeLoad(rpc::Decoder& decoder, "
+           "io::MemoryStream& in);" << endl;
+    out << "  void SerializeSave(rpc::Encoder& encoder, "
+            "io::MemoryStream* out) const;" << endl;
     out << "  string ToString() const;;" << endl;
     out << "  rpc::Custom* Clone() const {" << endl;
     out << "    return new " << customType.name_ << "(*this);" << endl;
@@ -422,7 +417,8 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
                                const char* types_cc_file) {
   ofstream out(types_cc_file, ios::out | ios::trunc);
   if ( !out.is_open() ) {
-    LOG_INFO << "Cannot open output file: " << types_cc_file;
+    LOG_ERROR << "Cannot open output file: " << types_cc_file
+              << ", err: " << GetLastSystemErrorDescription();
     return false;
   }
   ExportAutoGenFileHeader(out);
@@ -649,8 +645,8 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
     out << "//" << endl;
     out << "//  Serialization" << endl;
     out << "//" << endl;
-    out << "rpc::DECODE_RESULT " << customType.name_
-        << "::SerializeLoad(rpc::Decoder& in) { " << endl;
+    out << "rpc::DECODE_RESULT " << customType.name_ << "::SerializeLoad("
+           "rpc::Decoder& decoder, io::MemoryStream& in) { " << endl;
     out << "  // unset all fields" << endl;
     out << "  //" << endl;
     for ( PAttributeArray::const_iterator it = attributes.begin();
@@ -659,11 +655,7 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
       out << "  " << attribute.name_ << ".reset();" << endl;
     }
     out << "  " << endl;
-    out << "  // read the number of serialized fields" << endl;
-    out << "  //" << endl;
-    out << "  uint32 fields;" << endl;
-    out << "  rpc::DECODE_RESULT result = in.DecodeStructStart(fields);"
-        << endl;
+    out << "  rpc::DECODE_RESULT result = decoder.DecodeStructStart(in);" << endl;
     out << "  if ( result != rpc::DECODE_RESULT_SUCCESS ) {" << endl;
     out << "    return result; // bad or not enough data" << endl;
     out << "  }" << endl;
@@ -671,35 +663,25 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
     out << "  uint32 i = 0;" << endl;
     out << "  for ( i = 0; true; i++ ) {" << endl;
     out << "    bool hasMoreFields = false;" << endl;
-    out << "    DECODE_VERIFY(in.DecodeStructContinue(hasMoreFields));" << endl;
+    out << "    DECODE_VERIFY(decoder.DecodeStructContinue(in, &hasMoreFields));" << endl;
     out << "    if ( !hasMoreFields ) {" << endl;
     out << "      break;" << endl;
     out << "    }" << endl;
     out << "    " << endl;
 
-    out << "    DECODE_VERIFY(in.DecodeStructAttribStart());" << endl;
+    out << "    DECODE_VERIFY(decoder.DecodeStructAttribStart(in));" << endl;
     out << "    " << endl;
 
     out << "    // read field identifier" << endl;
     out << "    //" << endl;
     out << "    string fieldname;" << endl;
-    out << "    result = in.Decode(fieldname);" << endl;
+    out << "    result = decoder.Decode(in, &fieldname);" << endl;
     out << "    if ( result != rpc::DECODE_RESULT_SUCCESS ) {" << endl;
     out << "      return result; // bad or not enough data" << endl;
     out << "    }" << endl;
     out << "    " << endl;
 
-    out << "    DECODE_VERIFY(in.DecodeStructAttribMiddle());" << endl;
-    out << "    // read field size in stream (useful if you want to " << endl;
-    out << "    // skip over field)" << endl;
-    out << "    //" << endl;
-    out << "    //" << endl;
-    out << "    //  rpc::Int fieldsize;" << endl;
-    out << "    //  result = in.Decode(fieldsize);" << endl;
-    out << "    //  if ( result != rpc::DECODE_RESULT_SUCCESS ) {" << endl;
-    out << "    //   return result; // bad or not enough data" << endl;
-    out << "    // }" << endl;
-    out << "    //" << endl;
+    out << "    DECODE_VERIFY(decoder.DecodeStructAttribMiddle(in));" << endl;
     out << "    " << endl;
 
     for ( PAttributeArray::const_iterator it = attributes.begin();
@@ -712,8 +694,8 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
           << attribute.name_ << "'.\";" << endl;
       out << "        return rpc::DECODE_RESULT_ERROR;" << endl;
       out << "      }" << endl;
-      out << "      result = in.Decode(" << attribute.name_
-          << ".ref());" << endl;
+      out << "      result = decoder.Decode(in, " << attribute.name_
+          << ".ptr());" << endl;
       out << "      if ( result != rpc::DECODE_RESULT_SUCCESS ) {" << endl;
       out << "        if ( result == rpc::DECODE_RESULT_NOT_ENOUGH_DATA ) {"
           << endl;
@@ -733,16 +715,9 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
     out << "    {" << endl;
     out << "      LOG_ERROR << \"Unknown field name: '\" << fieldname "
         << "<< \"', at position \" << i << \".\";" << endl;
-    out << "      //in.SkipBytes(fieldsize);" << endl;
     out << "      return rpc::DECODE_RESULT_ERROR;" << endl;
     out << "    };" << endl;
-    out << "    DECODE_VERIFY(in.DecodeStructAttribEnd());" << endl;
-    out << "  }" << endl;
-    out << "  " << endl;
-
-    out << "  // bug-trap" << endl;
-    out << "  if ( fields != 0xffffffff ) {" << endl;
-    out << "    CHECK_EQ(fields, i);" << endl;
+    out << "    DECODE_VERIFY(decoder.DecodeStructAttribEnd(in));" << endl;
     out << "  }" << endl;
     out << "  " << endl;
 
@@ -766,8 +741,8 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
     out << "}" << endl;
     out << "" << endl;
 
-    out << "void " << customType.name_
-        << "::SerializeSave(rpc::Encoder& out) const {" << endl;
+    out << "void " << customType.name_ << "::SerializeSave("
+           "rpc::Encoder& encoder, io::MemoryStream* out) const {" << endl;
     out << "  // verify required fields" << endl;
     out << "  //" << endl;
     unsigned nRequiredFields = 0;
@@ -798,7 +773,7 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
           << attribute.name_ << ".is_set() ? 1 : 0)";
     }
     out << ";" << endl;
-    out << "  out.EncodeStructStart(fields);" << endl;
+    out << "  encoder.EncodeStructStart(fields, out);" << endl;
     out << "  " << endl;
 
     out << "  uint32 count_encoded_attributes = 0;" << endl;
@@ -814,20 +789,17 @@ bool ExporterCC::ExportTypesCC(const char* include_h_file,
       }
       out << "  {" << endl;
       out << "    if(count_encoded_attributes > 0) {" << endl;
-      out << "      out.EncodeStructContinue();" << endl;
+      out << "      encoder.EncodeStructContinue(out);" << endl;
       out << "    }" << endl;
-      out << "    out.EncodeStructAttribStart();" << endl;
-      out << "    out.Encode(\""
-          << attribute.name_ << "\");" << endl;
-      out << "    out.EncodeStructAttribMiddle();" << endl;
-      out << "    //out.Encode(rpc::Int(out.EstimateEncodingSize("
-          << attribute.name_ << ".get())));" << endl;
-      out << "    out.Encode(" << attribute.name_ << ".get());" << endl;
-      out << "    out.EncodeStructAttribEnd();" << endl;
+      out << "    encoder.EncodeStructAttribStart(out);" << endl;
+      out << "    encoder.Encode(\"" << attribute.name_ << "\", out);" << endl;
+      out << "    encoder.EncodeStructAttribMiddle(out);" << endl;
+      out << "    encoder.Encode(" << attribute.name_ << ".get(), out);" << endl;
+      out << "    encoder.EncodeStructAttribEnd(out);" << endl;
       out << "    count_encoded_attributes++;" << endl;
       out << "  }" << endl;
     }
-    out << "  out.EncodeStructEnd();" << endl;
+    out << "  encoder.EncodeStructEnd(out);" << endl;
     out << "}" << endl;
     out << "" << endl;
 
@@ -1038,20 +1010,20 @@ bool ExporterCC::ExportClientWrappersCC(const char* clientWrappers_cc_file) {
       out << ") {" << endl;
       out << "  io::MemoryStream __params;" << endl;
       out << "  scoped_ptr<rpc::Encoder> "
-          << "encoder(GetCodec().CreateEncoder(__params));" << endl;
-      out << "  encoder->EncodeArrayStart(" << args.size() << ");" << endl;
+          << "encoder(CreateEncoder(GetCodec()));" << endl;
+      out << "  encoder->EncodeArrayStart(" << args.size() << ", &__params);" << endl;
       unsigned nArgIndex = 0;
       for ( PParamArray::const_iterator it = args.begin();
             it != args.end(); nArgIndex++ ) {
         const PParam& arg = *it;
-        out << "    encoder->Encode(" << arg.name_ << ");" << endl;
+        out << "    encoder->Encode(" << arg.name_ << ", &__params);" << endl;
 
         ++it;
         if ( it != args.end() ) {
-          out << "  encoder->EncodeArrayContinue();" << endl;
+          out << "  encoder->EncodeArrayContinue(&__params);" << endl;
         }
       }
-      out << "  encoder->EncodeArrayEnd();" << endl;
+      out << "  encoder->EncodeArrayEnd(&__params);" << endl;
       out << "  const std::string __k_function_name(\""
            << functionName << "\");" << endl;
       out << "  Call(__k_function_name, __params, ret);" << endl;
@@ -1076,21 +1048,21 @@ bool ExporterCC::ExportClientWrappersCC(const char* clientWrappers_cc_file) {
       }
       out << ") {" << endl;
       out << "  io::MemoryStream __params;" << endl;
-      out << "  scoped_ptr<rpc::Encoder> encoder"
-          << "(GetCodec().CreateEncoder(__params));" << endl;
-      out << "  encoder->EncodeArrayStart(" << args.size() << ");" << endl;
+      out << "  scoped_ptr<rpc::Encoder> "
+          << "encoder(CreateEncoder(GetCodec()));" << endl;
+      out << "  encoder->EncodeArrayStart(" << args.size() << ", &__params);" << endl;
       nArgIndex = 0;
       for ( PParamArray::const_iterator it = args.begin();
             it != args.end(); nArgIndex++ ) {
         const PParam& arg = *it;
-        out << "    encoder->Encode(" << arg.name_ << ");" << endl;
+        out << "    encoder->Encode(" << arg.name_ << ", &__params);" << endl;
 
         ++it;
         if ( it != args.end() ) {
-          out << "  encoder->EncodeArrayContinue();" << endl;
+          out << "  encoder->EncodeArrayContinue(&__params);" << endl;
         }
       }
-      out << "  encoder->EncodeArrayEnd();" << endl;
+      out << "  encoder->EncodeArrayEnd(&__params);" << endl;
       out << "  return AsyncCall(\"" << functionName << "\", __params, fun);"
           << endl;
       out << "}" << endl;
@@ -1176,30 +1148,26 @@ bool ExporterCC::ExportServerInvokersH(const char* serverInvokers_h_file) {
       out << " private: " << endl;
       out << "  class QueryParams_" << functionName
           << " : public rpc::Query::Params { " << endl;
-      out << "  public: " << endl;
+      out << "   public: " << endl;
       for ( PParamArray::const_iterator it = args.begin();
             it != args.end(); ++it ) {
         const PParam& arg = *it;
-        out << " " << TranslateType(arg.type_)
+        out << "    " << TranslateType(arg.type_)
             << " " << arg.name_ << "_;" << endl;
       }
-      out << "};" << endl;
+      out << "  };" << endl;
       out << " public: " << endl;
       out << "  virtual void "<< functionName << "(rpc::CallContext< "
           << functionReturnType << " >* call";
       for ( PParamArray::const_iterator it = args.begin();
             it != args.end(); ++it ) {
         const PParam& arg = *it;
-        if ( ExporterCC::kBaseTypesArgCorrespondence.find(arg.type_.name_) ==
-             ExporterCC::kBaseTypesArgCorrespondence.end() ) {
-          // This is the case of non basic types.
-          out << ", const " << TranslateType(arg.type_) << "& " << arg.name_;
+        if ( IsSimpleType(arg.type_) ) {
+          // Pass by value
+          out << ", " << TranslateType(arg.type_) << " " << arg.name_;
         } else {
-          out << strutil::StringPrintf(
-              ExporterCC::kBaseTypesArgCorrespondence.at(
-                  arg.type_.name_).c_str(),
-              TranslateType(arg.type_).c_str(),
-              arg.name_.c_str());
+          // Pass by reference (just for performance)
+          out << ", const " << TranslateType(arg.type_) << "& " << arg.name_;
         }
       }
       out << ") = 0;" << endl;
@@ -1388,7 +1356,7 @@ bool ExporterCC::ExportServerInvokersCC(const char* serverInvokers_cc_file) {
       out << "    //" << endl;
       out << "    QueryParams_" << functionName << "* query_params "
           << "= new QueryParams_" << functionName << "();" << endl;
-      out <<"     query->SetParams(query_params);" << endl;
+      out << "    query->SetParams(query_params);" << endl;
       for ( PParamArray::const_iterator it = args.begin();
             it != args.end(); ++it ) {
         const PParam& arg = *it;

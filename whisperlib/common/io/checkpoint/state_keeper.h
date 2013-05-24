@@ -230,6 +230,15 @@ class StateKeepUser {
 
   string prefix() const { return prefix_; }
 
+  int64 timeout_ms() const {
+    return timeout_ms_;
+  }
+  // You can set this once, and *only* from unset value
+  void set_timeout_ms(int64 timeout_ms) {
+    // CHECK_EQ(timeout_ms_, 0);
+    timeout_ms_ = timeout_ms;
+  }
+
   bool SetValue(const string& key, const string& value) {
     if ( timeout_ms_ == 0 ) {
       return true;   // we basicaly don't save state ..
@@ -252,13 +261,27 @@ class StateKeepUser {
   bool DeleteAllValues() {
     return state_keeper_->DeletePrefix(prefix_);
   }
-  void GetBounds(const string& prefix,
-                 map<string, string>::const_iterator* begin,
-                 map<string, string>::const_iterator* end) {
-    state_keeper_->GetBounds(prefix_ + prefix, begin, end);
+  // returns all the pairs key:value where the key starts with the given prefix
+  void GetKeyValues(const string& prefix, map<string, string>* out) const {
+    map<string, string>::const_iterator begin, end;
+    state_keeper_->GetBounds(prefix_ + prefix, &begin, &end);
+    for ( map<string, string>::const_iterator it = begin; it != end; ++it ) {
+      out->insert(make_pair(it->first.substr(prefix_.size()), it->second));
+    }
+  }
+  // returns all the keys that start with the given prefix
+  void GetKeys(const string& prefix, vector<string>* out) const{
+    map<string, string>::const_iterator begin, end;
+    state_keeper_->GetBounds(prefix_ + prefix, &begin, &end);
+    for ( map<string, string>::const_iterator it = begin; it != end; ++it ) {
+      out->push_back(it->first.substr(prefix_.size()));
+    }
   }
   bool GetValue(const string& key, string* value) const {
     return state_keeper_->GetValue(prefix_ + key, value);
+  }
+  bool HasValue(const string& key) const {
+    return state_keeper_->HasValue(prefix_ + key);
   }
   void BeginTransaction() {
     state_keeper_->BeginTransaction();
@@ -266,14 +289,6 @@ class StateKeepUser {
   void CommitTransaction() {
     StateKeepUser::UpdateTimeout();
     state_keeper_->CommitTransaction();
-  }
-  int64 timeout_ms() const {
-    return timeout_ms_;
-  }
-  // You can set this once, and *only* from unset value
-  void set_timeout_ms(int64 timeout_ms) {
-    // CHECK_EQ(timeout_ms_, 0);
-    timeout_ms_ = timeout_ms;
   }
  private:
   string info() const {

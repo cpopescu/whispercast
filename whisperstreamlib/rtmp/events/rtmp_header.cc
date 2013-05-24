@@ -35,69 +35,57 @@
 #include "rtmp/objects/amf/amf0_util.h"
 #include "rtmp/events/rtmp_header.h"
 #include "rtmp/rtmp_consts.h"
-#include "rtmp/rtmp_protocol_data.h"
+#include "rtmp/rtmp_coder.h"
 
 namespace rtmp {
 
-Header::Header(ProtocolData* protocol_data)
-    : protocol_data_(protocol_data),
-      channel_id_(kInvalidUint32),
-      stream_id_(kInvalidUint32),
-      event_type_(EVENT_INVALID),
-      event_size_(kInvalidUint32),
+const char* HeaderTypeName(HeaderType ht) {
+  switch ( ht ) {
+    CONSIDER(HEADER_NEW);
+    CONSIDER(HEADER_SAME_SOURCE);
+    CONSIDER(HEADER_TIMER_CHANGE);
+    CONSIDER(HEADER_CONTINUE);
+  }
+  LOG_FATAL << "Illegal HeaderType: " << ht;
+  return "HEADER_UNKOWN";
+}
+int32 HeaderLength(HeaderType ht) {
+  switch ( ht ) {
+    case HEADER_NEW: return 11;
+    case HEADER_SAME_SOURCE: return 7;
+    case HEADER_TIMER_CHANGE: return 3;
+    case HEADER_CONTINUE: return 0;
+  }
+  LOG_FATAL << "Illegal HeaderType: " << ht;
+  return -1;
+}
+
+Header::Header()
+    : channel_id_(kInvalidChannelId),
+      stream_id_(kInvalidStreamId),
+      event_type_(EVENT_SHARED_OBJECT),
       timestamp_ms_(0),
       is_timestamp_relative_(true) {
 }
-
-Header::Header(ProtocolData* protocol_data, const Header& header)
-    : protocol_data_(protocol_data),
-      channel_id_(header.channel_id()),
-      stream_id_(header.stream_id()),
-      event_type_(header.event_type()),
-      event_size_(header.event_size()),
-      timestamp_ms_(header.timestamp_ms()),
-      is_timestamp_relative_(header.is_timestamp_relative()) {
+Header::Header(uint32 channel_id,
+               uint32 stream_id,
+               EventType event_type,
+               uint32 timestamp_ms,
+               bool is_timestamp_relative)
+    : channel_id_(channel_id),
+      stream_id_(stream_id),
+      event_type_(event_type),
+      timestamp_ms_(timestamp_ms),
+      is_timestamp_relative_(is_timestamp_relative) {
 }
-
 
 Header::~Header() {
-  if ( protocol_data_ != NULL && channel_id_ != kInvalidUint32 ) {
-    if ( protocol_data_->get_last_read_header(channel_id_) == this ) {
-      protocol_data_->clear_last_read_header(channel_id_);
-    }
-    if ( protocol_data_->get_last_write_header(channel_id_) == this ) {
-      protocol_data_->clear_last_write_header(channel_id_);
-    }
-  }
 }
 
-string Header::ToString() const {
-  return strutil::StringPrintf("%s@%8d rtmp::Header[S-%d : C-%d]{%s [%d]}",
-                               is_timestamp_relative_ ? "REL" : "ABS",
-                               timestamp_ms_, stream_id_, channel_id_,
-                               EventTypeName(event_type_),
-                               event_size_);
-}
-AmfUtil::ReadStatus Header::ReadMediaFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  if ( in->Size() < 11 ) {
-    return AmfUtil::READ_NO_DATA;
-  }
-  CHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  event_type_ = EventType(io::NumStreamer::ReadByte(in));
-  is_timestamp_relative_ = false;
-  event_size_ = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
-  timestamp_ms_ = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN) +
-                  (static_cast<uint32>(io::NumStreamer::ReadByte(in)) << 24);
-  // timestamp_ms_ = io::NumStreamer::ReadUInt32(in, common::BIGENDIAN);
-  stream_id_ = static_cast<uint32>(io::NumStreamer::ReadUInt24(
-                                       in, common::BIGENDIAN));
-  return AmfUtil::READ_OK;
-}
-
-
-AmfUtil::ReadStatus Header::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
+AmfUtil::ReadStatus Header::Decode(io::MemoryStream* in,
+                                   AmfUtil::Version version,
+                                   const Coder* coder,
+                                   uint32* out_event_size) {
   CHECK_EQ(version, AmfUtil::AMF0_VERSION);
   uint8 header_byte = 0;
   // we need to skip some 0 padding that seem to appear ..
@@ -123,25 +111,32 @@ AmfUtil::ReadStatus Header::ReadFromMemoryStream(
   } else {
     channel_id_ = header_byte & 0x3f;
   }
+  if ( channel_id_ >= Coder::kMaxNumChannels ) {
+    LOG_ERROR << "Invalid channel received: " << channel_id_;
+    return AmfUtil::READ_TOO_MANY_CHANNELS;
+  }
   if ( in->Size() < header_length + sizeof(uint32) ) {
     return AmfUtil::READ_NO_DATA;
   }
-  const Header* last_header = NULL;
-  if ( header_type != HEADER_NEW ) {
-    CHECK(protocol_data_ != NULL);
-    last_header = protocol_data_->get_last_read_header(channel_id_);
-    if ( NULL == last_header ) {
-      LOG_ERROR << " Unknown last header for channel : " << channel_id_
-                << " header byte: "
-                << strutil::StringPrintf("0x%02x", header_byte);
-      return AmfUtil::READ_CORRUPTED_DATA;
-    }
+  uint32 last_event_size = 0;
+  const Header& last_header = coder->last_read_event_header(
+      channel_id_, &last_event_size);
+  if ( header_type != HEADER_NEW &&
+       last_header.channel_id() == kInvalidChannelId ) {
+    LOG_ERROR << "Unknown last header for channel: " << channel_id_
+              << ", header byte: "
+              << strutil::StringPrintf("0x%02x", header_byte);
+    return AmfUtil::READ_CORRUPTED_DATA;
   }
   switch ( header_type ) {
   case HEADER_NEW:
     timestamp_ms_ = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
-    event_size_ = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
+    *out_event_size = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
     event_type_ = EventType(io::NumStreamer::ReadByte(in));
+    if ( !IsValidEventType(event_type_) ) {
+      LOG_ERROR << "Invalid event type: " << event_type_;
+      return AmfUtil::READ_CORRUPTED_DATA;
+    }
     // Strange enough, this is Little Endian
     stream_id_ = static_cast<uint32>(
         io::NumStreamer::ReadInt32(in, common::LILENDIAN));
@@ -152,9 +147,13 @@ AmfUtil::ReadStatus Header::ReadFromMemoryStream(
   case HEADER_SAME_SOURCE:
     is_timestamp_relative_ = true;
     timestamp_ms_ = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
-    event_size_ = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
+    *out_event_size = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
     event_type_ = EventType(io::NumStreamer::ReadByte(in));
-    stream_id_ = last_header->stream_id();
+    if ( !IsValidEventType(event_type_) ) {
+      LOG_ERROR << "Invalid event type: " << event_type_;
+      return AmfUtil::READ_CORRUPTED_DATA;
+    }
+    stream_id_ = last_header.stream_id();
     if ( timestamp_ms_ >= 0xffffff ) {
       timestamp_ms_ = io::NumStreamer::ReadUInt32(in, common::BIGENDIAN);
     }
@@ -162,19 +161,19 @@ AmfUtil::ReadStatus Header::ReadFromMemoryStream(
   case HEADER_TIMER_CHANGE:
     is_timestamp_relative_ = true;
     timestamp_ms_ = io::NumStreamer::ReadUInt24(in, common::BIGENDIAN);
-    event_size_ = last_header->event_size();
-    event_type_ = last_header->event_type();
-    stream_id_ = last_header->stream_id();
+    *out_event_size = last_event_size;
+    event_type_ = last_header.event_type();
+    stream_id_ = last_header.stream_id();
     if ( timestamp_ms_ >= 0xffffff ) {
       timestamp_ms_ = io::NumStreamer::ReadUInt32(in, common::BIGENDIAN);
     }
     break;
   case HEADER_CONTINUE:
     is_timestamp_relative_ = true;
-    timestamp_ms_ = last_header->timestamp_ms();
-    event_size_ = last_header->event_size();
-    event_type_ = last_header->event_type();
-    stream_id_ = last_header->stream_id();
+    timestamp_ms_ = last_header.timestamp_ms();
+    *out_event_size = last_event_size;
+    event_type_ = last_header.event_type();
+    stream_id_ = last_header.stream_id();
     if ( timestamp_ms_ >= 0xffffff ) {
       timestamp_ms_ = io::NumStreamer::ReadUInt32(in, common::BIGENDIAN);
     }
@@ -183,36 +182,46 @@ AmfUtil::ReadStatus Header::ReadFromMemoryStream(
   return AmfUtil::READ_OK;
 }
 
-void Header::WriteToMemoryStream(
-    io::MemoryStream* out,
-    AmfUtil::Version version,
-    bool force_continue) const {
-  if ( force_continue ) {
-  }
+void Header::Encode(AmfUtil::Version version,
+                    const Coder* coder,
+                    uint32 event_size,
+                    bool force_continue,
+                    io::MemoryStream* out) const {
   CHECK_EQ(version, AmfUtil::AMF0_VERSION);
-
+  CHECK_LT(channel_id_, Coder::kMaxNumChannels);
   HeaderType header_type = force_continue ? HEADER_CONTINUE : HEADER_NEW;
-  const Header* last = NULL;
-  if ( !force_continue ) {
-    //
-    if ( is_timestamp_relative_ && protocol_data_ != NULL ) {
-      last = protocol_data_->get_last_write_header(channel_id_);
-    }
-
-    // Start to check how much is it similar w/ last written event..
-    if ( last != NULL && stream_id_ == last->stream_id() ) {
-      // Same stream id ..
-      header_type = HEADER_SAME_SOURCE;
-      if ( event_size_ == last->event_size() &&
-           event_type_ == last->event_type() ) {
-        // .. and same event..
-        header_type = HEADER_TIMER_CHANGE;
-        if ( timestamp_ms_ == last->timestamp_ms() ) {
-          // .. they fully match ..
-          header_type = HEADER_CONTINUE;
-        }
+  uint32 last_event_size = 0;
+  const Header& last = coder->last_write_event_header(
+      channel_id_, &last_event_size);
+  // Start checking how much is it similar w/ last written event..
+  // NOTE: Absolute timestamp headers are always HEADER_NEW
+  if ( !force_continue && is_timestamp_relative_ &&
+       stream_id_ == last.stream_id() ) {
+    // Same stream id ..
+    header_type = HEADER_SAME_SOURCE;
+    if ( event_size == last_event_size &&
+         event_type_ == last.event_type() ) {
+      // .. and same event..
+      header_type = HEADER_TIMER_CHANGE;
+      if ( timestamp_ms_ == last.timestamp_ms() ) {
+        // .. they fully match ..
+        header_type = HEADER_CONTINUE;
       }
     }
+  }
+
+  uint32 ts32 = timestamp_ms_; // 32 bit timestamp
+  if ( header_type != HEADER_NEW && !is_timestamp_relative_ ) {
+    CHECK(last.channel_id() != kInvalidChannelId) << "last: " << last;
+    ts32 = timestamp_ms_ > last.timestamp_ms_ ?
+           timestamp_ms_ - last.timestamp_ms_ : 0;
+  }
+  bool is_extended_ts = (ts32 >= 0xffffff);
+  uint32 ts24 = is_extended_ts ? 0xffffff : ts32; // 24 bit timestamp
+  if ( header_type == HEADER_CONTINUE ) {
+    // NOTE: on HEADER_CONTINUE decide by last event timestamp,
+    //       whether extended timestamp is needed
+    is_extended_ts = (last.timestamp_ms() >= 0xffffff);
   }
 
   // Write the header..
@@ -228,60 +237,42 @@ void Header::WriteToMemoryStream(
     io::NumStreamer::WriteByte(out, uint8((channel_id_ - 0x40) >> 8));
   }
   switch (header_type) {
-  case HEADER_NEW:
-    io::NumStreamer::WriteUInt24(out, timestamp_ms_, common::BIGENDIAN);
-    io::NumStreamer::WriteUInt24(out, event_size_, common::BIGENDIAN);
-    io::NumStreamer::WriteByte(out, event_type_);
-    // Check out this crap - the only LITTLE endian from the whole story
-    io::NumStreamer::WriteInt32(out, stream_id_, common::LILENDIAN);
-    break;
-  case HEADER_SAME_SOURCE:
-    if ( is_timestamp_relative_ ) {
-      io::NumStreamer::WriteUInt24(out, timestamp_ms_, common::BIGENDIAN);
-    } else {
-      CHECK(last != NULL);
-      io::NumStreamer::WriteUInt24(out, timestamp_ms_ - last->timestamp_ms_,
-                                   common::BIGENDIAN);
-    }
-    io::NumStreamer::WriteUInt24(out, event_size_, common::BIGENDIAN);
-    io::NumStreamer::WriteByte(out, event_type_);
-    break;
-  case HEADER_TIMER_CHANGE:
-    if ( is_timestamp_relative_ ) {
-      io::NumStreamer::WriteUInt24(out, timestamp_ms_, common::BIGENDIAN);
-    } else {
-      CHECK(last != NULL);
-      io::NumStreamer::WriteUInt24(out, timestamp_ms_ - last->timestamp_ms_,
-                                   common::BIGENDIAN);
-    }
-    break;
-  case HEADER_CONTINUE:
-    break;
+    case HEADER_NEW:
+      io::NumStreamer::WriteUInt24(out, ts24, common::BIGENDIAN);
+      io::NumStreamer::WriteUInt24(out, event_size, common::BIGENDIAN);
+      io::NumStreamer::WriteByte(out, event_type_);
+      // Check out this crap - the only LITTLE endian from the whole story
+      io::NumStreamer::WriteInt32(out, stream_id_, common::LILENDIAN);
+      if ( is_extended_ts ) {
+        io::NumStreamer::WriteUInt32(out, ts32, common::BIGENDIAN);
+      }
+      break;
+    case HEADER_SAME_SOURCE:
+      io::NumStreamer::WriteUInt24(out, ts24, common::BIGENDIAN);
+      io::NumStreamer::WriteUInt24(out, event_size, common::BIGENDIAN);
+      io::NumStreamer::WriteByte(out, event_type_);
+      if ( is_extended_ts ) {
+        io::NumStreamer::WriteUInt32(out, ts32, common::BIGENDIAN);
+      }
+      break;
+    case HEADER_TIMER_CHANGE:
+      io::NumStreamer::WriteUInt24(out, ts24, common::BIGENDIAN);
+      if ( is_extended_ts ) {
+        io::NumStreamer::WriteUInt32(out, ts32, common::BIGENDIAN);
+      }
+      break;
+    case HEADER_CONTINUE:
+      if ( is_extended_ts ) {
+        io::NumStreamer::WriteUInt32(out, ts32, common::BIGENDIAN);
+      }
+      break;
   }
 }
 
-///////////////////////////////////////////////////////////////////////
-//
-// Helpers
-//
-const char* HeaderTypeName(HeaderType ht) {
-  switch ( ht ) {
-    CONSIDER(HEADER_NEW);
-    CONSIDER(HEADER_SAME_SOURCE);
-    CONSIDER(HEADER_TIMER_CHANGE);
-    CONSIDER(HEADER_CONTINUE);
-  }
-  return "HEADER_UNKOWN";
-}
-
-int32 HeaderLength(HeaderType ht) {
-  switch ( ht ) {
-  case HEADER_NEW: return 11;
-  case HEADER_SAME_SOURCE: return 7;
-  case HEADER_TIMER_CHANGE: return 3;
-  case HEADER_CONTINUE: return 0;
-  }
-  LOG_FATAL << " Invalid header type : " << ht;
-  return -1;
+string Header::ToString() const {
+  return strutil::StringPrintf("%s@%8d rtmp::Header[S-%d : C-%d]{%s}",
+                               is_timestamp_relative_ ? "REL" : "ABS",
+                               timestamp_ms_, stream_id_, channel_id_,
+                               EventTypeName(event_type_));
 }
 }

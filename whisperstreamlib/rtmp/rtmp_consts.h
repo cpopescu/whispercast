@@ -88,16 +88,9 @@ enum EventType {
 
   // Unknown - -- most probably used for mixed media H.264 encoded data
   EVENT_MEDIA_DATA = 0x16,
-
-  // Unknown: everything else
-  // Not an event type. This constant is used to mark an erroneus EVENT_TYPE
-  EVENT_INVALID = 0xFF,
 };
-inline bool IsValidEventType(EventType ev) {
-  return ev <= EVENT_MEDIA_DATA;
-}
-
 const char* EventTypeName(EventType ev);
+bool IsValidEventType(EventType ev);
 
 // TODO(cosmin):  document
 enum EventSubType {

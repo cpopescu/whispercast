@@ -32,6 +32,7 @@
 #define __MEDIA_F4V_ATOMS_ATOM_BASE_H__
 
 #include <string>
+#include <whisperlib/common/base/types.h>
 #include <whisperstreamlib/f4v/f4v_encoder.h>
 #include <whisperstreamlib/f4v/f4v_decoder.h>
 #include <whisperstreamlib/base/tag.h>
@@ -45,64 +46,61 @@
 namespace streaming {
 namespace f4v {
 
-#define MAKE_ATOM_TYPE(a,b,c,d) \
-  (((int)(a)) << 24) | (((int)(b)) << 16) | (((int)(c)) << 8) | ((int)(d))
-
 enum AtomType {
-  ATOM_AVC1 = MAKE_ATOM_TYPE('a', 'v', 'c', '1'),
-  ATOM_AVCC = MAKE_ATOM_TYPE('a', 'v', 'c', 'C'),
-  ATOM_BLNK = MAKE_ATOM_TYPE('b', 'l', 'n', 'k'),
-  ATOM_CHPL = MAKE_ATOM_TYPE('c', 'h', 'p', 'l'),
-  ATOM_CO64 = MAKE_ATOM_TYPE('c', 'o', '6', '4'),
-  ATOM_CTTS = MAKE_ATOM_TYPE('c', 't', 't', 's'),
-  ATOM_DINF = MAKE_ATOM_TYPE('d', 'i', 'n', 'f'),
-  ATOM_DLAY = MAKE_ATOM_TYPE('d', 'l', 'a', 'y'),
-  ATOM_DRPO = MAKE_ATOM_TYPE('d', 'r', 'p', 'o'),
-  ATOM_DRPT = MAKE_ATOM_TYPE('d', 'r', 'p', 't'),
-  ATOM_EDTS = MAKE_ATOM_TYPE('e', 'd', 't', 's'),
-  ATOM_ELTS = MAKE_ATOM_TYPE('e', 'l', 't', 's'),
-  ATOM_ESDS = MAKE_ATOM_TYPE('e', 's', 'd', 's'),
-  ATOM_FREE = MAKE_ATOM_TYPE('f', 'r', 'e', 'e'),
-  ATOM_FTYP = MAKE_ATOM_TYPE('f', 't', 'y', 'p'),
-  ATOM_HCLR = MAKE_ATOM_TYPE('h', 'c', 'l', 'r'),
-  ATOM_HDLR = MAKE_ATOM_TYPE('h', 'd', 'l', 'r'),
-  ATOM_HLIT = MAKE_ATOM_TYPE('h', 'l', 'i', 't'),
-  ATOM_HREF = MAKE_ATOM_TYPE('h', 'r', 'e', 'f'),
-  ATOM_ILST = MAKE_ATOM_TYPE('i', 'l', 's', 't'),
-  ATOM_KROK = MAKE_ATOM_TYPE('k', 'r', 'o', 'k'),
-  ATOM_LOAD = MAKE_ATOM_TYPE('l', 'o', 'a', 'd'),
-  ATOM_MDAT = MAKE_ATOM_TYPE('m', 'd', 'a', 't'),
-  ATOM_MDHD = MAKE_ATOM_TYPE('m', 'd', 'h', 'd'),
-  ATOM_MDIA = MAKE_ATOM_TYPE('m', 'd', 'i', 'a'),
-  ATOM_META = MAKE_ATOM_TYPE('m', 'e', 't', 'a'),
-  ATOM_MINF = MAKE_ATOM_TYPE('m', 'i', 'n', 'f'),
-  ATOM_MOOV = MAKE_ATOM_TYPE('m', 'o', 'o', 'v'),
-  ATOM_MP4A = MAKE_ATOM_TYPE('m', 'p', '4', 'a'),
-  ATOM_MVHD = MAKE_ATOM_TYPE('m', 'v', 'h', 'd'),
-  ATOM_NULL = MAKE_ATOM_TYPE( 0 ,  0 ,  0 ,  0 ), // aka: Terminator Atom
-  ATOM_PDIN = MAKE_ATOM_TYPE('p', 'd', 'i', 'n'),
-  ATOM_SDTP = MAKE_ATOM_TYPE('s', 'd', 't', 'p'),
-  ATOM_SMHD = MAKE_ATOM_TYPE('s', 'm', 'h', 'd'),
-  ATOM_STBL = MAKE_ATOM_TYPE('s', 't', 'b', 'l'),
-  ATOM_STCO = MAKE_ATOM_TYPE('s', 't', 'c', 'o'),
-  ATOM_STSC = MAKE_ATOM_TYPE('s', 't', 's', 'c'),
-  ATOM_STSD = MAKE_ATOM_TYPE('s', 't', 's', 'd'),
-  ATOM_STSS = MAKE_ATOM_TYPE('s', 't', 's', 's'),
-  ATOM_STSZ = MAKE_ATOM_TYPE('s', 't', 's', 'z'),
-  ATOM_STTS = MAKE_ATOM_TYPE('s', 't', 't', 's'),
-  ATOM_STYL = MAKE_ATOM_TYPE('s', 't', 'y', 'l'),
-  ATOM_TBOX = MAKE_ATOM_TYPE('t', 'b', 'o', 'x'),
-  ATOM_TKHD = MAKE_ATOM_TYPE('t', 'k', 'h', 'd'),
-  ATOM_TRAK = MAKE_ATOM_TYPE('t', 'r', 'a', 'k'),
-  ATOM_TWRP = MAKE_ATOM_TYPE('t', 'w', 'r', 'p'),
-  ATOM_UDTA = MAKE_ATOM_TYPE('u', 'd', 't', 'a'),
-  ATOM_UUID = MAKE_ATOM_TYPE('u', 'u', 'i', 'd'),
-  ATOM_VMHD = MAKE_ATOM_TYPE('v', 'm', 'h', 'd'),
-  ATOM_WAVE = MAKE_ATOM_TYPE('w', 'a', 'v', 'e'),
+  ATOM_AVC1 = FourCC<'a', 'v', 'c', '1'>::value,
+  ATOM_AVCC = FourCC<'a', 'v', 'c', 'C'>::value,
+  ATOM_BLNK = FourCC<'b', 'l', 'n', 'k'>::value,
+  ATOM_CHPL = FourCC<'c', 'h', 'p', 'l'>::value,
+  ATOM_CO64 = FourCC<'c', 'o', '6', '4'>::value,
+  ATOM_CTTS = FourCC<'c', 't', 't', 's'>::value,
+  ATOM_DINF = FourCC<'d', 'i', 'n', 'f'>::value,
+  ATOM_DLAY = FourCC<'d', 'l', 'a', 'y'>::value,
+  ATOM_DRPO = FourCC<'d', 'r', 'p', 'o'>::value,
+  ATOM_DRPT = FourCC<'d', 'r', 'p', 't'>::value,
+  ATOM_EDTS = FourCC<'e', 'd', 't', 's'>::value,
+  ATOM_ELTS = FourCC<'e', 'l', 't', 's'>::value,
+  ATOM_ESDS = FourCC<'e', 's', 'd', 's'>::value,
+  ATOM_FREE = FourCC<'f', 'r', 'e', 'e'>::value,
+  ATOM_FTYP = FourCC<'f', 't', 'y', 'p'>::value,
+  ATOM_HCLR = FourCC<'h', 'c', 'l', 'r'>::value,
+  ATOM_HDLR = FourCC<'h', 'd', 'l', 'r'>::value,
+  ATOM_HLIT = FourCC<'h', 'l', 'i', 't'>::value,
+  ATOM_HREF = FourCC<'h', 'r', 'e', 'f'>::value,
+  ATOM_ILST = FourCC<'i', 'l', 's', 't'>::value,
+  ATOM_KROK = FourCC<'k', 'r', 'o', 'k'>::value,
+  ATOM_LOAD = FourCC<'l', 'o', 'a', 'd'>::value,
+  ATOM_MDAT = FourCC<'m', 'd', 'a', 't'>::value,
+  ATOM_MDHD = FourCC<'m', 'd', 'h', 'd'>::value,
+  ATOM_MDIA = FourCC<'m', 'd', 'i', 'a'>::value,
+  ATOM_META = FourCC<'m', 'e', 't', 'a'>::value,
+  ATOM_MINF = FourCC<'m', 'i', 'n', 'f'>::value,
+  ATOM_MOOV = FourCC<'m', 'o', 'o', 'v'>::value,
+  ATOM_MP4A = FourCC<'m', 'p', '4', 'a'>::value,
+  ATOM_MVHD = FourCC<'m', 'v', 'h', 'd'>::value,
+  ATOM_NULL = FourCC< 0,   0 ,  0 ,  0 >::value, // aka: Terminator Atom
+  ATOM_PDIN = FourCC<'p', 'd', 'i', 'n'>::value,
+  ATOM_SDTP = FourCC<'s', 'd', 't', 'p'>::value,
+  ATOM_SMHD = FourCC<'s', 'm', 'h', 'd'>::value,
+  ATOM_STBL = FourCC<'s', 't', 'b', 'l'>::value,
+  ATOM_STCO = FourCC<'s', 't', 'c', 'o'>::value,
+  ATOM_STSC = FourCC<'s', 't', 's', 'c'>::value,
+  ATOM_STSD = FourCC<'s', 't', 's', 'd'>::value,
+  ATOM_STSS = FourCC<'s', 't', 's', 's'>::value,
+  ATOM_STSZ = FourCC<'s', 't', 's', 'z'>::value,
+  ATOM_STTS = FourCC<'s', 't', 't', 's'>::value,
+  ATOM_STYL = FourCC<'s', 't', 'y', 'l'>::value,
+  ATOM_TBOX = FourCC<'t', 'b', 'o', 'x'>::value,
+  ATOM_TKHD = FourCC<'t', 'k', 'h', 'd'>::value,
+  ATOM_TRAK = FourCC<'t', 'r', 'a', 'k'>::value,
+  ATOM_TWRP = FourCC<'t', 'w', 'r', 'p'>::value,
+  ATOM_UDTA = FourCC<'u', 'd', 't', 'a'>::value,
+  ATOM_UUID = FourCC<'u', 'u', 'i', 'd'>::value,
+  ATOM_VMHD = FourCC<'v', 'm', 'h', 'd'>::value,
+  ATOM_WAVE = FourCC<'w', 'a', 'v', 'e'>::value,
 
   // type for RawAtom: an unknown atom with the regular
   //                   format: <size><type><data..>
-  ATOM_RAW  = MAKE_ATOM_TYPE('x', 'x', 'x', 'x'),
+  ATOM_RAW  = FourCC<'x', 'x', 'x', 'x'>::value,
 };
 const string& AtomTypeName(AtomType atom_type);
 
@@ -112,6 +110,27 @@ const string& AtomTypeName(AtomType atom_type);
 // e.g. 0x6d6f6f76 = 'm','o','o','v' => return "moov"
 //      0x00000063 => return "???c"
 string Printable4(uint32 t);
+
+template <typename T>
+bool AllEquals(vector<T>& a, const vector<T>& b) {
+  if ( a.size() != b.size() ) { return false; }
+  for ( uint32 i = 0; i < a.size(); i++ ) {
+    if ( !a[i].Equals(b[i]) ) {
+      return false;
+    }
+  }
+  return true;
+}
+template <typename T>
+bool AllEqualsP(const vector<T*>& a, const vector<T*>& b) {
+  if ( a.size() != b.size() ) { return false; }
+  for ( uint32 i = 0; i < a.size(); i++ ) {
+    if ( !a[i]->Equals(*b[i]) ) {
+      return false;
+    }
+  }
+  return true;
+}
 
 class Encoder;
 class Decoder;
@@ -124,43 +143,61 @@ class Decoder;
 
 class BaseAtom {
  public:
+  // returns true if the 'body_size' needs 64bit storage
+  static bool IsExtendedSize(uint64 body_size);
+  // returns 8 (normal) or 16 (extended)
+  static uint32 HeaderSize(bool is_extended);
+ public:
   BaseAtom(AtomType type);
   BaseAtom(const BaseAtom& other);
   virtual ~BaseAtom();
 
   f4v::AtomType type() const;
   const string& type_name() const;
-  uint64 size() const;
+  uint64 body_size() const;
   uint64 position() const;
-  bool is_extended_size() const;
   // Returns a simple description of the atom, generally useful for log & debug.
   // For a more detailed description, use ToString().
   virtual string base_info() const;
 
-  void set_size(uint64 size);
-  void set_extended_size(bool extended_size);
+  void set_body_size(uint64 body_size);
+  void set_force_extended_body_size(bool value);
+
+  // is the atom's size extended (i.e. needs 64 bit storage)
+  bool is_extended_size() const;
+  // atom's header size
+  uint32 header_size() const;
+  // atom's full size (body size + header size)
+  uint64 size() const;
 
   // Read F4V atom body from input stream.
   // - stream_position: stream index where the atom starts.
-  // - atom_size: full atom size (the value advertised in header 'size' field)
-  // - extended_header: true for a header with 64 bit 'size' field
-  //                    false for a header with 32 bit 'size' field
+  // - body_size: atom's body size
+  //              (the value advertised in header 'size' field - header size)
   // - in: contains just the atom body
-  //       (the 'size' and 'type' fields have been cut already)
+  //       (the 'size' and 'type' fields have been already cut)
   // - decoder: keeps the decoding state for stream 'in'.
   //            He is the one that called us. Useful for reading subatoms.
-  TagDecodeStatus Decode(uint64 stream_position,
-                          uint64 atom_size, bool extended_header,
-                          io::MemoryStream& in, Decoder& decoder);
+  TagDecodeStatus Decode(uint64 stream_position, uint64 body_size,
+                         io::MemoryStream& in, Decoder& decoder);
   // Write complete F4V atom in output stream. Writes 'size' and 'type'
   //  fields too.
   // encoder: keeps the encoding state for stream 'out'.
   //          He is the one that called us. Useful for writing subatoms.
   void Encode(io::MemoryStream& out, Encoder& encoder) const;
 
+  // equality test, especially useful in testing.
+  bool Equals(const BaseAtom& other) const;
+
   // Measures it's own size. Useful if you modified the internal records and
   // you want to update the atom size.
   uint64 MeasureSize() const;
+
+  // Recursively measures & updates it's own size and that of it's subatoms.
+  // TODO(cosmin): try to get rid of this; it's easily forgettable to update
+  //               the size after each atom modification. The size should
+  //               automatically update.
+  void UpdateSize();
 
   // Returns a description of the atom.
   // Uses the given indent to print subatoms nicely.
@@ -174,10 +211,14 @@ class BaseAtom {
   // The Decode, Encode and ToString call these methods to communicate
   //  with the upper "Atom" class.
  public:
+  // Equality test; the type()==other.type() has already been checked
+  virtual bool EqualsBody(const BaseAtom& other) const = 0;
   // append contained atoms to "subatoms" vector.
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const = 0;
   // self explanatory
   virtual BaseAtom* Clone() const = 0;
+  // returns the measured encoding size of the body (in mp4 file format)
+  virtual uint64 MeasureBodySize() const = 0;
  protected:
   // similar to Decode
   virtual TagDecodeStatus DecodeBody(uint64 size,
@@ -185,15 +226,21 @@ class BaseAtom {
                                      Decoder& decoder) = 0;
   // similar to Encode
   virtual void EncodeBody(io::MemoryStream& out, Encoder& encoder) const = 0;
-  // returns the measured size of the body
-  virtual uint64 MeasureBodySize() const = 0;
   // returns a description of the atom body
   virtual string ToStringBody(uint32 indent) const = 0;
 
  private:
   const f4v::AtomType type_;
-  uint64 size_; // the complete atom size, in bytes
-  bool is_extended_size_; // the 'size' field is extended
+
+  // TODO(cosmin): try to get rid of this; The size should
+  //               not be separated from the internal structure.
+  // the atom's body size, in bytes (without the header
+  // which is 8 or 16 depending on body_size_ < kMaxUInt32).
+  uint64 body_size_;
+
+  // false = use extended size according to body_size_
+  // true = use extended size always (no matter what the body_size_ is)
+  bool force_extended_size_;
 
   // The index in stream where this atom was found.
   // For debug only.

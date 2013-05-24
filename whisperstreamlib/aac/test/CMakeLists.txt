@@ -29,14 +29,6 @@
 
 project (whisperstreamlib)
 
-ADD_EXECUTABLE(aac_tag_printer aac_tag_printer.cc)
-ADD_DEPENDENCIES(aac_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-TARGET_LINK_LIBRARIES(aac_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-
 ADD_CUSTOM_TARGET(aac_tag_test)
-ADD_DEPENDENCIES(aac_tag_test aac_tag_printer)
-ADD_TEST(aac_tag_test ${CMAKE_CURRENT_SOURCE_DIR}/aac_tag_test.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+ADD_DEPENDENCIES(aac_tag_test media_file_printer)
+ADD_TEST(aac_tag_test ${CMAKE_CURRENT_SOURCE_DIR}/aac_tag_test.sh ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/whisperstreamlib/utils)

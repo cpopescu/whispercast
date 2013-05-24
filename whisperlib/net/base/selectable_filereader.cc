@@ -38,25 +38,27 @@
 namespace net {
 
 SelectableFilereader::SelectableFilereader(Selector* selector, int32 block_size)
-    : Selectable(selector),
+    : Selectable(),
+      selector_(selector),
       fd_(INVALID_FD_VALUE),
       inbuf_(block_size),
       data_callback_(NULL),
+      auto_delete_data_callback_(false),
       close_callback_(NULL) {
+  CHECK_NOT_NULL(selector);
 }
 SelectableFilereader::~SelectableFilereader() {
   CHECK(close_callback_ == NULL);
 }
 
-void SelectableFilereader::EnableRead(bool enable) {
-  selector_->EnableReadCallback(this, enable);
-}
-
 bool SelectableFilereader::InitializeFd(int fd,
                                         DataCallback* data_callback,
+                                        bool auto_delete_data_callback,
                                         Closure* close_callback) {
-  CHECK(fd_ == INVALID_FD_VALUE);
-  CHECK(fd != INVALID_FD_VALUE);
+  CHECK_EQ(fd_, INVALID_FD_VALUE);
+  CHECK_NE(fd, INVALID_FD_VALUE);
+  CHECK_NULL(data_callback_);
+  CHECK_NOT_NULL(data_callback);
   CHECK(data_callback->is_permanent());
 
   const int flags = fcntl(fd, F_GETFL, 0);
@@ -71,14 +73,12 @@ bool SelectableFilereader::InitializeFd(int fd,
               << " Flags: " << flags;
     goto Error;
   }
-  CHECK(selector_ != NULL);
   fd_ = fd;
   data_callback_ = data_callback;
+  auto_delete_data_callback_ = auto_delete_data_callback;
   close_callback_ = close_callback;
   if ( !selector_->Register(this) ) {
-    ::close(fd_);
-    fd_ = INVALID_FD_VALUE;
-    return false;
+    goto Error;
   }
   selector_->EnableReadCallback(this, true);
   selector_->EnableWriteCallback(this, false);
@@ -90,20 +90,17 @@ bool SelectableFilereader::InitializeFd(int fd,
 }
 
 bool SelectableFilereader::HandleReadEvent(const SelectorEventData& event) {
-  if (fd_ == INVALID_FD_VALUE) {
-    return false;
-  }
-  // Read from connection in the inbuf_ :)
   int32 cb = Selectable::Read(&inbuf_);
   if ( cb < 0 ) {
     LOG_ERROR << "Error in read for: " << GetFd();
-    selector_->EnableReadCallback(this, false);
     Close();
     return false;
   }
-  if ( data_callback_ ) {
-    data_callback_->Run(&inbuf_);
+  if ( cb == 0 ) {
+    Close();
+    return false;
   }
+  data_callback_->Run(&inbuf_);
   return true;
 }
 
@@ -112,17 +109,24 @@ bool SelectableFilereader::HandleWriteEvent(const SelectorEventData& event) {
   return true;
 }
 bool SelectableFilereader::HandleErrorEvent(const SelectorEventData& event) {
-  selector_->EnableReadCallback(this, false);
   Close();
   return false;
 }
 
 void SelectableFilereader::Close() {
-  selector_->Unregister(this);
-  if ( fd_ != INVALID_FD_VALUE ) {
-    ::close(fd_);
-    fd_ = INVALID_FD_VALUE;
+  if ( fd_ == INVALID_FD_VALUE ) {
+    // already closed
+    return;
   }
+  selector_->Unregister(this);
+  ::close(fd_);
+  fd_ = INVALID_FD_VALUE;
+
+  if ( auto_delete_data_callback_ ) {
+    delete data_callback_;
+  }
+  data_callback_ = NULL;
+
   if ( close_callback_ != NULL ) {
     close_callback_->Run();
     close_callback_ = NULL;

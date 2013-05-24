@@ -48,7 +48,7 @@ class FrameHeader {
  public:
   FrameHeader();
   FrameHeader(int64 offset, int64 size, int64 decoding_timestamp,
-              int64 composition_timestamp, int64 duration,
+              int64 composition_offset_ms, int64 duration,
               int64 sample_index, Type type, bool is_keyframe);
   virtual ~FrameHeader();
 
@@ -56,7 +56,8 @@ class FrameHeader {
   int64 size() const { return size_; }
   int64 timestamp() const { return decoding_timestamp_; }
   int64 decoding_timestamp() const { return decoding_timestamp_; }
-  int64 composition_timestamp() const { return composition_timestamp_; }
+  int64 composition_offset_ms() const { return composition_offset_ms_; }
+  int64 composition_timestamp() const { return decoding_timestamp_ + composition_offset_ms_; }
   int64 duration() const { return duration_; }
   int64 sample_index() const { return sample_index_; }
   Type type() const { return type_; }
@@ -64,6 +65,8 @@ class FrameHeader {
   bool is_keyframe() const { return is_keyframe_; }
 
   void set_keyframe(bool keyframe) { is_keyframe_ = keyframe; }
+
+  bool Equals(const FrameHeader& other) const;
 
   string ToString() const;
  private:
@@ -74,7 +77,7 @@ class FrameHeader {
   // milliseconds, relative to MDAT body start
   int64 decoding_timestamp_;
   // milliseconds, always greater than decoding_timestamp
-  int64 composition_timestamp_;
+  int64 composition_offset_ms_;
   // milliseconds duration
   int64 duration_;
   // samples, relative to MDAT body start

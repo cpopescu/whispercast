@@ -62,13 +62,14 @@ class VersionedAtom : public BaseAtom {
   //  to communicate with the upper "Atom" class.
   //
  protected:
+  // just test the body attributes (the header was already checked)
+  virtual bool EqualsVersionedBody(const VersionedAtom& other) const = 0;
   // 'in' contains atom body without the 'version' header
   virtual TagDecodeStatus DecodeVersionedBody(uint64 size,
-                                               io::MemoryStream& in,
-                                               Decoder& decoder) = 0;
+      io::MemoryStream& in, Decoder& decoder) = 0;
   // write atom body without the 'version' header
   virtual void EncodeVersionedBody(io::MemoryStream& out,
-                                         Encoder& encoder) const = 0;
+                                   Encoder& encoder) const = 0;
   // returns the size of the atom body, without the 'version' header
   virtual uint64 MeasureVersionedBodySize() const = 0;
   // returns a description of the atom, without the version header
@@ -77,13 +78,15 @@ class VersionedAtom : public BaseAtom {
   /////////////////////////////////////////////////////////////
   // AtomBase methods
   //
- private:
+ public:
+  virtual bool EqualsBody(const BaseAtom& other) const;
   virtual BaseAtom* Clone() const = 0;
-  virtual TagDecodeStatus DecodeBody(uint64 size,
-                                      io::MemoryStream& in,
-                                      Decoder& decoder);
-  virtual void EncodeBody(io::MemoryStream& out, Encoder& encoder) const;
   virtual uint64 MeasureBodySize() const;
+ protected:
+  virtual TagDecodeStatus DecodeBody(uint64 size,
+                                     io::MemoryStream& in,
+                                     Decoder& decoder);
+  virtual void EncodeBody(io::MemoryStream& out, Encoder& encoder) const;
   virtual string ToStringBody(uint32 indent) const;
 
  private:

@@ -48,12 +48,14 @@ class Event {
  public:
   // is_signaled - initial state
   // manual_reset - when set, the event is reset on an explicit
-  //                Reset call; else we reset it implicitly when
-  //                releasing a thread from a Wait.
+  //                Reset() call; else we reset it automatically after
+  //                waking a single thread from Wait().
   Event(bool is_signaled, bool manual_reset);
 
   // All waiting threads are released.
   virtual ~Event();
+
+  bool is_signaled() const { return is_signaled_; }
 
   // Signals the event and releases all threads in manual_reset_ mode
   // or only *one* thread in automatic mode (!manual_reset_)

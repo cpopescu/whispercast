@@ -69,6 +69,14 @@ void VersionedAtom::EncodeBody(io::MemoryStream& out, Encoder& encoder) const {
   out.Write(flags_, 3);
   EncodeVersionedBody(out, encoder);
 }
+bool VersionedAtom::EqualsBody(const BaseAtom& other) const {
+  const VersionedAtom& a = static_cast<const VersionedAtom&>(other);
+  return version_ == a.version_ &&
+         flags_[0] == a.flags_[0] &&
+         flags_[1] == a.flags_[1] &&
+         flags_[2] == a.flags_[2] &&
+         EqualsVersionedBody(a);
+}
 uint64 VersionedAtom::MeasureBodySize() const {
   return 4 + MeasureVersionedBodySize();
 }

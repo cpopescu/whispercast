@@ -53,20 +53,17 @@ DEFINE_string(out,
 DEFINE_int32(cue_ms_time,
              5000,
              "We write these many cue points in the output file");
-DEFINE_bool(keep_all_metadata,
-            false,
-            "Keep all metadata from all files that we join ?");
 
 //////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[]) {
   common::Init(argc, argv);
-  CHECK(!FLAGS_files.empty()) << " Please specify a set of flv file !";
-  CHECK(!FLAGS_out.empty()) << " Please specify an output file !";
+  CHECK(!FLAGS_files.empty()) << "Please specify input files!";
+  CHECK(!FLAGS_out.empty()) << "Please specify an output file!";
+  CHECK(FLAGS_cue_ms_time >= 0) << "Invalid cue_ms_time: " << FLAGS_cue_ms_time;
 
   vector<string> files;
   strutil::SplitString(FLAGS_files, ",", &files);
-  int64 duration = streaming::JoinFlvFiles(files, FLAGS_out, FLAGS_cue_ms_time,
-      FLAGS_keep_all_metadata);
+  int64 duration = streaming::JoinFilesIntoFlv(files, FLAGS_out, FLAGS_cue_ms_time);
   return duration > 0 ? 0 : 1;
 }

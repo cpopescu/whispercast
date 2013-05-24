@@ -45,8 +45,7 @@ LogStatsSaver::~LogStatsSaver() {
 
 void LogStatsSaver::Save(const MediaStatEvent* event) {
   io::MemoryStream ms;
-  rpc::JsonEncoder json_encoder(ms);
-  json_encoder.Encode(*event);
+  rpc::JsonEncoder().Encode(*event, &ms);
   // const int64 size = ms.Size();
   writer_.WriteRecord(&ms);
   // LOG_INFO << "Saved stat: " << size << " bytes";

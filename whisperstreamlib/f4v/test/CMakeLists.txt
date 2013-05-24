@@ -29,73 +29,25 @@
 
 project (whisperstreamlib)
 
-ADD_EXECUTABLE(f4v_tag_printer
-  f4v_tag_printer.cc)
-ADD_DEPENDENCIES(f4v_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-TARGET_LINK_LIBRARIES(f4v_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-INSTALL (TARGETS f4v_tag_printer
-         DESTINATION bin)
-
-
-ADD_EXECUTABLE(flv_to_f4v
-  flv_to_f4v_app.cc)
-ADD_DEPENDENCIES(flv_to_f4v
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-TARGET_LINK_LIBRARIES(flv_to_f4v
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-INSTALL (TARGETS flv_to_f4v
-         DESTINATION bin)
-
-
-ADD_EXECUTABLE(f4v_to_flv
-  f4v_to_flv_app.cc)
-ADD_DEPENDENCIES(f4v_to_flv
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-TARGET_LINK_LIBRARIES(f4v_to_flv
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-INSTALL (TARGETS f4v_to_flv
-         DESTINATION bin)
-
-
 ADD_EXECUTABLE(f4v_coder_test
   f4v_coder_test.cc)
 ADD_DEPENDENCIES(f4v_coder_test
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(f4v_coder_test
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 ADD_TEST(f4v_coder_test ${CMAKE_CURRENT_SOURCE_DIR}/f4v_coder_test.sh
                         ${CMAKE_CURRENT_BINARY_DIR}/f4v_coder_test
                         ${CMAKE_CURRENT_SOURCE_DIR}/test_data)
 
-ADD_EXECUTABLE(f4v_reorder
-  f4v_reorder.cc)
-ADD_DEPENDENCIES(f4v_reorder
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-TARGET_LINK_LIBRARIES(f4v_reorder
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
-INSTALL (TARGETS f4v_reorder
-         DESTINATION bin)
-
-
 ADD_EXECUTABLE(f4v_fixer
   f4v_fixer.cc)
 ADD_DEPENDENCIES(f4v_fixer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(f4v_fixer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 INSTALL (TARGETS f4v_fixer
          DESTINATION bin)

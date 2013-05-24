@@ -38,18 +38,27 @@ public:
   Closure(bool is_permanent) : is_permanent_(is_permanent) {
     #ifdef _DEBUG
     selector_registered_ = false;
+    is_running_ = false;
     #endif
   }
   virtual ~Closure() {
     #ifdef _DEBUG
     CHECK(!selector_registered_) << "Attempting to delete a closure"
                                     " registered in selector";
+    CHECK(!is_running_ || is_permanent_) << "Attempting to delete a temporary "
+                                            "closure from within RunInternal()";
     #endif
   }
   void Run() {
     const bool permanent = is_permanent();
+    #ifdef _DEBUG
+    is_running_ = true;
+    #endif
     RunInternal();
     if ( !permanent ) {
+      #ifdef _DEBUG
+      is_running_ = false;
+      #endif
       delete this;
     }
   }
@@ -58,6 +67,15 @@ public:
   }
 #ifdef _DEBUG
   void set_selector_registered(bool selector_registered) {
+    // NOTE: leave these tests with ==, instead of boolean checking
+    //       Because when the Closure gets deleted, selector_registered_
+    //       becomes a random numeric value. Thus this is a bugtrap for:
+    //       selector->RunInSelectLoop(<deleted_closure>);
+    if ( selector_registered ) {
+      CHECK(selector_registered_ == false);
+    } else {
+      CHECK(selector_registered_ == true);
+    }
     selector_registered_ = selector_registered;
   }
 #endif
@@ -67,6 +85,7 @@ private:
   const bool is_permanent_;
 #ifdef _DEBUG
   bool selector_registered_;
+  bool is_running_;
 #endif
 };
 

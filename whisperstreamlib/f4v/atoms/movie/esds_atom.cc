@@ -113,6 +113,10 @@ void EsdsAtom::WriteTagTypeAndLength(io::MemoryStream& out,
   out.Write(enc_len, 4);
 }
 
+bool EsdsAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const EsdsAtom& a = static_cast<const EsdsAtom&>(other);
+  return raw_data_.Equals(a.raw_data_);
+}
 void EsdsAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* EsdsAtom::Clone() const {
@@ -168,7 +172,7 @@ TagDecodeStatus EsdsAtom::DecodeVersionedBody(uint64 size,
   // find extra_data_ and for attributes printing.
   //
   raw_data_.Clear();
-  raw_data_.AppendStreamNonDestructive(&in, size);
+  raw_data_.AppendStreamNonDestructive(&in, 0, size);
 
   const int32 begin_size = in.Size();
   uint8 tag_type = 0;

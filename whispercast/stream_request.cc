@@ -49,7 +49,6 @@ DECLARE_string(http_base_media_path);
 //////////////////////////////////////////////////////////////////////
 
 DECLARE_int32(http_port);
-DECLARE_string(http_default_content_type);
 
 DEFINE_int32(http_max_write_ahead_ms,
              5000,
@@ -125,11 +124,11 @@ StreamRequest::~StreamRequest() {
 
 //////////////////////////////////////////////////////////////////////
 
-void StreamRequest::Play(string content_type, bool dec_ref) {
+void StreamRequest::Play(bool dec_ref) {
   if ( !media_selector_->IsInSelectThread() ) {
     IncRef();
     media_selector_->RunInSelectLoop(NewCallback(this,
-        &StreamRequest::Play, content_type, true));
+        &StreamRequest::Play, true));
     return;
   }
   AutoDecRef auto_dec_ref(dec_ref ? this : NULL);
@@ -158,17 +157,15 @@ void StreamRequest::Play(string content_type, bool dec_ref) {
         &request_->mutable_info()->auth_req_.passwd_);
   }
 
-  request_->mutable_caps()->tag_type_ =
-      streaming::GetStreamTypeFromContentType(content_type);
-
-  http_request_->request()->server_header()->AddField(
-      http::kHeaderContentType, content_type, true);
-
   // HTTP network protocol created
   IncRef(); // will DecRef() on HTTP disconnect notification
 
-  StartRequest(url->UrlUnescape(url->path().c_str(), url->path().size()).
-      substr(FLAGS_http_base_media_path.size()).c_str());
+  // The +/- 2 means 2 slashes:
+  // e.g. url_path = "/media/file_element/a.flv"
+  //      FLAGS_http_base_media_path = "media"
+  StartRequest(url->UrlUnescape(
+      url->path().c_str() + FLAGS_http_base_media_path.size() + 2,
+      url->path().size()  - FLAGS_http_base_media_path.size() - 2));
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -181,7 +178,7 @@ void StreamRequest::OnTooManyClients() {
   VLOG(LDEBUG) << "Notifying TOO MANY CLIENTS";
   CloseHttpRequest(http::NOT_ACCEPTABLE);
 }
-void StreamRequest::OnAuthorizationFailed(bool is_reauthorization) {
+void StreamRequest::OnAuthorizationFailed() {
   VLOG(LDEBUG) << "Notifying AUTHORIZATION FAILED";
   CloseHttpRequest(http::UNAUTHORIZED);
 }
@@ -193,28 +190,58 @@ void StreamRequest::OnAddRequestFailed() {
 void StreamRequest::OnPlay() {
   VLOG(LDEBUG) << "Notifying PLAY";
 
-  // if not abandoned, create the serializer. Now we know the tag_type_
-  CHECK_NULL(serializer_);
-  if (request_ != NULL ) {
-    switch ( request_->caps().tag_type_ ) {
-      case streaming::Tag::TYPE_MP3:
-        serializer_ = new streaming::Mp3TagSerializer();
-        break;
-      case streaming::Tag::TYPE_FLV:
-        serializer_ = new streaming::FlvTagSerializer();
-        break;
-      case streaming::Tag::TYPE_F4V:
-        serializer_ = new streaming::F4vTagSerializer();
-        break;
-      case streaming::Tag::TYPE_AAC:
-        serializer_ = new streaming::AacTagSerializer();
-        break;
-      case streaming::Tag::TYPE_INTERNAL:
-        serializer_ = new streaming::InternalTagSerializer();
-        break;
-      default:
-        serializer_ = new streaming::RawTagSerializer();
+  // if not abandoned, create the serializer. Now we know the media_format
+  if (request_ == NULL ) {
+    return;
+  }
+
+  // Check the Accept header from http client request
+  string content_type;
+  do {
+    if ( http_request_->request()->client_header()->FindField(
+           http::kHeaderAccept, &content_type) &&
+         content_type.find("*") == string::npos ) {
+      LOG_WARNING << "Using the content type from Accept: " << content_type;
+      break;
     }
+    content_type = request_->serving_info().content_type_;
+    if ( content_type != "" ) {
+      LOG_WARNING << "Using the content type from export: " << content_type;
+      break;
+    }
+    string ext = strutil::Extension(http_request_->request()->url()->path());
+    if ( streaming::ExtensionToContentType(ext, &content_type) ) {
+      LOG_WARNING << "Using the content type from extension: " << content_type;
+      break;
+    }
+    LOG_ERROR << "Cannot establish content type, no Accept field in: "
+              << http_request_->ToString()
+              << ", no content_type in export"
+                 ", and not a recognizable file extension in url.";
+    CloseHttpRequest(http::NOT_ACCEPTABLE);
+    return;
+  } while ( false );
+  // Set both: RequestServingInfo::content_type_
+  //           server response: content_type
+  request_->mutable_serving_info()->content_type_ = content_type;
+  http_request_->request()->server_header()->AddField(
+      http::kHeaderContentType, content_type, true);
+
+  streaming::MediaFormat media_format;
+  if ( !streaming::MediaFormatFromContentType(content_type, &media_format) ) {
+    LOG_ERROR << "Unrecognized contentType: [" << content_type << "], "
+                 "cannot create a serializer";
+    CloseHttpRequest(http::NOT_ACCEPTABLE);
+    return;
+  }
+
+  CHECK_NULL(serializer_);
+  serializer_ = streaming::CreateSerializer(media_format);
+  if ( serializer_ == NULL ) {
+    LOG_ERROR << "Cannot create a serialized for media_format: "
+              << streaming::MediaFormatName(media_format);
+    CloseHttpRequest(http::NOT_ACCEPTABLE);
+    return;
   }
 }
 
@@ -234,8 +261,8 @@ void StreamRequest::SetNotifyReady() {
   if ( http_request_ == NULL ) {
     return;
   }
-  VLOG(LINFO) << "SetNotifyReady outbuf_size: "
-              << http_request_->pending_output_bytes();
+  VLOG(LDEBUG) << "SetNotifyReady outbuf_size: "
+               << http_request_->pending_output_bytes();
   http_request_->set_ready_callback(
       NewCallback(this, &StreamRequest::ResumeLocalizedTags),
       http_request_->protocol_params().max_reply_buffer_size_/4);
@@ -293,10 +320,14 @@ void StreamRequest::SendSimpleTag(const streaming::Tag* tag,
     serializer_->Initialize(http_request_->request()->server_data());
   }
 
-  serializer_->Serialize(tag,
-                         timestamp_ms,
-                         http_request_->request()->server_data());
-
+  if ( !serializer_->Serialize(tag,
+                               timestamp_ms,
+                               http_request_->request()->server_data()) ) {
+    LOG_ERROR << "Failed to serialize tag: " << tag->ToString()
+              << "\n ... closing HTTP connection";
+    CloseHttpRequest(http::INTERNAL_SERVER_ERROR);
+    return;
+  }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -320,9 +351,6 @@ void StreamRequest::CloseHttpRequest(http::HttpReturnCode rcode,
     }
     http_request_ = NULL;
   }
-
-  // HTTP network protocol completely closed
-  DecRef();
 }
 void StreamRequest::HttpRequestClosedCallback() {
   // called when http client disconnected (network event)

@@ -45,6 +45,12 @@ void HdlrAtom::set_name(string name) {
   name_ = name;
 }
 
+bool HdlrAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const HdlrAtom& a = static_cast<const HdlrAtom&>(other);
+  return pre_defined_ == a.pre_defined_ &&
+         handler_type_ == a.handler_type_ &&
+         name_ == a.name_;
+}
 void HdlrAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* HdlrAtom::Clone() const {

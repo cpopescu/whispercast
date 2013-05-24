@@ -66,6 +66,10 @@ class FileWriter {
   // - for MDAT atom only the header is written
   // - frames must come in decoding order
   bool Write(const Tag& tag);
+  bool Write(const BaseAtom& atom);
+  bool Write(const Frame& frame);
+  // Write raw data to file
+  bool WriteRaw(const io::MemoryStream& ms);
   // Flush internal buffer to file.
   bool Flush();
 

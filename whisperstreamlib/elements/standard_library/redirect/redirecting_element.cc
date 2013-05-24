@@ -35,9 +35,9 @@ namespace streaming {
 
 const char RedirectingElement::kElementClassName[] = "redirecting";
 RedirectingElement::RedirectingElement(
-    const char* name, const char* id, ElementMapper* mapper,
+    const string& name, ElementMapper* mapper,
     const map<string, string>& redirection)
-  : Element(kElementClassName, name, id, mapper),
+  : Element(kElementClassName, name, mapper),
     redirections_(),
     req_map_() {
   for ( map<string, string>::const_iterator it = redirection.begin();
@@ -95,23 +95,13 @@ void RedirectingElement::ProcessTag(ReqStruct* rs,
 bool RedirectingElement::Initialize() {
   return true;
 }
-bool RedirectingElement::AddRequest(const char* media, streaming::Request* req,
-    streaming::ProcessingCallback* callback) {
-  // media contains: our-name/sub-path
-  pair<string, string> media_pair = strutil::SplitFirst(media, '/');
-  if ( media_pair.first != name() ) {
-    LOG_ERROR << name() << ": AddRequest failed, media name: [" << media
-              << "] does not start with our name: [" << name() << "]";
-    return false;
-  }
-  // this is the sub-path
-  const string& media_original_path = media_pair.second;
-
+bool RedirectingElement::AddRequest(const string& media, Request* req,
+    ProcessingCallback* callback) {
   // find a suitable redirection according to the sub-path
   const Redirection* redir = NULL;
   for ( uint32 i = 0; i < redirections_.size(); i++ ) {
     redir = redirections_[i];
-    if ( redir->re_->Matches(media_original_path) ) {
+    if ( redir->re_->Matches(media) ) {
       break;
     }
   }
@@ -120,18 +110,17 @@ bool RedirectingElement::AddRequest(const char* media, streaming::Request* req,
   // build the NEW sub-path
   static const string kStrEmpty;
   const string& redir_path = (redir == NULL ? kStrEmpty : redir->value_);
-  const string media_new_path = strutil::JoinMedia(redir_path,
-      media_original_path);
+  const string media_new_path = strutil::JoinMedia(redir_path, media);
 
   // make a ReqStruct to remember this redirection
-  ReqStruct* rs = new ReqStruct(callback, NULL, media_original_path, redir_path);
+  ReqStruct* rs = new ReqStruct(callback, NULL, media, redir_path);
   rs->our_callback_ = NewPermanentCallback(this,
       &RedirectingElement::ProcessTag, rs);
 
   pair<ReqMap::iterator, bool> result = req_map_.insert(make_pair(req, rs));
   if ( !result.second ) {
-    LOG_ERROR << name() << ": AddRequest: duplicate Request, req: " << req
-              << ", path: " << media_original_path;
+    LOG_FATAL << name() << ": AddRequest: duplicate Request, req: " << req
+              << ", path: " << media;
     delete rs;
     return false;
   }
@@ -142,7 +131,7 @@ bool RedirectingElement::AddRequest(const char* media, streaming::Request* req,
   LOG_INFO << name() << " redirecting request from [" << media << "] to"
               " [" << media_new_path << "]";
 
-  if ( !mapper_->AddRequest(media_new_path.c_str(), req, rs->our_callback_) ) {
+  if ( !mapper_->AddRequest(media_new_path, req, rs->our_callback_) ) {
     req_map_.erase(req);
     delete rs;
     return false;
@@ -163,38 +152,23 @@ void RedirectingElement::RemoveRequest(streaming::Request* req) {
   mapper_->RemoveRequest(req, rs->our_callback_);
   delete rs;
 }
-bool RedirectingElement::HasMedia(const char* media, Capabilities* out) {
-  pair<string, string> media_pair = strutil::SplitFirst(media, '/');
-  if ( media_pair.first != name() ) {
-    return false;
-  }
+bool RedirectingElement::HasMedia(const string& media) {
   for ( uint32 i = 0; i < redirections_.size(); i++ ) {
-    const string crt_name = strutil::JoinMedia(redirections_[i]->value_,
-        media_pair.second);
-    if ( mapper_->HasMedia(crt_name.c_str(), out) ) {
+    const string crt_name = strutil::JoinMedia(redirections_[i]->value_, media);
+    if ( mapper_->HasMedia(crt_name) ) {
       return true;
     }
   }
   return false;
 }
-void RedirectingElement::ListMedia(const char* media_dir,
-    ElementDescriptions* medias) {
-  pair<string, string> media_pair = strutil::SplitFirst(media_dir, '/');
-  if ( media_pair.first != name() ) {
-    return;
-  }
+void RedirectingElement::ListMedia(const string& media,
+                                   vector<string>* out) {
   for ( int i = 0; i < redirections_.size(); ++i ) {
-    streaming::ElementDescriptions elements;
-    const string crt_name = strutil::JoinMedia(redirections_[i]->value_,
-        media_pair.second);
-    mapper_->ListMedia(crt_name.c_str(), &elements);
+    vector<string> elements;
+    const string crt_name = strutil::JoinMedia(redirections_[i]->value_, media);
+    mapper_->ListMedia(crt_name, &elements);
     for ( int j = 0; j < elements.size(); ++j ) {
-      const string& element_media = elements[i].first;
-      const streaming::Capabilities& element_caps = elements[i].second;
-      pair<string, string> element_pair = strutil::SplitFirst(
-          element_media.c_str(), '/');
-      medias->push_back(make_pair(strutil::JoinMedia(name(),
-          element_pair.second), element_caps));
+      out->push_back(strutil::JoinMedia(name(), elements[i]));
     }
   }
 }

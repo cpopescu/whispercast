@@ -41,32 +41,44 @@ const char* EventPing::TypeName(Type type_id) {
   switch ( type_id ) {
     CONSIDER(STREAM_CLEAR);
     CONSIDER(STREAM_CLEAR_BUFFER);
-
     CONSIDER(CLIENT_BUFFER);
     CONSIDER(STREAM_RESET);
-
     CONSIDER(PING_CLIENT);
     CONSIDER(PONG_SERVER);
-
     CONSIDER(SWF_VERIFY_REQUEST);
     CONSIDER(SWF_VERIFY_RESPONSE);
+    CONSIDER(PING_31);
+    CONSIDER(PING_32);
   }
   return "UNKNOWN";
 }
+bool EventPing::IsValidType(uint16 val) {
+  switch (val) {
+    case STREAM_CLEAR:
+    case STREAM_CLEAR_BUFFER:
+    case CLIENT_BUFFER:
+    case STREAM_RESET:
+    case PING_CLIENT:
+    case PONG_SERVER:
+    case SWF_VERIFY_REQUEST:
+    case SWF_VERIFY_RESPONSE:
+    case PING_31:
+    case PING_32:
+      return true;
+  }
+  return false;
+}
 
-AmfUtil::ReadStatus EventPing::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  CHECK_EQ(version, AmfUtil::AMF0_VERSION);
-
-  if ( in->Size() < header()->event_size() )
-    return AmfUtil::READ_NO_DATA;
-
+AmfUtil::ReadStatus EventPing::DecodeBody(io::MemoryStream* in,
+    AmfUtil::Version v) {
+  CHECK_EQ(v, AmfUtil::AMF0_VERSION);
   if ( in->Size() < 6 ) {
     return AmfUtil::READ_NO_DATA;
   }
   const uint16 type = io::NumStreamer::ReadInt16(in, common::BIGENDIAN);
   if ( !IsValidType(type) ) {
     LOG_ERROR << "Invalid rtmp::EventPing::Type: " << type;
+    return AmfUtil::READ_NOT_IMPLEMENTED;
   }
   set_ping_type(Type(type));
   set_value2(io::NumStreamer::ReadInt32(in, common::BIGENDIAN));
@@ -82,8 +94,7 @@ AmfUtil::ReadStatus EventPing::ReadFromMemoryStream(
   return AmfUtil::READ_OK;
 }
 
-void EventPing::WriteToMemoryStream(
-  io::MemoryStream* out, AmfUtil::Version version) const {
+void EventPing::EncodeBody(io::MemoryStream* out, AmfUtil::Version v) const {
   io::NumStreamer::WriteInt16(out, int16(ping_type_), common::BIGENDIAN);
   io::NumStreamer::WriteInt32(out, value2_, common::BIGENDIAN);
   if ( value3_ != -1 ) {

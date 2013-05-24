@@ -78,17 +78,25 @@ string Printable4(uint32 t) {
     PrintableChar((char)((t      ) & 0xff)));
 }
 
+bool BaseAtom::IsExtendedSize(uint64 body_size) {
+  return body_size > (kMaxUInt32 - 8);
+}
+uint32 BaseAtom::HeaderSize(bool is_extended) {
+  return is_extended ? 16 : 8;
+}
+
 BaseAtom::BaseAtom(f4v::AtomType type)
-  : type_(type), size_(0), is_extended_size_(false), position_(0) {
+  : type_(type), body_size_(0), force_extended_size_(false), position_(0) {
 }
 BaseAtom::BaseAtom(const BaseAtom& other)
   : type_(other.type()),
-    size_(other.size()),
-    is_extended_size_(other.is_extended_size()),
+    body_size_(other.body_size()),
+    force_extended_size_(other.force_extended_size_),
     position_(other.position()) {
 }
 BaseAtom::~BaseAtom() {
 }
+
 
 f4v::AtomType BaseAtom::type() const {
   return type_;
@@ -96,50 +104,42 @@ f4v::AtomType BaseAtom::type() const {
 const string& BaseAtom::type_name() const {
   return f4v::AtomTypeName(type());
 }
-uint64 BaseAtom::size() const {
-  return size_;
+uint64 BaseAtom::body_size() const {
+  return body_size_;
 }
 uint64 BaseAtom::position() const {
   return position_;
 }
-bool BaseAtom::is_extended_size() const {
-  return is_extended_size_;
-}
 string BaseAtom::base_info() const {
   ostringstream oss;
   oss << type_name() << " @" << position() << " "
-      << size() << " bytes" << (is_extended_size() ? "(extended)" : "");
+      << body_size() << " bytes";
   return oss.str();
 }
-void BaseAtom::set_size(uint64 size) {
-  size_ = size;
-  is_extended_size_ = size > kMaxUInt32;
+void BaseAtom::set_body_size(uint64 body_size) {
+  body_size_ = body_size;
 }
-void BaseAtom::set_extended_size(bool extended_size) {
-  CHECK(extended_size || size_ < kMaxUInt32) << "size_: " << size_
-    << " is to big for non-extended size";
-  is_extended_size_ = extended_size;
+void BaseAtom::set_force_extended_body_size(bool value) {
+  force_extended_size_ = value;
 }
 
-TagDecodeStatus BaseAtom::Decode(uint64 stream_position,
-                                  uint64 atom_size, bool extended_header,
-                                  io::MemoryStream& in, Decoder& decoder) {
+bool BaseAtom::is_extended_size() const {
+  return force_extended_size_ || IsExtendedSize(body_size());
+}
+uint32 BaseAtom::header_size() const {
+  return HeaderSize(is_extended_size());
+}
+uint64 BaseAtom::size() const {
+  return body_size() + header_size();
+}
+
+TagDecodeStatus BaseAtom::Decode(uint64 stream_position, uint64 body_size,
+                                 io::MemoryStream& in, Decoder& decoder) {
   position_ = stream_position;
-  size_ = atom_size;
-  is_extended_size_ = extended_header;
+  body_size_ = body_size;
 
-  const uint64 header_size = extended_header ? 16 : 8;
-  if ( atom_size < header_size ) {
-    EATOMLOG << "Atom size too small: " << atom_size;
-    return TAG_DECODE_ERROR;
-  }
-  const uint64 body_size = atom_size - header_size;
   // TODO(cosmin): Don't check in.Size() >= body_size,
   //               we don't want the whole MDAT in stream.
-
-  if ( extended_header && atom_size < kMaxUInt32 ) {
-    WATOMLOG << "Extended 'size' header with a low value: " << atom_size;
-  }
 
   const int32 size_before_decode = in.Size();
   TagDecodeStatus result = DecodeBody(body_size, in, decoder);
@@ -158,27 +158,46 @@ void BaseAtom::Encode(io::MemoryStream& out, Encoder& encoder) const {
   if ( atom_type == ATOM_RAW ) {
     atom_type = static_cast<const RawAtom*>(this)->atom_type();
   }
-  uint32 atom_size = size();
 
   if ( is_extended_size() ) {
     io::NumStreamer::WriteUInt32(&out, 1, common::BIGENDIAN);
     io::NumStreamer::WriteUInt32(&out, atom_type, common::BIGENDIAN);
-    io::NumStreamer::WriteUInt64(&out, atom_size, common::BIGENDIAN);
+    io::NumStreamer::WriteUInt64(&out, size(), common::BIGENDIAN);
   } else {
-    io::NumStreamer::WriteUInt32(&out, atom_size, common::BIGENDIAN);
+    io::NumStreamer::WriteUInt32(&out, size(), common::BIGENDIAN);
     io::NumStreamer::WriteUInt32(&out, atom_type, common::BIGENDIAN);
   }
+
+  const uint32 start_size = out.Size();
   EncodeBody(out, encoder);
+  const uint32 encoded_size = out.Size() - start_size;
+  if ( type() != ATOM_MDAT ) {
+    CHECK_EQ(encoded_size, body_size()) << " For atom: " << ToString()
+          << ", measured body size: " << MeasureBodySize();
+  }
 }
 
+bool BaseAtom::Equals(const BaseAtom& other) const {
+  return type() == other.type() && EqualsBody(other);
+}
 uint64 BaseAtom::MeasureSize() const {
-  return (is_extended_size() ? 16 : 8) + MeasureBodySize();
+  uint64 body_size = MeasureBodySize();
+  return HeaderSize(force_extended_size_ || IsExtendedSize(body_size))
+      + body_size;
+}
+void BaseAtom::UpdateSize() {
+  vector<const BaseAtom*> subatoms;
+  GetSubatoms(subatoms);
+  for ( uint32 i = 0; i < subatoms.size(); i++ ) {
+    const_cast<BaseAtom*>(subatoms[i])->UpdateSize();
+  }
+  set_body_size(MeasureBodySize());
 }
 string BaseAtom::ToString(uint32 indent) const {
   ostringstream oss;
   oss << type_name()
       << " type: " << type() << "(" << type_name() << ")"
-         ", size: " << size() << (is_extended_size() ? "(extended)" : "")
+         ", body_size: " << body_size() << (is_extended_size() ? "(extended)" : "")
       << ", offset: " << position()
       << ", " << ToStringBody(indent);
   return oss.str();

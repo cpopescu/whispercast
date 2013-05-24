@@ -50,52 +50,41 @@
 #include <whisperstreamlib/elements/standard_library/auto/standard_library_invokers.h>
 
 namespace streaming {
-class HttpServerImportData;
-
-class HttpServerElement
-    : public ImportElement<ServiceInvokerHttpServerElementService,
-                           HttpServerImportData,
-                           HttpServerElementDataSpec> {
-  typedef ImportElement<ServiceInvokerHttpServerElementService,
-                        HttpServerImportData,
-                        HttpServerElementDataSpec> BaseClase;
+class HttpServerElement : public ImportElement,
+                          public ServiceInvokerHttpServerElementService {
  public:
+  static const char kElementClassName[];
+
   // Creates a new http media server element using an existing http server.
-  // If splitter_creation_callback is NULL we use a default creator based on
-  // the content type and standard splitters.
   HttpServerElement(const string& name,
-                    const string& id,
-                    streaming::ElementMapper* mapper,
-                    const string& url_escaped_listen_path,
+                    ElementMapper* mapper,
+                    const string& listen_path,
                     net::Selector* selector,
-                    const string& media_dir,
                     http::Server* http_server,
                     const string& rpc_path,
                     rpc::HttpServer* rpc_server,
                     io::StateKeepUser* state_keeper,
-                    streaming::SplitterCreator* splitter_creator,
                     const string& authorizer_name);
   virtual ~HttpServerElement();
 
-  static const char kElementClassName[];
+  using ImportElement::AddImport;
+  using ImportElement::DeleteImport;
 
+  /////////////////////////////////////////////////////////////////////////
+  // overridden ImportElement methods
+  virtual bool Initialize();
  protected:
-  virtual HttpServerImportData* CreateNewImport(const char* import_name,
-                                                const char* full_name,
-                                                Tag::Type tag_type,
-                                                const char* save_dir,
-                                                bool append_only,
-                                                bool disable_preemption,
-                                                int32 prefill_buffer_ms,
-                                                int32 advance_media_ms,
-                                                int32 buildup_interval_sec,
-                                                int32 buildup_delay_sec);
- private:
-  const string url_escaped_listen_path_;
-  http::Server*  const http_server_;
+  virtual ImportElementData* CreateNewImport(const string& import_name);
 
-  // used by the dedicated http_server
-  static const http::ServerParams http_server_default_params_;
+  /////////////////////////////////////////////////////////////////////////
+  // methods from ServiceInvokerHttpServerElementService
+  void AddImport(rpc::CallContext<MediaOpResult>* call, const string& name);
+  void DeleteImport(rpc::CallContext<rpc::Void>* call, const string& name);
+  void GetImports(rpc::CallContext< vector<string> >* call);
+
+ private:
+  const string listen_path_;
+  http::Server* const http_server_;
 
   DISALLOW_EVIL_CONSTRUCTORS(HttpServerElement);
 };

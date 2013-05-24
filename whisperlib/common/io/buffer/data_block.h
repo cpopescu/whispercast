@@ -116,7 +116,7 @@ class BlockDqueue : public vector<DataBlock*> {
     return vector<DataBlock*>::size() - begin_id_;
   }
   bool empty() const {
-    return begin_id_ == vector<DataBlock*>::size();
+    return begin_id_ == (int32)vector<DataBlock*>::size();
   }
   void clear() {
     vector<DataBlock*>::clear();
@@ -236,9 +236,6 @@ class DataBlock : public RefCounted {
   }
 
  private:
-  static const int kNumMutexes = 1024;
-  static synch::MutexPool mutex_pool_;
-
   // The beginning of the writable memory buffer (normally, if writable,
   // writable_buffer_ == readable_buffer_
   char* writable_buffer_;
@@ -385,16 +382,11 @@ class DataBlockPointer {
   // Reads the entire available data to given string
   void ReadToString(string* s);
 
-  // Utility to read from the pointer to a CRLF. Will leave the pointer
-  // after the CRLF or at the start position. Returns true (and reads)
-  // a line if found. On true, s will contain the line *and* the CRLF
-  bool ReadCRLFLine(string* s) {
-    return ReadToChars('\n', '\r', s);
-  }
-
-  // Same as above, but looks only for \n
+  // Utility to read from the pointer to a LF. Will leave the pointer
+  // after the LF. Returns true (and reads) a line if found.
+  // On true, s will contain the line *and* the CR/LF
   bool ReadLFLine(string* s) {
-    return ReadToChars('\n', '\0', s);
+    return ReadUntilChar('\n', s);
   }
 
   // Utility to read a token from a string.
@@ -409,10 +401,10 @@ class DataBlockPointer {
   // to the beginning of the next block.
   bool AdvanceToNextBlock(BlockDqueue::const_iterator* it);
 
-  // Helper to read from the pointer into s until the two chars are
-  // found: fin at the end and prev before that. (If prev == '\0'
-  // then the prev condition is ignored).
-  bool ReadToChars(char fin, char prev, string* s);
+  // Helper to read from the pointer into s until the char 'fin' is found.
+  // Leaves the pointer after 'fin'.
+  // If 'fin' is not found, then it reads nothing.
+  bool ReadUntilChar(char fin, string* s);
 
   const BlockDqueue* const owner_;  // which container owns the iterator ?
   BlockId block_id_;                // points to the block in owner

@@ -80,18 +80,16 @@ class ExporterCC : public Exporter {
   static const string kLanguageName;
 
  private:
+  // The map of pairs [RPC-BASE-TYPE, C++Type]. Containing the mappings
+  // of basic RPC types ("BOOL", "INT32", "FLOAT", ... ) to C++ types.
   static const map<string, string> kBaseTypesCorrespondence;
-  static const map<string, string> kBaseTypesArgCorrespondence;
-  // Builds a map of corresponding base types for C++.
-  // This method is used just to fill in baseTypesCorrespondence_;
-  static const map<string, string> BuildBaseTypesCorrespondenceMap();
-  // Builds a map of corresponding base argument types for C++.
-  // This method is used just to fill in baseTypesArgCorrespondence_;
-  static const map<string, string> BuildBaseTypesArgCorrespondenceMap();
- public:
-   // Returns a map of pairs [RPC-BASE-TYPE, C++Type]. Containing the mappings
-   // of basic RPC types ("BOOL", "INT32", "FLOAT", ... ) to C++ types.
-  static const map<string, string>& BaseTypeCorrespondence();
+  // The set of basic RPC types that are simple enough to pass by value
+  // ("INT", "BOOL"). The rest of the types are passed by value.
+  static const set<string> kSimpleBaseTypes;
+  // This method is used just to fill in kBaseTypesCorrespondence;
+  static const map<string, string> BuildBaseTypesCorrespondence();
+  // This method is used just to fill in kSimpleBaseTypes;
+  static const set<string> BuildSimpleBaseTypes();
 
  private:
   // Contains restricted keywords for C++: bool, break, case, class ..
@@ -105,6 +103,7 @@ class ExporterCC : public Exporter {
  private:
   static const string TranslateAttribute(const PType& type);
   static const string TranslateType(const PType& type);
+  static bool IsSimpleType(const PType& type);
 
  private:
   static const char paramClientTypes_[];

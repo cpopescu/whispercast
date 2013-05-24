@@ -32,7 +32,7 @@
 #include "common/base/errno.h"
 #include "common/base/scoped_ptr.h"
 #include "net/rpc/lib/client/irpc_client_connection.h"
-#include "net/rpc/lib/codec/rpc_codec_factory.h"
+#include "net/rpc/lib/codec/rpc_codec.h"
 
 namespace rpc {
 
@@ -50,10 +50,10 @@ const char* ConnectionTypeName(rpc::CONNECTION_TYPE connection_type) {
 
 IClientConnection::IClientConnection(net::Selector& selector,
                                      rpc::CONNECTION_TYPE connection_type,
-                                     rpc::CODEC_ID codec_id)
+                                     rpc::CodecId codec)
   : selector_(selector),
     connection_type_(connection_type),
-    codec_(rpc::CodecFactory::Create(codec_id)),
+    codec_(codec),
     error_(),
     next_xid_(1),
     sync_next_xid_(),
@@ -67,21 +67,8 @@ IClientConnection::IClientConnection(net::Selector& selector,
 }
 
 IClientConnection::~IClientConnection() {
-  // The implementation(by deriving from us) is the first to be destroyed.
-  // So it MUST call NotifyConnectionClosed, triggering the completion
-  // of all pending queries.
-
-  /* TODO(cosmin): remove. See comment above.
-  // Cancel all pending queries. These are here because the
-  // connection may have been closed while waiting for rpc results.
-  CancelAllQueries();
-  */
-
   CHECK(response_map_.empty())
     << "#" << response_map_.size() << " calls pending";
-
-  delete codec_;
-  codec_ = NULL;
 }
 
 uint32 IClientConnection::GenerateNextXID() {
@@ -93,20 +80,7 @@ void IClientConnection::SendQuery(uint32 xid,
                                   const std::string& service,
                                   const std::string& method,
                                   io::MemoryStream& params) {
-  rpc::Message* const p = new rpc::Message();
-
-  // fill in the header
-  rpc::Message::Header& header = p->header_;
-  header.xid_ = xid;
-  header.msgType_ = RPC_CALL;
-
-  // fill in call body
-  rpc::Message::CallBody& body = p->cbody_;
-  body.service_ = service;
-  body.method_ = method;
-  body.params_.AppendStreamNonDestructive(&params);
-
-  Send(p);
+  Send(new rpc::Message(xid, RPC_CALL, service, method, &params));
 }
 
 void IClientConnection::HandleResponse(const rpc::Message* msg) {
@@ -115,19 +89,18 @@ void IClientConnection::HandleResponse(const rpc::Message* msg) {
   scoped_ptr<const rpc::Message> auto_del_msg(msg);
 
   // check msg type correctness
-  if ( msg->header_.msgType_ != RPC_REPLY ) {
+  if ( msg->header().msgType() != RPC_REPLY ) {
     LOG_ERROR << "Received msgType="
-              << rpc::MessageTypeName(msg->header_.msgType_)
+              << rpc::MessageTypeName(msg->header().msgType())
               << " expected: " << rpc::MessageTypeName(RPC_REPLY);
     return;
   }
 
   LOG_DEBUG << "Received packet: " << *msg;
 
-  const uint32 xid = msg->header_.xid_;
-  const rpc::REPLY_STATUS status =
-    static_cast<rpc::REPLY_STATUS>(msg->rbody_.replyStatus_);
-  const io::MemoryStream& result = msg->rbody_.result_;
+  const uint32 xid = msg->header().xid();
+  const rpc::REPLY_STATUS status = msg->rbody().replyStatus();
+  const io::MemoryStream& result = msg->rbody().result();
   CompleteQuery(xid, status, result);
 
   // - the msg is auto-deleted
@@ -141,12 +114,12 @@ void IClientConnection::NotifySendFailed(const rpc::Message* msg,
   scoped_ptr<const rpc::Message> auto_del_msg(msg);
 
   // check msg type correctness
-  CHECK(msg->header_.msgType_ == RPC_CALL)
+  CHECK(msg->header().msgType() == RPC_CALL)
       << "HandleSendError msgType="
-      << rpc::MessageTypeName(msg->header_.msgType_)
+      << rpc::MessageTypeName(msg->header().msgType())
       << " expected: " << rpc::MessageTypeName(RPC_CALL);
 
-  const uint32 xid = msg->header_.xid_;
+  const uint32 xid = msg->header().xid();
 
   // Remove the timeout on current xid, to avoid unnecessary HandleTimeout call.
   // However, not removing it is not a bug. The HandleTimeout() may be executing

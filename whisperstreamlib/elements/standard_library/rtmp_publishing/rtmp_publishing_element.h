@@ -46,53 +46,39 @@
 #include <whisperstreamlib/elements/standard_library/auto/standard_library_invokers.h>
 
 namespace streaming {
-class RtmpPublishingData;
 
 ///////////////////////////////////////////////////////////////////////
-//
-// RtmpPublishingElement -
-//
 // Interface for streams that come to us via rtmp
 //
 
-class RtmpPublishingElement
-    : public ImportElement<ServiceInvokerRtmpPublishingElementService,
-                           RtmpPublishingData,
-                           RtmpPublishingElementDataSpec> {
-  typedef ImportElement<ServiceInvokerRtmpPublishingElementService,
-                        RtmpPublishingData,
-                        RtmpPublishingElementDataSpec> BaseClass;
+class RtmpPublishingElement : public ImportElement,
+                              public ServiceInvokerRtmpPublishingElementService {
  public:
-  // Constructs a SwitchingElement - we don NOT own empty callback !
+  static const char kElementClassName[];
   RtmpPublishingElement(const string& name,
-                        const string& id,
                         ElementMapper* mapper,
                         net::Selector* selector,
-                        const string& media_dir,
                         const string& rpc_path,
                         rpc::HttpServer* rpc_server,
                         io::StateKeepUser* state_keeper,
-                        streaming::SplitterCreator* splitter_creator,
                         const string& authorizer_name);
   virtual ~RtmpPublishingElement();
 
-  static const char kElementClassName[];
+  using ImportElement::AddImport;
+  using ImportElement::DeleteImport;
 
-  // some overridden streaming::Element interface methods
+  //////////////////////////////////////////////////////////////////////////
+  // overridden ImportElement methods
   virtual bool Initialize();
-  virtual void Close(Closure* call_on_close);
-
  protected:
-  virtual RtmpPublishingData* CreateNewImport(const char* import_name,
-                                              const char* full_name,
-                                              Tag::Type tag_type,
-                                              const char* save_dir,
-                                              bool append_only,
-                                              bool disable_preemption,
-                                              int32 prefill_buffer_ms,
-                                              int32 advance_media_ms,
-                                              int32 buildup_interval_sec,
-                                              int32 buildup_delay_sec);
+  virtual ImportElementData* CreateNewImport(const string& import_name);
+
+  /////////////////////////////////////////////////////////////////////////
+  // methods from ServiceInvokerRtmpPublishingElementService
+  void AddImport(rpc::CallContext<MediaOpResult>* call, const string& name);
+  void DeleteImport(rpc::CallContext<rpc::Void>* call, const string& name);
+  void GetImports(rpc::CallContext< vector<string> >* call);
+
  private:
   // just for logging
   const string info_;

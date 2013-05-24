@@ -39,10 +39,7 @@ DEFINE_int32(raw_tag_max_size,
 
 namespace streaming {
 
-const int RawTag::kNumMutexes = 1024;
 const Tag::Type RawTag::kType = Tag::TYPE_RAW;
-const TagSplitter::Type RawTagSplitter::kType = TagSplitter::TS_RAW;
-synch::MutexPool RawTag::mutex_pool_(RawTag::kNumMutexes);
 
 streaming::TagReadStatus RawTagSplitter::GetNextTagInternal(
     io::MemoryStream* in,
@@ -53,7 +50,7 @@ streaming::TagReadStatus RawTagSplitter::GetNextTagInternal(
   if ( in->IsEmpty() ) {
     return READ_NO_DATA;
   }
-  const int32 size = min(in->Size(), FLAGS_raw_tag_max_size);
+  const uint32 size = min(in->Size(), (uint32)FLAGS_raw_tag_max_size);
   RawTag* const raw_tag = new RawTag(0, kDefaultFlavourMask);
   raw_tag->mutable_data()->AppendStream(in, size);
 
@@ -62,17 +59,5 @@ streaming::TagReadStatus RawTagSplitter::GetNextTagInternal(
 
   total_size_ += size;
   return READ_OK;
-}
-
-bool RawTagSerializer::SerializeInternal(const Tag* tag,
-    int64 timestamp_ms, io::MemoryStream* out) {
-  if ( tag->type() != Tag::TYPE_RAW ) {
-    return true;
-  }
-  const RawTag* const raw_tag = static_cast<const RawTag*>(tag);
-  // LOG_INFO << " Raw serializing: " << raw_tag->Size()
-  //          << " --> " << tag;
-  out->AppendStreamNonDestructive(raw_tag->data());
-  return true;
 }
 }

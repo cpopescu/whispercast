@@ -1,31 +1,5 @@
-// Copyright (c) 2009, Whispersoft s.r.l.
+// Copyright (c) 2013, Whispersoft s.r.l.
 // All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// * Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// * Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// * Neither the name of Whispersoft s.r.l. nor the names of its
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Author: Cosmin Tudorache
 
@@ -33,10 +7,13 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
-#include "common/base/errno.h"
-#include "common/base/timer.h"
-#include "common/base/scoped_ptr.h"
-#include "common/sync/process.h"
+#include <whisperlib/common/base/errno.h>
+#include <whisperlib/common/base/system.h>
+#include <whisperlib/common/base/timer.h>
+#include <whisperlib/common/base/scoped_ptr.h>
+#include <whisperlib/common/base/strutil.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
+#include <whisperlib/common/sync/process.h>
 
 // #declared in unistd.h
 // Points to an array of strings called the 'environment'.
@@ -56,10 +33,10 @@
 extern char** environ;
 #endif
 #include <stdarg.h>
-#include <whisperlib/common/base/strutil.h>
 
 namespace process {
 
+namespace {
 void MakeStringVector(const char* const argv[], vector<string>* out) {
   if ( argv ) {
     for ( int i = 0; argv[i] != NULL; i++ ) {
@@ -67,296 +44,345 @@ void MakeStringVector(const char* const argv[], vector<string>* out) {
     }
   }
 }
+// The result is dynamically allocated, but the elements are referenced;
+// just call: delete[] result;
+char** MakeCharArray(const char* first, const vector<string>& v) {
+  char** out = new char*[v.size() + 2];
+  uint32 out_index = 0;
+  if ( first != NULL ) {
+    out[out_index++] = const_cast<char*>(first);
+  }
+  for ( uint32 i = 0; i < v.size(); i++ ) {
+    out[out_index++] = const_cast<char*>(v[i].c_str());
+  }
+  out[out_index] = NULL;
+  return out;
+}
+template <typename T>
+void RunCallback(Callback1<T>* callback, T result) {
+  callback->Run(result);
+}
+template <typename T>
+void RunRefCallback(Callback1<const T&>* callback, T result) {
+  callback->Run(result);
+}
+}
 
 const pid_t Process::kInvalidPid = pid_t(-1);
-const int Process::kInvalidExitValue = 1000;
-const int Process::kErrorExitValue = 1001;
-const int Process::kDetachedExitValue = 1002;
 
-const uint32 Process::kStartupWaitMs = 5000;
-const uint32 Process::kKillWaitMs = 5000;
-
-Process::Process(const char* path, const char* arg, ...)
-  : path_(path),
-    bind_pid_(kInvalidPid),
+Process::Process(const string& exe, const vector<string>& argv,
+                 const vector<string>* envp)
+  : exe_(exe),
+    argv_(argv),
     pid_(kInvalidPid),
-    exit_status_(kInvalidExitValue),
-    exit_callback_(NULL),
-    executor_thread_(NewCallback(this, &Process::ExecutorRun)),
-    executor_thread_start_(false, true),
-    executor_thread_stop_(false, true),
-    executor_end_(false, true) {
-  va_list ap;
-  ::va_start(ap, arg);
-  const char* crt = arg;
-  while ( crt ) {
-    argv_.push_back(crt);
-    crt = va_arg(ap, const char*);
+    exit_status_(0),
+    runner_(NULL),
+    runner_start_(false, true),
+    runner_error_(false),
+    stdout_reader_(NULL),
+    auto_delete_stdout_reader_(false),
+    stderr_reader_(NULL),
+    auto_delete_stderr_reader_(false),
+    exit_callback_(NULL) {
+  MakeStringVector(environ, &envp_);
+  if ( envp != NULL ) {
+    std::copy(envp->begin(), envp->end(), std::back_inserter(envp_));
   }
-  ::va_end(ap);
-  MakeStringVector(environ, &envp_);
 }
-
-Process::Process(const char* path, char* const argv[], char* const envp[])
-  : path_(path),
-    bind_pid_(kInvalidPid),
-    pid_(kInvalidPid),
-    exit_status_(kInvalidExitValue),
-    exit_callback_(NULL),
-    executor_thread_(NewCallback(this, &Process::ExecutorRun)),
-    executor_thread_start_(false, true),
-    executor_thread_stop_(false, true),
-    executor_end_(false, true) {
-  MakeStringVector(argv, &argv_);
-  MakeStringVector(envp, &envp_);
-}
-
-Process::Process(const string& path, const vector<string>& argv)
-  : path_(path),
-    argv_(argv),
-    bind_pid_(kInvalidPid),
-    pid_(kInvalidPid),
-    exit_status_(kInvalidExitValue),
-    exit_callback_(NULL),
-    executor_thread_(NewCallback(this, &Process::ExecutorRun)),
-    executor_thread_start_(false, true),
-    executor_thread_stop_(false, true),
-    executor_end_(false, true) {
-  MakeStringVector(environ, &envp_);
-}
-
-Process::Process(const string& path,
-                 const vector<string>& argv,
-                 const vector<string>& envp)
-  : path_(path),
-    argv_(argv),
-    envp_(envp),
-    bind_pid_(kInvalidPid),
-    pid_(kInvalidPid),
-    exit_status_(kInvalidExitValue),
-    exit_callback_(NULL),
-    executor_thread_(NewCallback(this, &Process::ExecutorRun)),
-    executor_thread_start_(false, true),
-    executor_thread_stop_(false, true),
-    executor_end_(false, true) {
-}
-
-Process::Process(pid_t pid)
-  : path_(),
-    argv_(),
-    envp_(),
-    bind_pid_(pid),
-    pid_(kInvalidPid),
-    exit_status_(kInvalidExitValue),
-    exit_callback_(NULL),
-    executor_thread_(NewCallback(this, &Process::ExecutorRun)),
-    executor_thread_start_(false, true),
-    executor_thread_stop_(false, true),
-    executor_end_(false, true) {
-}
-
 Process::~Process() {
-  int result;
-  if ( !Wait(kKillWaitMs, &result) ) {
-    Kill();
+  Kill();
+  delete runner_;
+  runner_ = NULL;
+  if ( auto_delete_stdout_reader_ ) {
+    delete stdout_reader_;
+    stdout_reader_ = NULL;
   }
-  CHECK(!IsRunning());
+  if ( auto_delete_stderr_reader_ ) {
+    delete stderr_reader_;
+    stderr_reader_ = NULL;
+  }
 }
 
-const string& Process::path() const {
-  return path_;
-}
-const vector<string>& Process::argv() const {
-  return argv_;
-}
+bool Process::Start(Callback1<const string&>* stdout_reader,
+                    bool auto_delete_stdout_reader,
+                    Callback1<const string&>* stderr_reader,
+                    bool auto_delete_stderr_reader,
+                    Callback1<int>* exit_callback,
+                    net::Selector* selector) {
+  CHECK_NULL(runner_) << " Duplicate Start()";
 
-bool Process::Start() {
-  if ( IsStarted() ) {
+  stdout_reader_ = stdout_reader;
+  if ( stdout_reader_ != NULL ) {
+    CHECK(stdout_reader_->is_permanent());
+    auto_delete_stdout_reader_ = auto_delete_stdout_reader;
+  }
+
+  stderr_reader_ = stderr_reader;
+  if ( stderr_reader_ != NULL ) {
+    CHECK(stderr_reader_->is_permanent());
+    auto_delete_stderr_reader_ = auto_delete_stderr_reader;
+  }
+
+  exit_callback_ = exit_callback;
+  selector_ = selector;
+
+  runner_ = new thread::Thread(NewCallback(this, &Process::Runner));
+  runner_->Start();
+  if ( !runner_start_.Wait(5000) ) {
+    LOG_ERROR << "Runner() thread failed to start";
     return false;
   }
-  if ( !executor_thread_.Start() ) {
-    LOG_ERROR << "Failed to start executor thread: "
-              << GetLastSystemErrorDescription();
-    return false;
-  }
-  // 5 seconds should be enough
-  if ( !executor_thread_start_.Wait(kStartupWaitMs) ) {
-    LOG_ERROR << "Timeout waiting for executor thread startup";
-    executor_thread_.Kill();
-    executor_thread_start_.Reset();
-    executor_thread_stop_.Reset();
-    pid_ = kInvalidPid;
-    return false;
-  }
-  return pid_ != kInvalidPid;
+  return !runner_error_;
 }
 
-// Returns the running process pid.
-// If the process is not started, returns kInvalidPid.
-pid_t Process::Pid() const {
-  return pid_;
-}
-
-// Sends a signal to the running process.
-// Returns success status. On failure, call GetLastSystemError() for errno code.
 bool Process::Signal(int signum) {
-  if ( !IsStarted() ) {
-    return false;
-  }
-  if ( ::kill(Pid(), signum) ) {
-    LOG_ERROR << "::kill failed for pid_=" << Pid()
-              << ", signal=" << signum
-              << ", error=" << GetLastSystemErrorDescription();
-    return false;
-  }
-  return true;
+  LOG_ERROR << "TODO(cosmin): implement";
+  return false;
 }
 
 // Kills the process.
 void Process::Kill() {
-  if ( !IsRunning() ) {
-    return;
-  }
-
-  // detach
-  executor_end_.Signal();
-  executor_thread_stop_.Wait(kKillWaitMs);
-
-  // kill
-  if ( ::kill(Pid(), SIGKILL) ) {
-    LOG_ERROR << "::kill failed for pid_=" << Pid()
-              << ", signal=" << SIGKILL
+  if ( !IsRunning() ) { return; }
+  if ( ::kill(-pid_, SIGKILL) != 0 ) {
+    LOG_ERROR << "::kill(" << pid_ << ", SIGKILL) failed"
               << ", error=" << GetLastSystemErrorDescription();
   } else {
-    LOG_WARNING << "Process [pid=" << Pid() << "] killed.";
+    LOG_WARNING << "Process [pid=" << pid_ << "] killed.";
   }
+  pid_ = kInvalidPid;
 }
 
+// Detaches from the executing process. So you can delete this
+// object and the process keeps running.
 void Process::Detach() {
-  if ( !IsRunning() ) {
-    return;
-  }
-  // detach
-  executor_end_.Signal();
-  executor_thread_stop_.Wait(kKillWaitMs);
+  LOG_ERROR << "TODO(cosmin): implement";
 }
 
 bool Process::Wait(uint32 timeout_ms, int* exit_status) {
-  bool success = executor_thread_stop_.Wait(timeout_ms);
-  if ( !success ) {
-    // Timeout, the process is still running.
+  if ( !IsRunning() ) {
     return false;
   }
-  *exit_status = exit_status_;
+  CHECK_NOT_NULL(runner_);
+  runner_->Join();
+  if ( exit_status != NULL ) {
+    *exit_status = exit_status_;
+  }
   return true;
 }
 
-void Process::SetExitCallback(ExitCallback* exit_callback) {
-  exit_callback_ = exit_callback;
-}
-
-bool Process::IsStarted() const {
+bool Process::IsRunning() const {
   return pid_ != kInvalidPid;
 }
 
-bool Process::IsRunning() const {
-  return IsStarted() &&                      // already started
-         exit_status_ == kInvalidExitValue;  // not yet terminated
+namespace {
+struct Pipe {
+  Pipe() : read_fd_(INVALID_FD_VALUE), write_fd_(INVALID_FD_VALUE) {}
+  ~Pipe() { Close(); }
+  bool Open() {
+    int p[2] = {0,};
+    if ( 0 != ::pipe(p) ) {
+      LOG_ERROR << "::pipe() failed: " << GetLastSystemErrorDescription();
+      return false;
+    }
+    read_fd_ = p[0];
+    write_fd_ = p[1];
+    return true;
+  }
+  void Close() {
+    CloseRead();
+    CloseWrite();
+  }
+  void CloseRead() {
+    if ( read_fd_ != INVALID_FD_VALUE ) {
+      if ( -1 == ::close(read_fd_) ) {
+        LOG_ERROR << "::close failed: " << GetLastSystemErrorDescription();
+      }
+      read_fd_ = INVALID_FD_VALUE;
+    }
+  }
+  void CloseWrite() {
+    if ( write_fd_ != INVALID_FD_VALUE ) {
+      if ( -1 == ::close(write_fd_) ) {
+        LOG_ERROR << "::close failed: " << GetLastSystemErrorDescription();
+      }
+      write_fd_ = INVALID_FD_VALUE;
+    }
+  }
+  bool IsReadOpen() const { return read_fd_ != INVALID_FD_VALUE; }
+  bool IsWriteOpen() const { return write_fd_ != INVALID_FD_VALUE; }
+  bool IsOpen() const { return IsReadOpen() || IsWriteOpen(); }
+  int read_fd_;
+  int write_fd_;
+} __attribute__((__packed__));
 }
 
-//////////////////////////////////////////////////////////////////
-//
-//                  execute using execve
-//
-void Process::ExecutorRun() {
-  if ( bind_pid_ == kInvalidPid ) {
-    LOG_WARNING << "Starting process: path_=" << path_
-                << " argv_=" << strutil::ToString(argv_)
-                << " envp_=" << strutil::ToString(envp_);
-
-    const char* path = path_.c_str();
-
-    vector<string>::const_iterator it;
-    uint32 i;
-
-    scoped_array<char*> argv(new char*[argv_.size() + 2]);
-    argv[0] = const_cast<char*>(path);
-    for ( it = argv_.begin(), i = 1; it != argv_.end(); ++it, ++i ) {
-      argv[i] = const_cast<char*>(it->c_str());
-    }
-    argv[argv_.size() + 1] = NULL;
-
-    scoped_array<char*> envp(new char*[envp_.size() + 1]);
-    for ( it = envp_.begin(), i = 0; it != envp_.end(); ++it, ++i ) {
-      envp[i] = const_cast<char*>(it->c_str());
-    }
-    envp[envp_.size()] = NULL;
-
-    pid_t pid = ::fork();
-    if ( pid == 0 ) {
-      // child process here
-      int result = ::execve(path, argv.get(), envp.get());
-      ::_exit(result);
-    }
-    pid_ = pid;
-    LOG_WARNING << "Process [pid=" << pid_ << "] running.";
-  } else {
-    // test if bind_pid_ exists
-    int result = ::kill(bind_pid_, 0);
-    if ( result == -1 ) {
-      switch ( GetLastSystemError() ) {
-        case ESRCH:
-          LOG_ERROR << "Process [pid=" << pid_ << "] does not exist.";
-          break;
-        case EPERM:
-          LOG_ERROR << "Process [pid=" << pid_ << "]. You don't have "
-                    << " permission to send signals to this process.";
-          break;
-        default:
-          LOG_ERROR << "::kill failed for pid=" << pid_ << " with error="
-                    << GetLastSystemErrorDescription();
-      }
-      exit_status_ = kErrorExitValue;
-      executor_thread_start_.Signal();
-      executor_thread_stop_.Signal();
-      return;
-    }
-    pid_ = bind_pid_;
+void Process::Runner() {
+  // Create simple pipes for stdout & stderr.
+  // The child is going to write to them, the parent is going to read them.
+  Pipe stdout_pipe, stderr_pipe;
+  if ( (stdout_reader_ != NULL && !stdout_pipe.Open()) ||
+       (stderr_reader_ != NULL && !stderr_pipe.Open()) ) {
+    runner_error_ = true;
+    runner_start_.Signal();
+    return;
   }
 
-  // parent thread [the child is running in background]
-  executor_thread_start_.Signal();
+  LOG_WARNING << "Executing process: " << exe_
+              << ", argv: " << strutil::ToString(argv_);
+
+  pid_ = ::fork();
+  if ( pid_ == 0 ) {
+    ////////////////////////////////
+    // child process
+    ::setsid(); // set us as a process group leader
+                // (kill us -> kill all under us)
+    // close pipes read end
+    stdout_pipe.CloseRead();
+    stderr_pipe.CloseRead();
+    // redirect stdout & stderr to pipe's write end
+    if ( (stdout_pipe.IsWriteOpen() && -1 == ::dup2(stdout_pipe.write_fd_, 1)) ||
+         (stderr_pipe.IsWriteOpen() && -1 == ::dup2(stderr_pipe.write_fd_, 2)) ) {
+      LOG_ERROR << "::dup2 failed: " << GetLastSystemErrorDescription();
+      common::Exit(1);
+    }
+
+    // execute the external program
+    scoped_array<char*> argv(MakeCharArray(exe_.c_str(), argv_));
+    scoped_array<char*> envp(MakeCharArray(NULL, envp_));
+    int result = ::execve(exe_.c_str(), argv.get(), envp.get());
+    LOG_ERROR << "::execve(), exe: [" << exe_ << "]"
+                 ", failed: " << GetLastSystemErrorDescription();
+    _exit(result);
+  }
+  ////////////////////////////////
+  // parent process
+  runner_error_ = false;
+  runner_start_.Signal();
+
+  // close pipes write end
+  stdout_pipe.CloseWrite();
+  stderr_pipe.CloseWrite();
+
+  // read pipes until EOF
+  io::MemoryStream stdout_ms;
+  io::MemoryStream stderr_ms;
   while ( true ) {
-    int status;
-    const pid_t result = ::waitpid(pid_, &status, WNOHANG);
-    if ( result == -1 ) {
-      LOG_ERROR << "::waitpid [pid=" << pid_ << "] failed: "
-                << GetLastSystemErrorDescription();
-      exit_status_ = kErrorExitValue;
+    struct timeval timeout;
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    fd_set input;
+    FD_ZERO(&input);
+    int maxfd = 0;
+    if ( stdout_pipe.IsOpen() ) {
+      FD_SET(stdout_pipe.read_fd_, &input);
+      maxfd = std::max(maxfd, stdout_pipe.read_fd_);
+    }
+    if ( stderr_pipe.IsOpen() ) {
+      FD_SET(stderr_pipe.read_fd_, &input);
+      maxfd = std::max(maxfd, stderr_pipe.read_fd_);
+    }
+    if ( maxfd == 0 ) {
+      // both pipes are closed
       break;
     }
-    if ( result == 0 ) {
-      // timeout, sleep for 1 sec then try again ::waitpid
-      bool success = executor_end_.Wait(1000);
-      if ( success ) {
-        exit_status_ = kDetachedExitValue;
-        break;
-      } else {
-        continue;
-      }
-    }
-    CHECK_EQ(result, pid_);
-    exit_status_ = WEXITSTATUS(status);
-    LOG_WARNING << "Process [pid=" << pid_ << "] terminated: path_=\""
-                << path_ << "\", exit_status_=" << exit_status_;
-    break;
-  };
-  CHECK_NE(exit_status_, kInvalidExitValue);
 
-  if ( exit_callback_ ) {
-    exit_callback_->Run(exit_status_);
+    const int n = ::select(1 + maxfd, &input, NULL, NULL, &timeout);
+    if ( n < 0 ) {
+      LOG_ERROR << "::select failed: " << GetLastSystemErrorDescription();
+      Kill();
+      RunExitCallback(1);
+      return;
+    }
+    if ( n == 0 ) {
+      // timeout
+      continue;
+    }
+    char read_buf[256];
+    // read child's stdout
+    if ( stdout_pipe.IsReadOpen() && FD_ISSET(stdout_pipe.read_fd_, &input) ) {
+      ssize_t size = ::read(stdout_pipe.read_fd_, read_buf, sizeof(read_buf));
+      if ( size == -1 ) {
+        LOG_ERROR << "::read failed: " << GetLastSystemErrorDescription();
+        Kill();
+        RunExitCallback(1);
+        return;
+      }
+      if ( size == 0 ) {
+        // EOF
+        stdout_pipe.Close();
+      }
+      stdout_ms.Write(read_buf, size);
+    }
+    // read child's stderr
+    if ( stderr_pipe.IsReadOpen() && FD_ISSET(stderr_pipe.read_fd_, &input) ) {
+      ssize_t size = ::read(stderr_pipe.read_fd_, read_buf, sizeof(read_buf));
+      if ( size == -1 ) {
+        LOG_ERROR << "::read failed: " << GetLastSystemErrorDescription();
+        Kill();
+        RunExitCallback(1);
+        return;
+      }
+      if ( size == 0 ) {
+        // EOF
+        stderr_pipe.Close();
+      }
+      stderr_ms.Write(read_buf, size);
+    }
+
+    // report lines
+    string line;
+    while ( stdout_ms.ReadLine(&line) ) { RunStdoutReader(line); }
+    while ( stderr_ms.ReadLine(&line) ) { RunStderrReader(line); }
   }
 
-  executor_thread_stop_.Signal();
+  // wait for child to terminate (since we received EOF on both pipes,
+  //  it should have already ended)
+  int status = 0;
+  const pid_t result = ::waitpid(pid_, &status, 0);
+  if ( result == -1 ) {
+    LOG_ERROR << "::waitpid [pid=" << pid_ << "] failed: "
+              << GetLastSystemErrorDescription();
+    Kill();
+    RunExitCallback(1);
+    return;
+  }
+  CHECK_EQ(result, pid_);
+  exit_status_ = WEXITSTATUS(status);
+  LOG_WARNING << "Process [pid=" << pid_ << "] terminated: exe_='"
+              << exe_ << "', exit_status_=" << exit_status_;
+  pid_ = kInvalidPid;
+
+  RunExitCallback(exit_status_);
 }
+void Process::RunExitCallback(int exit_code) {
+  if ( exit_callback_ == NULL ) {
+    return;
+  }
+  if ( selector_ != NULL ) {
+    selector_->RunInSelectLoop(
+        NewCallback(&RunCallback, exit_callback_, exit_code));
+    return;
+  }
+  exit_callback_->Run(exit_code);
+}
+void Process::RunStdoutReader(const string& line) {
+  if ( stdout_reader_ == NULL ) { return; }
+  if ( selector_ != NULL ) {
+    selector_->RunInSelectLoop(
+        NewCallback(&RunRefCallback, stdout_reader_, line));
+    return;
+  }
+  stdout_reader_->Run(line);
+}
+void Process::RunStderrReader(const string& line) {
+  if ( stderr_reader_ == NULL ) { return; }
+  if ( selector_ != NULL ) {
+    selector_->RunInSelectLoop(
+        NewCallback(&RunRefCallback, stderr_reader_, line));
+    return;
+  }
+  stderr_reader_->Run(line);
+}
+
 }

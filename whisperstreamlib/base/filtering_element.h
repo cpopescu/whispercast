@@ -57,7 +57,6 @@ class FilteringCallbackData {
   virtual ~FilteringCallbackData();
 
   const string& media_name() const { return media_name_; }
-  Tag::Type registered_type() const { return registered_type_; }
   uint32 flavour_mask() const { return flavour_mask_; }
 
   // Register our processing callback to upstream element
@@ -86,6 +85,7 @@ class FilteringCallbackData {
     ++ref_count_;
   }
   void DecRef() {
+    CHECK_GT(ref_count_, 0);
     --ref_count_;
     if ( ref_count_ == 0 ) {
       delete this;
@@ -114,8 +114,6 @@ class FilteringCallbackData {
   string media_name_;
   // name of the filtering element we're part of
   string filtering_element_name_;
-  // at what kind of stream we are registered
-  Tag::Type registered_type_;
   // what flavours are we registered to
   uint32 flavour_mask_;
   // private flags, to be set by subclasses 
@@ -175,9 +173,8 @@ class FilteringCallbackData {
 //
 class FilteringElement : public Element {
  public:
-  FilteringElement(const char* type,
-                   const char* name,
-                   const char* id,
+  FilteringElement(const string& type,
+                   const string& name,
                    ElementMapper* mapper,
                    net::Selector* selector);
   virtual ~FilteringElement();
@@ -187,7 +184,7 @@ class FilteringElement : public Element {
   void CloseAllClients(Closure* call_on_close);
 
   // Override this to create your own FilteringCallbackData.
-  virtual FilteringCallbackData* CreateCallbackData(const char* media_name,
+  virtual FilteringCallbackData* CreateCallbackData(const string& media,
                                                     Request* req) = 0;
   // Destroy a FilteringCallbackData.
   virtual void DeleteCallbackData(FilteringCallbackData* data) {
@@ -198,16 +195,12 @@ class FilteringElement : public Element {
  public:
   // The Element interface methods
   virtual bool Initialize() = 0;
-  virtual bool AddRequest(const char* media,
-                          streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-
-  virtual bool HasMedia(const char* media_name, Capabilities* out);
-  virtual void ListMedia(const char* media_dir,
-                         ElementDescriptions* media);
-  virtual bool DescribeMedia(const string& media,
-                             MediaInfoCallback* callback);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
+  virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
 
   virtual void Close(Closure* call_on_close);
 

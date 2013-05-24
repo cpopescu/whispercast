@@ -63,7 +63,7 @@ class FactoryBasedElementMapper : public ElementMapper {
 
   // ElementMapper interface
 
-  virtual bool AddRequest(const char* media,
+  virtual bool AddRequest(const string& media,
                           streaming::Request* req,
                           ProcessingCallback* callback);
 
@@ -78,18 +78,21 @@ class FactoryBasedElementMapper : public ElementMapper {
   virtual bool GetElementByName(const string& name,
                                 streaming::Element** element,
                                 vector<streaming::Policy*>** policies);
+  virtual void GetAllElements(vector<string>* out_elements) const;
 
   virtual bool IsKnownElementName(const string& name);
 
   virtual Authorizer* GetAuthorizer(const string& name) {
     const AuthorizerMap::const_iterator it = authorizer_map_.find(name);
     if ( it  == authorizer_map_.end() ) {
+      LOG_ERROR << "Cannot find authorizer: [" << name << "], looking through: "
+                << strutil::ToStringKeys(authorizer_map_);
       return NULL;
     }
     return it->second;
   }
 
-  virtual string TranslateMedia(const char* media_name) const;
+  virtual string TranslateMedia(const string& media_name) const;
 
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
 
@@ -117,7 +120,7 @@ class FactoryBasedElementMapper : public ElementMapper {
     if ( alias_state_keeper_ == NULL ) return false;
     return alias_state_keeper_->GetValue(alias_name, media_name);
   }
-  void GetAllMediaAliases(vector< pair<string, string> >* aliases) const;
+  void GetAllMediaAliases(map<string, string>* aliases) const;
 
   typedef map<string, RequestServingInfo*> ServingInfoMap;
   const ServingInfoMap& serving_paths() const {
@@ -127,13 +130,12 @@ class FactoryBasedElementMapper : public ElementMapper {
   RequestServingInfo* GetMediaServingInfo(const string& protocol,
                                           const string& path,
                                           string* key) {
-    *key = (protocol + ":" + strutil::NormalizeUrlPath("/" + path));
-    return io::FindPathBased<RequestServingInfo*>(&serving_paths_,
-                                                  *key);
+    *key = protocol + ":" + path;
+    return io::FindPathBased<RequestServingInfo*>(&serving_paths_, *key);
   }
-  virtual bool HasMedia(const char* media_name, Capabilities* out);
-  virtual void ListMedia(const char* media_dir,
-                         ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media_name);
+  virtual void ListMedia(const string& media_dir,
+                         vector<string>* medias);
 
   void set_extra_element_spec_map(ElementSpecMap* extra_element_spec_map) {
     extra_element_spec_map_ = extra_element_spec_map;
@@ -151,7 +153,7 @@ class FactoryBasedElementMapper : public ElementMapper {
                                 const string& path);
 
  private:
-  string GetElementName(const char* media);
+  string GetElementName(const string& media);
   void RemoveTempElement(const string& name);
   // each element signals Close completion by calling this
   void ElementClosed(Element* element, vector<streaming::Policy*>* policies);

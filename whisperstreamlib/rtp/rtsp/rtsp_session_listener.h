@@ -41,7 +41,7 @@ namespace rtsp {
 class Session;
 
 // The Session sends events through this interface.
-// Usually the ServerProcessor wants this events.
+// Usually the ServerProcessor wants these events.
 class SessionListener {
 public:
   SessionListener() {}

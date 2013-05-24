@@ -84,6 +84,7 @@ class StandardLibrary : public ElementLibrary {
       const string& element_params,
       const streaming::Request* req,
       const CreationObjectParams& params,
+      bool is_temporary_template,
       // Output:
       vector<string>* needed_policies,
       string* error_description);
@@ -115,6 +116,7 @@ class StandardLibrary : public ElementLibrary {
                        const streaming::Request* req,
                        const CreationObjectParams& params,
                        vector<string>* needed_policies,
+                       bool is_temporary_template,
                        string* error);
   streaming::Element*
   CreateDroppingElement(const string& name,
@@ -122,13 +124,7 @@ class StandardLibrary : public ElementLibrary {
                         const streaming::Request* req,
                         const CreationObjectParams& params,
                         vector<string>* needed_policies,
-                        string* error);
-  streaming::Element*
-  CreateDebuggerElement(const string& name,
-                        const DebuggerElementSpec& spec,
-                        const streaming::Request* req,
-                        const CreationObjectParams& params,
-                        vector<string>* needed_policies,
+                        bool is_temporary_template,
                         string* error);
   streaming::Element*
   CreateHttpClientElement(const string& name,
@@ -136,6 +132,7 @@ class StandardLibrary : public ElementLibrary {
                           const streaming::Request* req,
                           const CreationObjectParams& params,
                           vector<string>* needed_policies,
+                          bool is_temporary_template,
                           string* error);
   streaming::Element*
   CreateHttpPosterElement(const string& name,
@@ -143,6 +140,7 @@ class StandardLibrary : public ElementLibrary {
                           const streaming::Request* req,
                           const CreationObjectParams& params,
                           vector<string>* needed_policies,
+                          bool is_temporary_template,
                           string* error);
   streaming::Element*
   CreateRemoteResolverElement(const string& name,
@@ -150,6 +148,7 @@ class StandardLibrary : public ElementLibrary {
                               const streaming::Request* req,
                               const CreationObjectParams& params,
                               vector<string>* needed_policies,
+                              bool is_temporary_template,
                               string* error);
   streaming::Element*
   CreateHttpServerElement(const string& name,
@@ -157,6 +156,7 @@ class StandardLibrary : public ElementLibrary {
                           const streaming::Request* req,
                           const CreationObjectParams& params,
                           vector<string>* needed_policies,
+                          bool is_temporary_template,
                           string* error);
   streaming::Element*
   CreateRtmpPublishingElement(const string& name,
@@ -164,6 +164,7 @@ class StandardLibrary : public ElementLibrary {
                               const streaming::Request* req,
                               const CreationObjectParams& params,
                               vector<string>* needed_policies,
+                              bool is_temporary_template,
                               string* error);
   streaming::Element*
   CreateKeyFrameExtractorElement(const string& name,
@@ -171,6 +172,7 @@ class StandardLibrary : public ElementLibrary {
                                  const streaming::Request* req,
                                  const CreationObjectParams& params,
                                  vector<string>* needed_policies,
+                                 bool is_temporary_template,
                                  string* error);
   streaming::Element*
   CreateStreamRenamerElement(const string& name,
@@ -178,6 +180,7 @@ class StandardLibrary : public ElementLibrary {
                              const streaming::Request* req,
                              const CreationObjectParams& params,
                              vector<string>* needed_policies,
+                             bool is_temporary_template,
                              string* error);
   streaming::Element*
   CreateLookupElement(const string& name,
@@ -185,6 +188,7 @@ class StandardLibrary : public ElementLibrary {
                       const streaming::Request* req,
                       const CreationObjectParams& params,
                       vector<string>* needed_policies,
+                      bool is_temporary_template,
                       string* error);
   streaming::Element*
   CreateNormalizingElement(const string& name,
@@ -192,6 +196,7 @@ class StandardLibrary : public ElementLibrary {
                            const streaming::Request* req,
                            const CreationObjectParams& params,
                            vector<string>* needed_policies,
+                           bool is_temporary_template,
                            string* error);
   streaming::Element*
   CreateLoadBalancingElement(const string& name,
@@ -199,6 +204,7 @@ class StandardLibrary : public ElementLibrary {
                              const streaming::Request* req,
                              const CreationObjectParams& params,
                              vector<string>* needed_policies,
+                             bool is_temporary_template,
                              string* error);
   streaming::Element*
   CreateSavingElement(const string& name,
@@ -206,20 +212,15 @@ class StandardLibrary : public ElementLibrary {
                       const streaming::Request* req,
                       const CreationObjectParams& params,
                       vector<string>* needed_policies,
+                      bool is_temporary_template,
                       string* error);
-  streaming::Element*
-  CreateSplittingElement(const string& name,
-                         const SplittingElementSpec& spec,
-                         const streaming::Request* req,
-                         const CreationObjectParams& params,
-                         vector<string>* needed_policies,
-                         string* error);
   streaming::Element*
   CreateSwitchingElement(const string& name,
                          const SwitchingElementSpec& spec,
                          const streaming::Request* req,
                          const CreationObjectParams& params,
                          vector<string>* needed_policies,
+                         bool is_temporary_template,
                          string* error);
   streaming::Element*
   CreateTimeSavingElement(const string& name,
@@ -227,6 +228,7 @@ class StandardLibrary : public ElementLibrary {
                           const streaming::Request* req,
                           const CreationObjectParams& params,
                           vector<string>* needed_policies,
+                          bool is_temporary_template,
                           string* error);
   streaming::Element*
   CreateF4vToFlvConverterElement(const string& name,
@@ -234,6 +236,7 @@ class StandardLibrary : public ElementLibrary {
                                  const streaming::Request* req,
                                  const CreationObjectParams& params,
                                  vector<string>* needed_policies,
+                                 bool is_temporary_template,
                                  string* error);
   streaming::Element*
   CreateRedirectingElement(const string& name,
@@ -241,6 +244,7 @@ class StandardLibrary : public ElementLibrary {
                            const streaming::Request* req,
                            const CreationObjectParams& params,
                            vector<string>* needed_policies,
+                           bool is_temporary_template,
                            string* error);
 
   // Helpers for element creating policies

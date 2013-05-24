@@ -37,6 +37,7 @@
 #include <string>
 
 #include <whisperlib/common/base/types.h>
+#include <whisperlib/common/base/callback.h>
 
 #include <whisperlib/common/io/input_stream.h>
 #include <whisperlib/common/io/output_stream.h>
@@ -44,10 +45,11 @@
 #include <whisperlib/common/io/buffer/io_memory_stream.h>
 
 #include <whisperlib/net/base/address.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_decoder.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
 #include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
 #include <whisperlib/net/rpc/lib/types/rpc_message.h>
-#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
-#include <whisperlib/common/base/callback.h>
 
 // Types to be used inside server for RPC queries in transit.
 // rpc::Transport: is just a container describing the transport layer for RPC.
@@ -111,31 +113,28 @@ class Query {
   //  - service: service name.
   //  - method: method name (inside service).
   //  - args: contains the query arguments encoded. And that's all it contains.
-  //  - codec: the codec used to decode arguments and later encode the
-  //           call result into a rpc::Result.
-  //           It must be dinamically allocated! as we become owners of this
-  //           codec and will destroy.
+  //  - args_dec: inside 'args' the arguments should be decoded by this decoder.
+  //  - result_enc: the result will be encoded using this encoder
   //  - rid: result handler ID. Used by the IAsyncQueryExecutor to find the
-  //         result handler for this query.
+  //         result handler of this query.
   Query(const rpc::Transport& transport,
         uint32 qid,
         const string& service,
         const string& method,
         const io::MemoryStream& args,
-        const rpc::Codec& codec,
+        const CodecId codec,
         uint32 rid);
   virtual ~Query();
 
-  const rpc::Transport& transport() const     { return transport_;  }
-  uint32 qid() const                          { return qid_; }
-  const string& service() const               { return service_; }
-  const string& method() const                { return method_; }
-  rpc::REPLY_STATUS status() const            { return  status_; }
-  const io::MemoryStream& result() const    { return result_; }
-  rpc::Codec& codec() const                   { return *codec_; }
-  uint32 rid() const                          { return rid_; }
-
-  io::MemoryStream& result()                { return result_; }
+  const rpc::Transport& transport() const { return transport_;  }
+  uint32 qid() const                      { return qid_; }
+  const string& service() const           { return service_; }
+  const string& method() const            { return method_; }
+  rpc::REPLY_STATUS status() const        { return status_; }
+  const io::MemoryStream& result() const  { return result_; }
+  CodecId codec() const                   { return codec_; }
+  uint32 rid() const                      { return rid_; }
+  io::MemoryStream& result()              { return result_; }
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -150,12 +149,12 @@ class Query {
   template <typename T>
   bool DecodeParam(T& obj) {
     CHECK ( args_decoding_initialized_ );
-    bool has_more_attribs;
+    bool has_more_attribs = false;
     string argName;
     return (DECODE_RESULT_SUCCESS ==
-              args_decoder_->DecodeArrayContinue(has_more_attribs) &&
+              args_decoder_->DecodeArrayContinue(args_, &has_more_attribs) &&
             has_more_attribs &&
-            DECODE_RESULT_SUCCESS == args_decoder_->Decode(obj));
+            DECODE_RESULT_SUCCESS == args_decoder_->Decode(args_, &obj));
   }
 
   // returns:
@@ -188,10 +187,10 @@ class Query {
   void Complete(rpc::REPLY_STATUS status, const T& result) {
     result_.Clear();
     status_ = status;
-    result_encoder_->Encode(result);
+    EncodeBy(codec_, result, &result_);
     CHECK_NOT_NULL(completion_callback_) << "CompletionCallback not set!";
     completion_callback_->Run(*this);
-    delete this;   // This is bad, others solutions are welcomed.
+    delete this;   // This is bad, other solutions are welcomed.
 
     // Alternative: let the transport layer delete the query.
     // But keep in mind that we're calling the transport from this context,
@@ -208,30 +207,29 @@ class Query {
   string ToString() const;
 
  protected:
-  // transport
-  const rpc::Transport transport_;  // informations from the RPC trasport layer
-                                    // (like protocol, IP, port ..)
+  // informations from the RPC trasport layer (like protocol, IP, port ..)
+  const rpc::Transport transport_;
 
-  // codec
-  rpc::Codec* codec_;              // we own the codec. Must be deleted on
-                                   // destructor.
-
-  // input
-  const uint32 qid_;               // query identifier, used by the transport
-                                   // layer
+  // query identifier, used by the transport layer
+  const uint32 qid_;
+  // rpc service name
   const string service_;
+  // rpc method name
   const string method_;
-  io::MemoryStream args_;        // contains the query arguments encoded
-  rpc::Decoder* args_decoder_;     // always locally allocated. Must be deleted
-                                   // on destructor
-  bool args_decoding_initialized_; // false = the args_ stream position is
-                                   // on the first arg (== stream begining)
+  // args_ and result_ are encoded by this codec
+  CodecId codec_;
+  // contains the query arguments encoded according to 'codec_'
+  io::MemoryStream args_;
+  // Because args are decoded in multiple calls, this persistent decoder is
+  // needed. Locally allocated.
+  rpc::Decoder* args_decoder_;
+  // false = the args_ stream position is on the first arg (== stream begining)
+  bool args_decoding_initialized_;
 
-  // output
-  rpc::REPLY_STATUS status_;       // receives the return status
-  io::MemoryStream result_;      // receives the encoded return value
-  rpc::Encoder* result_encoder_;   // always locally allocated.
-                                   // Must be deleted on destructor
+  // receives the return status
+  rpc::REPLY_STATUS status_;
+  // receives the return value, encoded according to codec_
+  io::MemoryStream result_;
 
   // execution
 

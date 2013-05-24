@@ -135,6 +135,24 @@ void MvhdAtom::set_next_track_id(uint32 next_track_id) {
   next_track_id_ = next_track_id;
 }
 
+bool MvhdAtom::EqualsVersionedBody(const VersionedAtom& other) const {
+  const MvhdAtom& a = static_cast<const MvhdAtom&>(other);
+  return creation_time_ == a.creation_time_ &&
+         modification_time_ == a.modification_time_ &&
+         time_scale_ == a.time_scale_ &&
+         duration_ == a.duration_ &&
+         preferred_rate_ == a.preferred_rate_ &&
+         preferred_volume_ == a.preferred_volume_ &&
+         ::memcmp(matrix_structure_, a.matrix_structure_,
+             sizeof(matrix_structure_)) == 0 &&
+         preview_time_ == a.preview_time_ &&
+         preview_duration_ == a.preview_duration_ &&
+         poster_time_ == a.poster_time_ &&
+         selection_time_ == a.selection_time_ &&
+         selection_duration_ == a.selection_duration_ &&
+         current_time_ == a.current_time_ &&
+         next_track_id_ == a.next_track_id_;
+}
 void MvhdAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* MvhdAtom::Clone() const {

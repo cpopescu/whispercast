@@ -36,6 +36,19 @@ bool FileWriter::Write(const Tag& tag) {
   written_tags_++;
   return Flush();
 }
+bool FileWriter::Write(const BaseAtom& atom) {
+  CHECK(buf_.IsEmpty());
+  encoder_.WriteAtom(buf_, atom);
+  written_tags_++;
+  return Flush();
+}
+bool FileWriter::Write(const Frame& frame) {
+  CHECK(buf_.IsEmpty());
+  encoder_.WriteFrame(buf_, frame);
+  written_tags_++;
+  return Flush();
+}
+
 bool FileWriter::Flush() {
   while ( !buf_.IsEmpty() ) {
     const char* tmp = NULL;

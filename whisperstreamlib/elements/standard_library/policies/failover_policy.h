@@ -52,7 +52,7 @@ namespace streaming {
 
 class FailoverPolicy : public Policy {
  public:
-  FailoverPolicy(const char* name,
+  FailoverPolicy(const string& name,
                  PolicyDrivenElement* element,
                  ElementMapper* mapper,
                  net::Selector* selector,

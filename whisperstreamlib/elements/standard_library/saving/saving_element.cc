@@ -35,17 +35,14 @@
 namespace streaming {
 const char SavingElement::kElementClassName[] = "saving";
 const uint64 SavingElement::kReconnectDelay = 5000;
-const uint32 SavingElement::kBuildupIntervalSec = 1200;
-const uint32 SavingElement::kBuildupDelaySec = 600;
 
-SavingElement::SavingElement(const char* name,
-                             const char* id,
+SavingElement::SavingElement(const string& name,
                              ElementMapper* mapper,
                              net::Selector* selector,
                              const string& base_media_dir,
                              const string& media,
                              const string& save_dir)
-  : Element(kElementClassName, name, id, mapper),
+  : Element(kElementClassName, name, mapper),
     selector_(selector),
     base_media_dir_(base_media_dir),
     media_(media),
@@ -69,18 +66,18 @@ bool SavingElement::Initialize() {
   OpenMedia();
   return true;
 }
-bool SavingElement::AddRequest(const char* media, streaming::Request* req,
-                               streaming::ProcessingCallback* callback) {
+bool SavingElement::AddRequest(const string& media, Request* req,
+                               ProcessingCallback* callback) {
   LOG_ERROR << "SavingElement cannot serve requests";
   return false;
 }
 void SavingElement::RemoveRequest(streaming::Request* req) {
   LOG_ERROR << "SavingElement cannot serve requests";
 }
-bool SavingElement::HasMedia(const char* media, Capabilities* out) {
+bool SavingElement::HasMedia(const string& media) {
   return false;
 }
-void SavingElement::ListMedia(const char* media_dir, ElementDescriptions* out) {
+void SavingElement::ListMedia(const string& media, vector<string>* out) {
 }
 bool SavingElement::DescribeMedia(const string& media,
                                   MediaInfoCallback* callback) {
@@ -105,8 +102,6 @@ void SavingElement::ProcessTag(const Tag* tag, int64 timestamp_ms) {
 void SavingElement::OpenMedia() {
   CHECK_NULL(internal_req_);
   internal_req_ = new streaming::Request();
-  internal_req_->mutable_info()->internal_id_ = id();
-  internal_req_->mutable_caps()->tag_type_ = Tag::TYPE_FLV;
 
   if ( !mapper_->AddRequest(media_.c_str(), internal_req_, process_tag_) ) {
     LOG_ERROR << name() << " failed to register to media: [" << media_ << "]";
@@ -119,22 +114,16 @@ void SavingElement::OpenMedia() {
   CHECK_NULL(saver_);
   saver_ = new Saver(name(), // the same name as the element, just for logging
                      NULL, // NO mapper -> we send the tags manually into saver
-                     internal_req_->caps().tag_type_,
+                     MFORMAT_FLV,
                      media_,
                      strutil::JoinPaths(base_media_dir_, save_dir_),
-                     timer::Date::Now(),
-                     false,
                      NULL);
-  if ( !saver_->StartSaving() ) {
+  if ( !saver_->StartSaving(0) ) {
     LOG_ERROR << name() << " Cannot start saver on dir: ["
               << saver_->media_dir() << "]";
     CloseMedia();
     return;
   }
-  saver_->CreateSignalingFile(".save_done",
-                              strutil::StringPrintf("buildup\n%d\n%d",
-                                                    kBuildupIntervalSec,
-                                                    kBuildupDelaySec));
 }
 void SavingElement::CloseMedia() {
   if ( internal_req_ != NULL ) {

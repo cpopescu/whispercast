@@ -89,8 +89,7 @@ void Request::AppendClientRequest(io::MemoryStream* out, int64 max_chunk_size) {
     gzip_zwrapper_ = new io::ZlibGzipEncodeWrapper();
     client_header_.SetContentEncoding("gzip");
     compress_option_ = COMPRESS_GZIP;
-  } else if ( client_header_.IsDeflateAcceptableEncoding() &&
-              zippable_content ) {
+  } else if ( client_header_.IsDeflateContentEncoding() && zippable_content ) {
     CHECK_GE(client_header_.http_version(), VERSION_1_0);
     delete deflate_zwrapper_;
     deflate_zwrapper_ = new io::ZlibDeflateWrapper();
@@ -125,10 +124,12 @@ void Request::AppendClientRequest(io::MemoryStream* out, int64 max_chunk_size) {
     io::MemoryStream* source = &ms;
     switch ( compress_option_ ) {
     case COMPRESS_GZIP:
-      gzip_zwrapper_->Encode(&client_data_, out);
+      source = new io::MemoryStream();
+      gzip_zwrapper_->Encode(&client_data_, source);
       break;
     case COMPRESS_DEFLATE:
-      deflate_zwrapper_->Deflate(&client_data_, out);
+      source = new io::MemoryStream();
+      deflate_zwrapper_->Deflate(&client_data_, source);
       break;
     case COMPRESS_NONE:
       source = &client_data_;
@@ -140,16 +141,19 @@ void Request::AppendClientRequest(io::MemoryStream* out, int64 max_chunk_size) {
          client_header_.method() == METHOD_PUT ) {
       client_header_.AddField(
           kHeaderContentLength,
-          strutil::IntToString(client_data_.Size()),
+          strutil::IntToString(source->Size()),
           true);  // replace !
     }
     DLOG_DEBUG << "http::Request - Sending header to server: "
-               << client_header_.ToString();
+            << client_header_.ToString();
     // Append the header data and the body
     client_header_.AppendToStream(out);
     out->MarkerSet();
     out->MarkerRestore();
     out->AppendStream(source);
+    if (compress_option_ != COMPRESS_NONE) {
+      delete source;
+    }
   }
 }
 
@@ -243,11 +247,10 @@ namespace {
 static void BufferAppendChunk(io::MemoryStream* in,
                               io::MemoryStream* out,
                               bool add_decorations,
-                              int32 max_size) {
-  int32 size = min(max_size, in->Size());
+                              uint32 max_size) {
+  uint32 size = min(max_size, in->Size());
   if ( add_decorations ) {
-    string first_line = strutil::StringPrintf("0%x\r\n",
-                                              static_cast<int>(size));
+    string first_line = strutil::StringPrintf("0%x\r\n", size);
     out->Write(first_line);
   }
   out->AppendStream(in, size);
@@ -697,8 +700,7 @@ int32 RequestParser::ParseBodyInternal(io::MemoryStream* in,
   // copy the payload from in to our internal buffer.
   const int64 to_read = min(body_size_to_read_,
                             static_cast<int64>(in->Size()));
-  partial_data_.AppendStreamNonDestructive(in, to_read);
-  in->Skip(to_read);
+  partial_data_.AppendStream(in, to_read);
   body_size_to_read_ -= to_read;
   bool is_gzipped = header->IsGzipContentEncoding();
   bool is_deflated = header->IsDeflateContentEncoding();
@@ -845,7 +847,7 @@ int32 RequestParser::ParseChunksInternal(io::MemoryStream* in,
     //
     if ( parse_state_ == STATE_CHUNK_HEAD_READING ) {
       string line;
-      if ( !in->ReadCRLFLine(&line) ) {
+      if ( !in->ReadLine(&line) ) {
         if ( in->Size() > max_header_size_ ) {
           // ERROR - got too much in the first chunk line
           LOG_HTTP_ERR << " Chumk header too long. Have at least: "
@@ -856,9 +858,7 @@ int32 RequestParser::ParseChunksInternal(io::MemoryStream* in,
         // CONTINUE - waiting for more data in the first chunk line
         return HEADER_READ | CHUNKED_BODY_READING;
       }
-      // Got one more chunk header !! - Cut the last CRLF
-      DCHECK_GE(line.size(), 2);  // at least CRLF
-      line.resize(line.size() - 2);
+      // Got one more chunk header !!
       // We ignore the chunk extension (if any)
       errno = 0;  // essential as strtol would not set a 0 errno
       const int32 chunk_length = strtol(line.c_str(), NULL, 16);
@@ -917,19 +917,11 @@ int32 RequestParser::ParseChunksInternal(io::MemoryStream* in,
       //  STATE_END_OF_CHUNK -----------> Read the \r\n chunk termiantion
       //
       string line;
-      if ( !in->ReadCRLFLine(&line) ) {
-        if ( in->Size() > strlen("\r\n") ) {
-          LOG_HTTP_ERR << " Got at the end of chunks invalid leftover data: "
-                       << in->Size();
-          set_parse_state(ERROR_CHUNK_BAD_CHUNK_TERMINATION);
-          return HEADER_READ | CHUNKED_BODY_READING | REQUEST_FINISHED;
-        }
+      if ( !in->ReadLine(&line) ) {
         // CONTINUE - waiting for more data in the chunk termination
         return HEADER_READ | CHUNKED_BODY_READING;
       }
-      // Got one more chunk header !! - Cut the last CRLF
-      DCHECK_GE(line.size(), 2);  // at least CRLF
-      line.resize(line.size() - 2);
+      // Got one more chunk header !!
       if ( !line.empty() ) {
         LOG_HTTP_ERR
             << " Got a non empty line at end of chunk: "
@@ -951,8 +943,7 @@ int32 RequestParser::ParseChunksInternal(io::MemoryStream* in,
       }
       const int64 to_read = min(chunk_size_to_read_,
                                 static_cast<int64>(in->Size()));
-      partial_data_.AppendStreamNonDestructive(in, to_read);
-      in->Skip(to_read);
+      partial_data_.AppendStream(in, to_read);
 
       bool is_gzipped = header->IsGzipContentEncoding();
       bool is_deflated = header->IsDeflateContentEncoding();
@@ -1128,9 +1119,9 @@ bool RequestParser::IsKnownContentEncoding(const http::Header* header) {
   if ( !s ) return true;
   string s_trim = strutil::StrTrim(string(s, len));
   if ( s_trim.empty() ||
-       strutil::StrCasePrefix(s_trim.c_str(), kGzip) ||
-       strutil::StrCasePrefix(s_trim.c_str(), kDeflate) ||
-       strutil::StrCasePrefix(s_trim.c_str(), kIdentity) ) {
+       strutil::StrIStartsWith(s_trim.c_str(), kGzip) ||
+       strutil::StrIStartsWith(s_trim.c_str(), kDeflate) ||
+       strutil::StrIStartsWith(s_trim.c_str(), kIdentity) ) {
     return true;
   }
   LOG_WARNING << " Unknown Content Encoding found: [" << s_trim << "].";
@@ -1143,8 +1134,8 @@ bool RequestParser::IsKnownTransferEncoding(const http::Header* header) {
   if ( !s ) return true;
   string s_trim = strutil::StrTrim(string(s, len));
   if ( s_trim.empty() ||
-       strutil::StrCasePrefix(s_trim.c_str(), kChunked) ||
-       strutil::StrCasePrefix(s_trim.c_str(), kIdentity) ) {
+       strutil::StrIStartsWith(s_trim.c_str(), kChunked) ||
+       strutil::StrIStartsWith(s_trim.c_str(), kIdentity) ) {
     return true;
   }
   LOG_WARNING << " Unknown Transfer Encoding found: [" << s_trim << "].";

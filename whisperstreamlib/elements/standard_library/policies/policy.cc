@@ -190,10 +190,8 @@ void PlaylistPolicy::GetPlaylist(PlaylistPolicySpec* playlist) const {
 }
 
 void PlaylistPolicy::SetPlaylist(
-    rpc::CallContext< MediaOperationErrorData >* call,
+    rpc::CallContext< MediaOpResult >* call,
     const SetPlaylistPolicySpec& playlist) {
-  MediaOperationErrorData ret;
-  ret.error_.ref() = 0;
   LOG_INFO << " Setting playlist to: " << playlist.ToString();
   if ( playlist.playlist_.is_set() ) {
     const PlaylistPolicySpec& p = playlist.playlist_.get();
@@ -226,9 +224,7 @@ void PlaylistPolicy::SetPlaylist(
   if ( playlist.next_to_play_.is_set() ) {
     if ( playlist.next_to_play_.get() < 0 ||
          playlist.next_to_play_.get() >= playlist_.size() ) {
-      ret.error_.ref() = 2;
-      ret.description_.ref() = "Invalid next to play.";
-      call->Complete(ret);
+      call->Complete(MediaOpResult(false, "Invalid next to play"));
       return;
     }
     next_to_play_ = playlist.next_to_play_.get();
@@ -239,7 +235,7 @@ void PlaylistPolicy::SetPlaylist(
     GoToNext();
   }
   SaveState();
-  call->Complete(ret);
+  call->Complete(MediaOpResult(true, ""));
 }
 
 void PlaylistPolicy::GetPlaylist(
@@ -400,11 +396,10 @@ bool OnCommandPolicy::PlayMedia(const string& media) {
 }
 
 void OnCommandPolicy::SwitchPolicy(
-    rpc::CallContext< MediaOperationErrorData >* call,
+    rpc::CallContext< MediaOpResult >* call,
     const string& media_name,
     bool set_as_default,
     bool also_switch) {
-  MediaOperationErrorData ret;
   //
   // NOTE: optional media check - after some decision making we took it
   //       out
@@ -429,8 +424,7 @@ void OnCommandPolicy::SwitchPolicy(
     }
   }
   SaveState();
-  ret.error_.ref() = 0;
-  call->Complete(ret);
+  call->Complete(MediaOpResult(true, ""));
 }
 
 void OnCommandPolicy::GetDefaultMedia(rpc::CallContext< string >* call) {

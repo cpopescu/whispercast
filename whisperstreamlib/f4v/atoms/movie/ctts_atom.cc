@@ -18,6 +18,10 @@ CttsRecord::CttsRecord(const CttsRecord& other)
 }
 CttsRecord::~CttsRecord() {
 }
+bool CttsRecord::Equals(const CttsRecord& other) const {
+  return sample_count_ == other.sample_count_ &&
+         sample_offset_ == other.sample_offset_;
+}
 CttsRecord* CttsRecord::Clone() const {
   return new CttsRecord(*this);
 }

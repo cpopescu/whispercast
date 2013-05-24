@@ -48,6 +48,7 @@ struct Co64Record {
   Co64Record(const Co64Record& other);
   ~Co64Record();
 
+  bool Equals(const Co64Record& other) const;
   Co64Record* Clone() const;
 
   bool Decode(io::MemoryStream& in);

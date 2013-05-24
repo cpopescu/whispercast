@@ -41,6 +41,7 @@
 
 #include <whisperlib/common/base/types.h>
 #include <whisperstreamlib/base/tag.h>
+#include <whisperstreamlib/base/tag_serializer.h>
 #include <whisperstreamlib/base/tag_splitter.h>
 
 // IMPORTANT : this is not thread safe !!
@@ -87,6 +88,8 @@ class AacFrameTag : public streaming::Tag {
   const io::MemoryStream& data() const { return data_; }
   virtual int64 duration_ms() const { return duration_ms_; }
   virtual uint32 size() const { return data_.Size(); }
+  virtual int64 composition_offset_ms() const { return 0; }
+  virtual const io::MemoryStream* Data() const { return &data_; }
   virtual Tag* Clone() const {
     return new AacFrameTag(*this);
   }
@@ -106,7 +109,7 @@ class AacFrameTag : public streaming::Tag {
 
 class AacTagSerializer : public streaming::TagSerializer {
  public:
-  AacTagSerializer() : streaming::TagSerializer() { }
+  AacTagSerializer() : TagSerializer(MFORMAT_AAC) { }
   virtual ~AacTagSerializer() {}
   virtual void Initialize(io::MemoryStream* out) {}
   virtual void Finalize(io::MemoryStream* out) {}
@@ -114,11 +117,9 @@ class AacTagSerializer : public streaming::TagSerializer {
   virtual bool SerializeInternal(const Tag* tag,
                                  int64 timestamp_ms,
                                  io::MemoryStream* out) {
-    if ( tag->type() != Tag::TYPE_AAC ) {
-      return false;
+    if ( tag->is_audio_tag() ) {
+      out->AppendStreamNonDestructive(tag->Data());
     }
-    out->AppendStreamNonDestructive(
-        &static_cast<const AacFrameTag*>(tag)->data());
     return true;
   }
  private:
@@ -129,20 +130,17 @@ class AacTagSerializer : public streaming::TagSerializer {
 
 class AacTagSplitter : public streaming::TagSplitter {
  public:
-  static const Type kType;
- public:
   AacTagSplitter(const string& name);
   virtual ~AacTagSplitter();
 
   static const int kAacHeaderLen;
 
  protected:
-  virtual streaming::TagReadStatus GetNextTagInternal(io::MemoryStream* in,
-                                                      scoped_ref<Tag>* tag,
-                                                      int64* timestamp_ms,
-                                                      bool is_at_eos);
-  streaming::TagReadStatus MaybeFinalizeFrame(
-      scoped_ref<Tag>* tag, const char* buffer);
+  virtual TagReadStatus GetNextTagInternal(io::MemoryStream* in,
+                                           scoped_ref<Tag>* tag,
+                                           int64* timestamp_ms,
+                                           bool is_at_eos);
+  TagReadStatus FinalizeFrame(const char* data, scoped_ref<AacFrameTag>* out);
 
  private:
   streaming::TagReadStatus ReadHeader(

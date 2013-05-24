@@ -63,8 +63,7 @@ namespace streaming {
 class RedirectingElement : public Element {
  public:
   static const char kElementClassName[];
-  RedirectingElement(const char* name,
-                     const char* id,
+  RedirectingElement(const string& name,
                      ElementMapper* mapper,
                      const map<string, string>& redirection);
   virtual ~RedirectingElement();
@@ -77,11 +76,11 @@ class RedirectingElement : public Element {
   ///////////////////////////////////////////////////////////////////////
   // Element methods
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir, ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 

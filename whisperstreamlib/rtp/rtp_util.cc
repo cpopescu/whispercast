@@ -156,8 +156,10 @@ void ExtractSdpFromMediaInfo(uint16 audio_dst_port, uint16 video_dst_port,
         info.video().h264_profile_,
         info.video().h264_profile_compatibility_,
         info.video().h264_level_,
-        base64::EncodeVector(info.video().h264_sps_).c_str(),
-        base64::EncodeVector(info.video().h264_pps_).c_str());
+        info.video().h264_sps_.size() > 0 ?
+            base64::EncodeString(info.video().h264_sps_[0]).c_str() : "",
+        info.video().h264_pps_.size() > 0 ?
+            base64::EncodeString(info.video().h264_pps_[0]).c_str() : "");
     }
     if ( info.video().format_ == MediaInfo::Video::FORMAT_H263 ) {
       payload_type = AVP_PAYLOAD_MPV;

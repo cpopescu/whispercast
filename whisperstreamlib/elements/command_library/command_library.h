@@ -89,6 +89,7 @@ class CommandLibrary : public ElementLibrary {
       const string& element_params,
       const streaming::Request* req,
       const CreationObjectParams& params,
+      bool is_temporary_template,
       // Output:
       vector<string>* needed_policies,
       string* error_description);
@@ -122,6 +123,7 @@ class CommandLibrary : public ElementLibrary {
                        const streaming::Request* req,
                        const CreationObjectParams& params,
                        vector<string>* needed_policies,
+                       bool is_temporary_template,
                        string* error);
 
  private:

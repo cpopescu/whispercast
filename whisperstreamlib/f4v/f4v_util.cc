@@ -74,14 +74,6 @@ namespace streaming {
 namespace f4v {
 namespace util {
 
-bool CompareFramesByTimestamp(FrameHeader* a, FrameHeader* b) {
-  return a->timestamp() < b->timestamp();
-}
-bool CompareFramesByOffset(FrameHeader* a, FrameHeader* b) {
-  return a->offset() < b->offset();
-}
-
-
 // static
 void ExtractFrames(const MoovAtom& moov, bool audio,
     vector<FrameHeader*>* out) {
@@ -281,12 +273,11 @@ void ExtractFrames(const MoovAtom& moov, bool audio,
       }
 
       uint32 size = stsz->records()[frame_index]->entry_size_;
-      int64 composition_time = decoding_time + composition_offset;
       FrameHeader* frame = new FrameHeader(offset, size,
                                            decoding_time * 1000 / timescale,
-                                           composition_time * 1000 / timescale,
+                                           composition_offset * 1000 / timescale,
                                            decoding_delta * 1000 / timescale,
-                                           composition_time,
+                                           decoding_time + composition_offset,
                                            audio ? FrameHeader::AUDIO_FRAME :
                                                    FrameHeader::VIDEO_FRAME,
                                            false); // keyframes are set below
@@ -337,18 +328,7 @@ struct F4vChunk {
     : start_offset_(start_offset), sample_count_(sample_count) {}
 };
 
-void UpdateSize(BaseAtom* atom) {
-  vector<const BaseAtom*> subatoms;
-  atom->GetSubatoms(subatoms);
-  for ( uint32 i = 0; i < subatoms.size(); i++ ) {
-    BaseAtom* subatom = const_cast<BaseAtom*>(subatoms[i]);
-    UpdateSize(subatom);
-  }
-  atom->set_size(atom->MeasureSize());
-}
-
-bool ExtractMediaInfo(const MoovAtom& moov, bool audio,
-                               MediaInfo* out) {
+bool ExtractMediaInfo(const MoovAtom& moov, bool audio, MediaInfo* out) {
   const string fhead = string("ExtractMediaInfo(") +
                        (audio ? "audio" : "video") + "): ";
   const MvhdAtom* mvhd = moov.mvhd();
@@ -401,63 +381,71 @@ bool ExtractMediaInfo(const MoovAtom& moov, bool audio,
     F4V_LOG_ERROR << fhead << "no StscAtom found";
     return false;
   }
-  MediaInfo::Track* out_trak = (audio ? &out->audio_ : &out->video_);
+  //MediaInfo::Track* out_trak = (audio ? &out->audio_ : &out->video_);
 
   uint32 presentation_timescale = mvhd->time_scale();
   if ( presentation_timescale == 0 ) {
-    F4V_LOG_ERROR << "Invalid presentation_timescale: "
+    F4V_LOG_ERROR << fhead << "Invalid presentation_timescale: "
                   << presentation_timescale;
     return false;
   }
   uint32 presentation_duration = mvhd->duration();
-  out->duration_ = 1000LL * presentation_duration / presentation_timescale;
+  out->set_duration_ms(1000LL * presentation_duration / presentation_timescale);
 
   uint32 media_timescale = mdhd->time_scale();
   if ( media_timescale == 0 ) {
-    F4V_LOG_ERROR << "Invalid media_timescale: " << media_timescale;
+    F4V_LOG_ERROR << fhead << "Invalid media_timescale: " << media_timescale;
     return false;
   }
-  out_trak->timescale_ = media_timescale;
+  // track timescale = media_timescale
+  F4V_LOG_WARNING << "Don't know what to make of track_timescale: " << media_timescale;
 
   uint32 media_duration = mdhd->duration();
   float media_duration_s = 1.0f * media_duration / media_timescale; // seconds
-  out_trak->length_ = media_duration;
-
-  out_trak->language_ = mdhd->language_name();
+  // track duration = media_duration_s
+  F4V_LOG_WARNING << "Don't know what to make of track_duration: " << media_duration_s;
 
   //TODO(cosmin):
   // - the moovPosition does not correspond to MOOV atom position.
   //   The +8 hack seems to work.
-  out->moov_position_ = moov.position() + 8;
+  //out->moov_position_ = moov.position() + 8;
 
   if ( audio ) {
+    ////////////////////////////////////////////////////////////////////
     // extract audio specific parameters
+    MediaInfo::Audio* out_audio = out->mutable_audio();
 
-    //TODO(cosmin): Compute 'aacaot' from somewhere.
-    //   According to Adobe AS3 Class FLVMetaData:
-    //   aacaot = The AAC audio object type; 0, 1, or 2 are supported.
-    out->aacaot_ = 2; // HARDCODED
+    out_audio->mp4_language_ = mdhd->language_name();
 
     const Mp4aAtom* mp4a = stsd->mp4a();
     if ( mp4a != NULL ) {
-      out->audio_codec_id_ = "mp4a";
-      out->audio_channels_ = mp4a->number_of_channels();
-      out->audio_sample_rate_ = mp4a->sample_rate().integer_;
+      out_audio->format_ = MediaInfo::Audio::FORMAT_AAC;
+      out_audio->channels_ = mp4a->number_of_channels();
+      out_audio->sample_rate_ = mp4a->sample_rate().integer_;
+      out_audio->sample_size_ = mp4a->sample_size_in_bits();
       if ( mp4a->esds() ) {
-        out->audio_esds_extra_.AppendStreamNonDestructive(
-            &mp4a->esds()->extra_data());
+        mp4a->esds()->extra_data().Peek(out_audio->aac_config_,
+            sizeof(out_audio->aac_config_));
       }
+      out_audio->aac_profile_ = 1;
+      out_audio->aac_level_ = 15;
       return true;
     }
 
-    F4V_LOG_ERROR << fhead << "unrecognized audio specific atom";
+    F4V_LOG_ERROR << fhead << "unrecognized audio specific atom."
+        " Cannot extract audio info from: " << moov.ToString();
     return false;
   }
 
+  ////////////////////////////////////////////////////////////////////
   // extract video specific parameters
+  MediaInfo::Video* out_video = out->mutable_video();
 
-  out->width_ = tkhd->width().integer_; // 16.16 format
-  out->height_ = tkhd->height().integer_; // 16.16 format
+  // 90000 = most common clock rate for video
+  out_video->clock_rate_ = 90000;
+  out_video->timescale_ = media_timescale;
+  out_video->width_ = tkhd->width().integer_; // 16.16 format
+  out_video->height_ = tkhd->height().integer_; // 16.16 format
 
   // Use Sample Size Atom for sample count. If all samples have same size
   // then STSZ contains 0 records, and we need to compute sample count otherwise.
@@ -469,27 +457,37 @@ bool ExtractMediaInfo(const MoovAtom& moov, bool audio,
       sample_count += stsc_record->samples_per_chunk_;
     }
   }
-  out->video_frame_rate_ = (media_duration_s == 0
+  out_video->frame_rate_ = (media_duration_s == 0
                             ? 0
                             : sample_count / media_duration_s);
 
   const Avc1Atom* avc1 = stsd->avc1();
   if ( avc1 != NULL ) {
-    out->video_codec_id_ = "avc1";
+    out_video->format_ = MediaInfo::Video::FORMAT_H264;
 
     const AvccAtom* avcc = avc1->avcc();
     if ( avcc == NULL ) {
       F4V_LOG_ERROR << fhead << "no AvccAtom found";
       return false;
     }
-    out->avc_profile_ = avcc->profile();
-    out->avc_level_ = avcc->level();
-    f4v::Encoder().WriteAtom(out->video_avcc_extra_, *avcc);
-    out->video_avcc_extra_.Skip(8); // skip type and length (4 + 4 bytes)
+    avcc->get_seq_parameters(&out_video->h264_sps_);
+    avcc->get_pic_parameters(&out_video->h264_pps_);
+    out_video->h264_configuration_version_ = avcc->configuration_version();
+    out_video->h264_nalu_length_size_ = avcc->nalu_length_size();
+    out_video->h264_profile_ = avcc->profile();
+    out_video->h264_profile_compatibility_ = avcc->profile_compatibility();
+    out_video->h264_level_ = avcc->level();
+
+    io::MemoryStream ms;
+    f4v::Encoder().WriteAtom(ms, *avcc);
+    ms.Skip(8); // skip type and length (4 + 4 bytes)
+    ms.ReadString(&out->mutable_video()->h264_avcc_);
+
     return true;
   }
 
-  F4V_LOG_ERROR << fhead << "unrecognized video specific atom";
+  F4V_LOG_ERROR << fhead << "unrecognized video specific atom."
+      " Cannot extract video info from: " << moov.ToString();
   return false;
 }
 bool ExtractMediaInfo(const MoovAtom& moov, MediaInfo* out) {
@@ -538,6 +536,27 @@ StcoAtom* GetStcoAtom(MoovAtom& moov, bool audio) {
   }
   return NULL;
 }
+StszAtom* GetStszAtom(MoovAtom& moov, bool audio) {
+  TrakAtom* trak = moov.trak(audio);
+  if ( trak &&
+       trak->mdia() &&
+       trak->mdia()->minf() &&
+       trak->mdia()->minf()->stbl() ) {
+    return trak->mdia()->minf()->stbl()->stsz();
+  }
+  return NULL;
+}
+const StszAtom* GetStszAtom(const MoovAtom& moov, bool audio) {
+  const TrakAtom* trak = moov.trak(audio);
+  if ( trak &&
+       trak->mdia() &&
+       trak->mdia()->minf() &&
+       trak->mdia()->minf()->stbl() ) {
+    return trak->mdia()->minf()->stbl()->stsz();
+  }
+  return NULL;
+}
+
 
 const char* Spaces(uint32 count) {
   static const char* spaces = "                                              "

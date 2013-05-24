@@ -27,6 +27,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
+// Author: Cosmin Tudorache
+
 #ifndef  __MEDIA_IMPORT_ELEMENT_H__
 #define  __MEDIA_IMPORT_ELEMENT_H__
 
@@ -36,106 +38,78 @@
 #include <whisperlib/net/rpc/lib/server/rpc_http_server.h>
 #include <whisperlib/common/io/checkpoint/state_keeper.h>
 #include <whisperstreamlib/base/element.h>
-#include <whisperstreamlib/base/tag_splitter.h>
-#include <whisperstreamlib/elements/standard_library/auto/standard_library_invokers.h>
 
 namespace streaming {
 
-template<class Service, class Import, class ImportDataSpec>
-class ImportElement
-    : public Element,
-      public Service {
+class ImportElementData {
+ public:
+  ImportElementData() {}
+  virtual ~ImportElementData() {}
+
+  // importer media info
+  virtual const MediaInfo* media_info() const = 0;
+  // Initialize the importer.
+  // If it fails, the importer is deleted without calling Close()
+  virtual bool Initialize() = 0;
+  // Self explanatory
+  virtual bool AddCallback(Request* request, ProcessingCallback* callback) = 0;
+  // Self explanatory
+  virtual void RemoveCallback(Request* request) = 0;
+  // Completely close the importer. This call must stop everything inside the
+  // importer because on return this ImportElementData* will be deleted.
+  virtual void Close() = 0;
+};
+
+class ImportElement : public Element {
  protected:
-  typedef map<string, Import*> ImportMap;
-  typedef map<streaming::Request*, Import*> RequestMap;
+  typedef map<string, ImportElementData*> ImportMap;
+  typedef map<streaming::Request*, ImportElementData*> RequestMap;
  public:
   ImportElement(const string& class_name,
                 const string& name,
-                const string& id,
-                streaming::ElementMapper* mapper,
+                ElementMapper* mapper,
                 net::Selector* selector,
-                const string& media_dir,
                 const string& rpc_path,
                 rpc::HttpServer* rpc_server,
                 io::StateKeepUser* state_keeper,
-                streaming::SplitterCreator* splitter_creator,
                 const string& authorizer_name);
-
   virtual ~ImportElement();
 
+  ////////////////////////////////////////////////////////////////////////////
   // streaming::Element interface methods
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media_name, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
-  virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities *out);
-  virtual void ListMedia(const char* media_dir,
-                         streaming::ElementDescriptions* medias);
-  virtual bool DescribeMedia(const string& media,
-                             MediaInfoCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
+  virtual void RemoveRequest(Request* req);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
+  virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
+  ///////////////////////////////////////////////////////////////////////////
 
-  // RPC interface
-  virtual void AddImport(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const ImportDataSpec& spec);
-  virtual void DeleteImport(
-      rpc::CallContext<MediaOperationErrorData>* call,
-      const string& name);
-  virtual void GetImports(
-      rpc::CallContext< vector<string> >* call);
-  virtual void GetImportDetail(
-      rpc::CallContext<ImportDetail>* call,
-      const string& name);
-
-  // utility - save or not the added import ..
-  void AddImport(MediaOperationErrorData* ret,
-                 const ImportDataSpec& spec,
-                 bool save_state);
-
- protected:
-  virtual Import* CreateNewImport(const char* import_name,
-                                  const char* name,
-                                  Tag::Type tag_type,
-                                  const char* save_dir,
-                                  bool append_only,
-                                  bool disable_preemption,
-                                  int32 prefill_buffer_ms,
-                                  int32 advance_media_ms,
-                                  int32 buildup_interval_sec,
-                                  int32 buildup_delay_sec) = 0;
- private:
-  // Initializes a new server element by specifying the element name
-  // and the url where to listen for media upload.
+  // Initializes a new server branch where to listen for media upload.
   // As long as there is no one uploading, the element has no data.
-  bool AddImport(const char* import_name,
-                 Tag::Type tag_type,
-                 const char* save_dir,
-                 bool append_only,
-                 bool disable_preemption,
-                 int32 prefill_buffer_ms,
-                 int32 advance_media_ms,
-                 int32 buildup_interval_sec,
-                 int32 buildup_delay_sec);
+  bool AddImport(const string& import_name, bool save_state, string* out_error);
 
+  // Deletes a server branch
+  bool DeleteImport(const string& import_name);
 
-  // Ads (first time sets :) the user/pass for pushing data through the
-  // named element
-  bool AddImportRemoteUser(const char* import_name,
-                           const string& user, const string& passwd);
-  // Deletes an exported element
-  bool DeleteImport(const char* import_name);
+  // returns the name of all the imports
+  void GetAllImports(vector<string>* out) const;
 
+  // Save/Load imports to state_keeper
+  void SaveState();
+  bool LoadState();
+
+ private:
+  virtual ImportElementData* CreateNewImport(const string& name) = 0;
   void CloseAllImports();
 
  protected:
   net::Selector* const selector_;
-  const string media_dir_;
   const string rpc_path_;
   rpc::HttpServer* const rpc_server_;
-  bool rpc_registered_;
   io::StateKeepUser* state_keeper_;
-  streaming::SplitterCreator* splitter_creator_;
   const string authorizer_name_;
 
   ImportMap imports_;

@@ -68,7 +68,7 @@ SimpleClient::SimpleClient(net::Selector* selector)
   : selector_(selector),
     net_connection_(new net::TcpConnection(selector,
                                            net::TcpConnectionParams())),
-    coder_(&protocol_data_, 1 << 20),
+    coder_(1 << 20),
     state_(StateHandshakeNotStarted),
     stream_id_(0),
     timeouter_(selector, NewPermanentCallback(
@@ -174,24 +174,21 @@ void SimpleClient::Close() {
 
 void SimpleClient::Seek(int64 position_ms) {
   CHECK_EQ(state_, StatePlaySent);
-  scoped_ref<EventInvoke> e = new EventInvoke(&protocol_data_, 8, stream_id_);
-  e->set_call(new rtmp::PendingCall());
-  e->set_invoke_id(0);
-  e->mutable_call()->set_method_name("seek");
-  e->mutable_call()->AddArgument(new CNumber(position_ms));
-  Send(e.get());
+  Send(*scoped_ref<EventInvoke>(
+      new EventInvoke(
+          Header(8, stream_id_, EVENT_INVOKE, 0, false),
+          new rtmp::PendingCall("","seek",0,Call::STATUS_PENDING, NULL,
+              new CNumber(position_ms)))).get());
 }
 
 void SimpleClient::Pause(bool pause) {
   CHECK_EQ(state_, StatePlaySent);
-  scoped_ref<EventInvoke> e = new EventInvoke(&protocol_data_, 8, stream_id_);
-  e->mutable_header()->set_timestamp_ms(channel_time_ms_[8] + 100);
-  e->set_call(new rtmp::PendingCall());
-  e->set_invoke_id(0);
-  e->mutable_call()->set_method_name("pause");
-  e->mutable_call()->AddArgument(new CBoolean(pause));
-  e->mutable_call()->AddArgument(new CNumber(channel_time_ms_[8] + 100));
-  Send(e.get());
+  const int64 ts = channel_time_ms_[8] + 100;
+  Send(*scoped_ref<EventInvoke>(
+      new EventInvoke(
+          Header(8, stream_id_, EVENT_INVOKE, ts, false),
+          new rtmp::PendingCall("", "pause", 0, Call::STATUS_PENDING, NULL,
+              new CBoolean(pause)))).get());
 }
 
 void SimpleClient::TimeoutHandler(int64 timeout_id) {
@@ -257,11 +254,12 @@ bool SimpleClient::ConnectionReadHandler() {
     params->Set("videoCodecs", new CNumber(252));
     params->Set("videoFunction", new CNumber(1));
 
-    scoped_ref<EventInvoke> connect = new EventInvoke(&protocol_data_, 3, 0);
-    connect->set_call(new rtmp::PendingCall("", "connect", 1,
-        Call::CALL_STATUS_PENDING, params, NULL));
+    scoped_ref<EventInvoke> connect = new EventInvoke(
+        Header(3, 0, EVENT_INVOKE, 0, false),
+        new rtmp::PendingCall("", "connect", 1, Call::STATUS_PENDING,
+            params, NULL));
 
-    Send(connect.get());
+    Send(*connect.get());
     state_ = StateConnectSent;
   }
 
@@ -279,13 +277,13 @@ bool SimpleClient::ConnectionReadHandler() {
     }
     CHECK_NOT_NULL(event.get());
 
-    uint32 channel = event->header()->channel_id();
+    uint32 channel = event->header().channel_id();
     CHECK_LT(channel, 10);
 
-    if ( event->header()->is_timestamp_relative() ) {
-      channel_time_ms_[channel] += event->header()->timestamp_ms();
+    if ( event->header().is_timestamp_relative() ) {
+      channel_time_ms_[channel] += event->header().timestamp_ms();
     } else {
-      channel_time_ms_[channel] = event->header()->timestamp_ms();
+      channel_time_ms_[channel] = event->header().timestamp_ms();
     }
 
     if (event_log_level_) {
@@ -305,20 +303,21 @@ bool SimpleClient::ConnectionReadHandler() {
 
     if ( event->event_type() == rtmp::EVENT_INVOKE ) {
       if ( state_ == StateConnectSent )  {
-        scoped_ref<EventServerBW> serverBW = new EventServerBW(2500000,
-            &protocol_data_, kChannelPing, 0);
-        Send(serverBW.get());
+        scoped_ref<EventServerBW> serverBW = new EventServerBW(
+            Header(kChannelPing, 0, EVENT_SERVER_BANDWIDTH, 0, false),
+            2500000);
+        Send(*serverBW.get());
+
         scoped_ref<EventPing> clientBuffer = new EventPing(
-            rtmp::EventPing::CLIENT_BUFFER, 0, 300,
-            &protocol_data_, kChannelPing, 0);
-        Send(clientBuffer.get());
+            Header(kChannelPing, 0, EVENT_PING, 0, false),
+            rtmp::EventPing::CLIENT_BUFFER, 0, 300, -1);
+        Send(*clientBuffer.get());
 
         scoped_ref<EventInvoke> createStream = new EventInvoke(
-            &protocol_data_, 3, 0);
-        createStream->set_call(new rtmp::PendingCall());
-        createStream->set_invoke_id(2);
-        createStream->mutable_call()->set_method_name("createStream");
-        Send(createStream.get());
+            Header(3, 0, EVENT_INVOKE, 0, false),
+            new rtmp::PendingCall("", "createStream", 2, Call::STATUS_PENDING,
+                NULL, NULL));
+        Send(*createStream.get());
 
         state_ = StateCreateStreamSent;
         continue;
@@ -338,23 +337,17 @@ bool SimpleClient::ConnectionReadHandler() {
           LOG_DEBUG << "Setting stream id to: " << stream_id_;
         }
         scoped_ref<EventInvoke> play = new EventInvoke(
-            &protocol_data_, 8, stream_id_);
-        play->set_call(new rtmp::PendingCall("", "play", 0,
-            Call::CALL_STATUS_PENDING, NULL, NULL));
-        play->mutable_call()->AddArgument(new CString(stream_name_));
-        play->mutable_call()->AddArgument(new CNumber(-2.0));
+            Header(8, stream_id_, EVENT_INVOKE, 0, false),
+            new rtmp::PendingCall("", "play", 0, Call::STATUS_PENDING, NULL,
+                new CString(stream_name_)));
+        //play->mutable_call()->AddArgument(new CNumber(-2.0));
 
         LOG_DEBUG << "Sending play: " << play->ToString();
-        Send(play.get());
+        Send(*play.get());
 
         state_ = StatePlaySent;
         continue;
       }
-    }
-
-    if ( event->event_type() == rtmp::EVENT_CHUNK_SIZE ) {
-      EventChunkSize* const ecs = static_cast<EventChunkSize*>(event.get());
-      protocol_data_.set_read_chunk_size(ecs->chunk_size());
     }
   }
 
@@ -379,9 +372,10 @@ void SimpleClient::ConnectionCloseHandler(int err,
   close_handler_->Run();
 }
 
-void SimpleClient::Send(Event* event) {
-  LOG_DEBUG << "Sending: " << event->ToString();
-  coder_.Encode(net_connection_->outbuf(), AmfUtil::AMF0_VERSION, event);
+void SimpleClient::Send(const Event& event) {
+  CHECK(selector_->IsInSelectThread());
+  LOG_DEBUG << "Sending: " << event.ToString();
+  coder_.Encode(event, AmfUtil::AMF0_VERSION, net_connection_->outbuf());
   // And we should get some data from the server back
   timeouter_.SetTimeout(kReadEvent, kReadTimeout);
   // because we wrote the event directly in the tcp output buffer

@@ -33,25 +33,22 @@
 
 namespace rtmp {
 
-AmfUtil::ReadStatus EventInvoke::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  Clear();
-  if ( in->Size() < header()->event_size() )
-    return AmfUtil::READ_NO_DATA;
-
-  PendingCall* const call = new PendingCall();
-  const AmfUtil::ReadStatus err = call->ReadCallData(
-    in, header()->stream_id(), false, version);
-  if ( err != AmfUtil::READ_OK && err != AmfUtil::READ_NOT_IMPLEMENTED ) {
+AmfUtil::ReadStatus EventInvoke::DecodeBody(io::MemoryStream* in,
+    AmfUtil::Version v) {
+  PendingCall* call = new PendingCall("", "", 0, Call::STATUS_PENDING,
+      NULL, NULL);
+  AmfUtil::ReadStatus err = call->Decode(in, v);
+  if ( err != AmfUtil::READ_OK ) {
     delete call;
-  } else {
-    set_call(call);
+    return err;
   }
-  return err;
+  delete pending_call_;
+  pending_call_ = call;
+  return AmfUtil::READ_OK;
 }
 
-void EventInvoke::WriteToMemoryStream(
-  io::MemoryStream* out, AmfUtil::Version version) const {
-  rtmp_pending_call_->WriteCallData(out, true, version);
+void EventInvoke::EncodeBody(io::MemoryStream* out,
+    AmfUtil::Version v) const {
+  pending_call_->Encode(true, v, out);
 }
 }

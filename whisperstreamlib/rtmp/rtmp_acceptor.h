@@ -35,9 +35,11 @@
 #include <string>
 #include <vector>
 #include <whisperlib/common/base/types.h>
+#include <whisperlib/common/base/cache.h>
 #include <whisperlib/net/base/connection.h>
 #include <whisperstreamlib/base/element_mapper.h>
 #include <whisperstreamlib/rtmp/rtmp_flags.h>
+#include <whisperstreamlib/rtmp/rtmp_util.h>
 #include <whisperstreamlib/stats2/stats_collector.h>
 
 namespace net {
@@ -99,6 +101,16 @@ class ServerAcceptor {
 
   // synchronize secondary network threads which call AcceptorAcceptHandler()
   synch::Mutex sync_;
+
+  // Just for performance:
+  // A cache of missing stream names. Whenever a stream is not found, the stream
+  // name is inserted here. If another client ask for the same stream it will
+  // be refused instantly without trying AddRequest(..).
+  // The reason for this cache is old players embedded on countless sites asking
+  // for media streams that are long gone, affecting whispercast's performance.
+  // uint32: the number of hits
+  MissingStreamCache missing_stream_cache_;
+  static const uint32 kMissingStreamCacheSize = 10000;
 
  private:
   DISALLOW_EVIL_CONSTRUCTORS(ServerAcceptor);

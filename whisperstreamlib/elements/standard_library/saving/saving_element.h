@@ -52,15 +52,12 @@ class SavingElement : public Element {
  public:
   static const char kElementClassName[];
   static const uint64 kReconnectDelay;
-  static const uint32 kBuildupIntervalSec;
-  static const uint32 kBuildupDelaySec;
 
  public:
   // media_dir: all saved media goes under this directory
   // save_dir: relative path under media_dir.
   //           We actually save data under: media_dir/save_dir
-  SavingElement(const char* name,
-                const char* id,
+  SavingElement(const string& name,
                 ElementMapper* mapper,
                 net::Selector* selector,
                 const string& base_media_dir,
@@ -71,11 +68,11 @@ class SavingElement : public Element {
   ////////////////////////////////////////////////////////////////////////
   // Element interface methods
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir, ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 

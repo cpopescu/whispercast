@@ -50,58 +50,6 @@
 #include "internal/internal_tag_splitter.h"
 #include "elements/factory_based_mapper.h"
 
-DEFINE_int32(flv_splitter_max_tag_composition_time_ms,
-             0,
-             "We compose flv tags in chunks of this size, after they are "
-             "extracted by a splitter");
-DEFINE_int32(f4v_splitter_max_tag_composition_time_ms,
-             0,
-             "We compose f4v tags in chunks of this size, after they are "
-             "extracted by a splitter");
-DEFINE_int32(raw_splitter_bps,
-             1 << 20, // 1 mbps
-             "Data processing speed for RawTagSplitter.");
-
-namespace {
-class StandardSplitterCreator : public streaming::SplitterCreator {
- public:
-  StandardSplitterCreator() : streaming::SplitterCreator() {
-  }
-  virtual streaming::TagSplitter* CreateSplitter(
-      const string& name,
-      streaming::Tag::Type tag_type) {
-    switch ( tag_type ) {
-      case streaming::Tag::TYPE_FLV: {
-        streaming::TagSplitter* s = new streaming::FlvTagSplitter(name);
-        s->set_max_composition_tag_time_ms(
-            FLAGS_flv_splitter_max_tag_composition_time_ms);
-        return s;
-      }
-      case streaming::Tag::TYPE_MP3:
-        return new streaming::Mp3TagSplitter(name);
-      case streaming::Tag::TYPE_AAC:
-        return new streaming::AacTagSplitter(name);
-      case streaming::Tag::TYPE_INTERNAL:
-        return new streaming::InternalTagSplitter(name);
-      case streaming::Tag::TYPE_F4V: {
-        streaming::TagSplitter* s =
-            new streaming::F4vTagSplitter(name);
-        s->set_max_composition_tag_time_ms(
-            FLAGS_f4v_splitter_max_tag_composition_time_ms);
-        return s;
-      }
-      default:
-        DLOG_DEBUG << "Unknown tag_type: " << tag_type
-                   << ", creating a RawTagSplitter w/ name: [" << name << "]";
-        return new streaming::RawTagSplitter(name, FLAGS_raw_splitter_bps);
-    }
-    return NULL;
-  }
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(StandardSplitterCreator);
-};
-}
-
 //////////////////////////////////////////////////////////////////////
 
 namespace streaming  {
@@ -113,7 +61,6 @@ ElementFactory::ElementFactory(
     rpc::HttpServer* rpc_server,
     map<string, io::AioManager*>* aio_managers,
     io::BufferManager* buffer_manager,
-    const Host2IpMap* host_aliases,
     const char* base_media_dir,
     io::StateKeeper* state_keeper,
     io::StateKeeper* local_state_keeper)
@@ -125,7 +72,6 @@ ElementFactory::ElementFactory(
       rpc_server_(rpc_server),
       aio_managers_(aio_managers),
       buffer_manager_(buffer_manager),
-      host_aliases_(host_aliases),
       base_media_dir_(base_media_dir),
       state_keeper_(state_keeper),
       local_state_keeper_(local_state_keeper),
@@ -178,7 +124,7 @@ bool ElementFactory::InitializeLibraries(
   LOG_INFO << "Looking for libraries in directory: [" << libraries_dir << "]";
   vector<string> files;
   re::RE reg(".*_streaming_elements\\.so");
-  if ( !io::DirList(libraries_dir, &files, false, &reg) ) {
+  if ( !io::DirList(libraries_dir, io::LIST_FILES, &reg, &files) ) {
     return false;
   }
   libraries_dir_ = libraries_dir;
@@ -187,8 +133,8 @@ bool ElementFactory::InitializeLibraries(
     void* lib_handle = dlopen((libraries_dir + "/" + files[i]).c_str(),
                               RTLD_LAZY);
     if ( lib_handle == NULL ) {
-      LOG_ERROR << "Cannot load element library: "
-                << files[i]  << ": " << dlerror();
+      LOG_FATAL << "Failed to load library: " << files[i]
+                << ", error: " << dlerror();
       continue;
     }
     void* (*fun)(void);
@@ -196,16 +142,15 @@ bool ElementFactory::InitializeLibraries(
                                                  "GetElementLibrary"));
     const char* const error = dlerror();
     if ( error != NULL || fun == NULL ) {
-      LOG_ERROR << " Error linking GetElementLibrary function: "
-                << error;
+      LOG_FATAL << "Error finding GetElementLibrary(), inside library: "
+                << files[i] << ", error: " << error;
       continue;
     }
-    LOG_INFO << " Loaded element library: "
-             << files[i] << " - now creating the element library";
+    LOG_INFO << "Loaded element library: " << files[i];
     ElementLibrary* lib = reinterpret_cast<ElementLibrary*>((*fun)());
     if ( lib == NULL ) {
       dlclose(lib_handle);
-      LOG_ERROR << " No element library provided by the loaded lib: "
+      LOG_ERROR << "No element library provided by the loaded lib: "
                 << files[i];
       continue;
     }
@@ -316,9 +261,7 @@ bool ElementFactory::SetCreationParams(
     CHECK(buffer_manager_ != NULL);
     params->buffer_manager_ = buffer_manager_;
   }
-  if ( (needs & streaming::ElementLibrary::NEED_HOST2IP_MAP) != 0 ) {
-    params->host_aliases_ = host_aliases_;
-  }
+
   if ( (needs & streaming::ElementLibrary::NEED_MEDIA_DIR) != 0 ) {
     params->media_dir_ = base_media_dir_;
   }
@@ -337,9 +280,6 @@ bool ElementFactory::SetCreationParams(
       }
     }
   }
-  if ( (needs & streaming::ElementLibrary::NEED_SPLITTER_CREATOR) != 0 ) {
-    params->splitter_creator_ = new StandardSplitterCreator();
-  }
   return true;
 }
 
@@ -349,6 +289,7 @@ streaming::Element* ElementFactory::CreateElement(
     const ElementSpecMap* extra_elements_map,
     const PolicySpecMap* extra_policies_map,
     const streaming::Request* request,
+    bool is_temporary_template,
     PolicyMap* new_policies) const {
   // First, find the element name (if any..);
   ElementSpecMap::const_iterator it_name = elements_map_.find(name);
@@ -396,7 +337,7 @@ streaming::Element* ElementFactory::CreateElement(
   string error_description;
   vector<string> needed_policies;
   streaming::Element* const element = lib->CreateElement(
-      type, name, spec->params_.get(), request, params,
+      type, name, spec->params_.get(), request, params, is_temporary_template,
       &needed_policies, &error_description);
   if ( element == NULL ) {
     LOG_ERROR << " Library error creating element: " << error_description;
@@ -532,7 +473,8 @@ streaming::Authorizer* ElementFactory::CreateAuthorizer(
       type, name, spec->params_.get(), params,
       &error_description);
   if ( auth == NULL ) {
-    LOG_ERROR << " Library error creating policy: " << error_description;
+    LOG_ERROR << " Library error creating authorizer, name: [" << name << "]"
+                 ", type: [" << type << "], err: " << error_description;
     return NULL;
   }
   LOG_INFO << " Created authorizer, type: " << type << " , name: " << name;
@@ -555,6 +497,7 @@ bool ElementFactory::CreateAllElements(ElementMap* global_elements,
                                            NULL,
                                            NULL,
                                            NULL,
+                                           !is_global,
                                            is_global
                                            ? global_policies
                                            : non_global_policies);
@@ -605,21 +548,18 @@ bool ElementFactory::ElementExists(const string& name) {
 }
 
 bool ElementFactory::IsValidPolicySpecToAdd(const PolicySpecs& spec,
-                                            ErrorData* error) {
+                                            string* out_error) {
   if ( !strutil::IsValidIdentifier(spec.name_.get().c_str()) ) {
-    error->description_ = (string("Invalid spec name: ") +
-                           spec.name_.get());
+    *out_error = "Invalid spec name: " + spec.name_.get();
     return false;
   }
   if ( policies_map_.find(spec.name_.get()) != policies_map_.end() ) {
-    error->description_ = ("Policy Spec [" + spec.name_.get() +
-                           "] already exists");
+    *out_error = "Policy Spec [" + spec.name_.get() + "] already exists";
     return false;
   }
   if ( known_policy_types_.find(spec.type_.get()) ==
        known_policy_types_.end() ) {
-    error->description_ =
-        ("Unknown policy type [" + spec.type_.get() + "]");
+    *out_error = "Unknown policy type [" + spec.type_.get() + "]";
     return false;
   }
   // TODO: check params..
@@ -627,21 +567,18 @@ bool ElementFactory::IsValidPolicySpecToAdd(const PolicySpecs& spec,
 }
 
 bool ElementFactory::IsValidAuthorizerSpecToAdd(const AuthorizerSpecs& spec,
-                                                ErrorData* error) {
+                                                string* out_error) {
   if ( !strutil::IsValidIdentifier(spec.name_.get().c_str()) ) {
-    error->description_ = (string("Invalid spec name: ") +
-                           spec.name_.get());
+    *out_error = "Invalid spec name: " + spec.name_.get();
     return false;
   }
   if ( authorizers_map_.find(spec.name_.get()) != authorizers_map_.end() ) {
-    error->description_ = ("Authorizer Spec [" + spec.name_.get() +
-                           "] already exists");
+    *out_error = "Authorizer Spec [" + spec.name_.get() + "] already exists";
     return false;
   }
   if ( known_authorizer_types_.find(spec.type_.get()) ==
        known_authorizer_types_.end() ) {
-    error->description_ =
-        ("Unknown authorizer type [" + spec.type_.get() + "]");
+    *out_error =  "Unknown authorizer type [" + spec.type_.get() + "]";
     return false;
   }
   // TODO: check params..
@@ -649,21 +586,18 @@ bool ElementFactory::IsValidAuthorizerSpecToAdd(const AuthorizerSpecs& spec,
 }
 
 bool ElementFactory::IsValidElementSpecToAdd(const MediaElementSpecs& spec,
-                                             ErrorData* error) {
-  if ( !strutil::IsValidIdentifier(spec.name_.get().c_str()) ) {
-    error->description_ = (string("Invalid spec name") +
-                           spec.name_.get());
+                                             string* out_error) {
+  if ( !strutil::IsValidIdentifier(spec.name_.get()) ) {
+    *out_error = "Invalid spec name: [" + spec.name_.get() + "]";
     return false;
   }
   if ( elements_map_.find(spec.name_.get()) != elements_map_.end() ) {
-    error->description_ = ("Element Spec [" + spec.name_.get() +
-                           "] already exists");
+    *out_error = "Element Spec [" + spec.name_.get() + "] already exists";
     return false;
   }
   if ( known_element_types_.find(spec.type_.get()) ==
        known_element_types_.end() ) {
-    error->description_ =
-        ("Unknown stream element type [" + spec.type_.get() + "]");
+    *out_error = "Unknown stream element type [" + spec.type_.get() + "]";
     return false;
   }
   // TODO: check params..
@@ -674,133 +608,113 @@ bool ElementFactory::IsValidElementSpecToAdd(const MediaElementSpecs& spec,
 
 bool ElementFactory::AddLibraryElementSpec(
     ElementLibrary::ElementSpecCreateParams* spec) {
-  ErrorData error;
-  MediaElementSpecs* const elem_spec = new MediaElementSpecs(
+  string error;
+  if ( !AddElementSpec(MediaElementSpecs(
       spec->type_, spec->name_, spec->is_global_, spec->disable_rpc_,
-      spec->element_params_);
-  if ( AddElementSpec(elem_spec, &error) ) {
-    const string name(elem_spec->name_.get());
-    if ( !mapper_->AddElement(name, elem_spec->is_global_.get()) ) {
-      DeleteElementSpec(name, &error);
-      return false;
-    }
-    return true;
-  }
-  delete elem_spec;
-  spec->error_ = error.description_;
-  return false;
-}
-
-bool ElementFactory::AddElementSpec(MediaElementSpecs* spec,
-                                    ErrorData* err) {
-  if ( !IsValidElementSpecToAdd(*spec, err) ) {
-    LOG_INFO << " Error adding element spec: " << *spec
-             << " err: " << err->ToString();
+      spec->element_params_), &error) ) {
+    spec->error_ = error;
     return false;
   }
-  elements_map_.insert(make_pair(spec->name_.get(), spec));
-  LOG_INFO << " Added element spec: " << *spec;
+  if ( !mapper_->AddElement(spec->name_, spec->is_global_) ) {
+    DeleteElementSpec(spec->name_);
+    spec->error_ = "Failed to AddElement: [" + spec->name_ + "]";
+    return false;
+  }
+  return true;
+}
+
+bool ElementFactory::AddElementSpec(const MediaElementSpecs& spec,
+                                    string* out_error) {
+  if ( !IsValidElementSpecToAdd(spec, out_error) ) {
+    LOG_INFO << " Error adding element spec: " << spec
+             << " err: " << *out_error;
+    return false;
+  }
+  elements_map_[spec.name_.get()] = new MediaElementSpecs(spec);
+  LOG_INFO << " Added element spec: " << spec;
   return true;
 }
 
 bool ElementFactory::AddLibraryPolicySpec(
     ElementLibrary::PolicySpecCreateParams* spec) {
-  ErrorData error;
-  PolicySpecs* const policy_spec = new PolicySpecs(
-      spec->type_, spec->name_, spec->policy_params_);
-  if ( AddPolicySpec(policy_spec, &error) ) {
-    return true;
-  }
-  delete policy_spec;
-  spec->error_ = error.description_;
-  return false;
+  return AddPolicySpec(PolicySpecs(
+      spec->type_, spec->name_, spec->policy_params_), &spec->error_);
 }
 
-bool ElementFactory::AddPolicySpec(PolicySpecs* spec, ErrorData* error) {
-  if ( !IsValidPolicySpecToAdd(*spec,  error) ) {
-    LOG_INFO << " Error adding policy spec: " << *spec
-             << " err: " << error->ToString();
+bool ElementFactory::AddPolicySpec(const PolicySpecs& spec, string* out_error) {
+  if ( !IsValidPolicySpecToAdd(spec, out_error) ) {
+    LOG_INFO << " Error adding policy spec: " << spec
+             << " err: " << *out_error;
     return false;
   }
-  policies_map_.insert(make_pair(spec->name_.get(), spec));
-  LOG_INFO << " Added policy spec: " << *spec;
+  policies_map_[spec.name_.get()] = new PolicySpecs(spec);
+  LOG_INFO << " Added policy spec: " << spec;
   return true;
 }
 
 bool ElementFactory::AddLibraryAuthorizerSpec(
     ElementLibrary::AuthorizerSpecCreateParams* spec) {
-  ErrorData error;
-  AuthorizerSpecs* const authorizer_spec = new AuthorizerSpecs(
-      spec->type_, spec->name_, spec->authorizer_params_);
-  if ( AddAuthorizerSpec(authorizer_spec, &error) ) {
-    const string name(spec->name_);
-    if ( !mapper_->AddAuthorizer(name) ) {
-      DeleteAuthorizerSpec(name, &error);
-      return false;
-    }
-    return true;
+  string error;
+  if ( !AddAuthorizerSpec(AuthorizerSpecs(
+          spec->type_, spec->name_, spec->authorizer_params_), &error) ) {
+    spec->error_ = error;
+    return false;
   }
-  delete authorizer_spec;
-  spec->error_ = error.description_;
-  return false;
+  if ( !mapper_->AddAuthorizer(spec->name_) ) {
+    DeleteAuthorizerSpec(spec->name_);
+    spec->error_ = "Failed to AddAuthorizer: [" + spec->name_ + "]";
+    return false;
+  }
+  return true;
 }
 
-bool ElementFactory::AddAuthorizerSpec(AuthorizerSpecs* spec, ErrorData* error) {
-  if ( !IsValidAuthorizerSpecToAdd(*spec,  error) ) {
-    LOG_INFO << " Error adding authorizer spec: " << *spec
-             << " err: " << error->ToString();
+bool ElementFactory::AddAuthorizerSpec(const AuthorizerSpecs& spec, string* out_error) {
+  if ( !IsValidAuthorizerSpecToAdd(spec, out_error) ) {
+    LOG_INFO << " Error adding authorizer spec: " << spec
+             << " err: " << *out_error;
     return false;
   }
   // TODO: ---> Create ?
-  authorizers_map_.insert(make_pair(spec->name_.get(), spec));
-  LOG_INFO << " Added authorizer spec: " << *spec;
+  authorizers_map_ [spec.name_] = new AuthorizerSpecs(spec);
+  LOG_INFO << " Added authorizer spec: " << spec;
   return true;
 }
 
 bool  ElementFactory::AddSpecs(const ElementConfigurationSpecs& spec,
-                               vector<ErrorData>* errors) {
-  int size_begin = errors->size();
-  ErrorData error;
+                               vector<string>* out_errors) {
+  int size_begin = out_errors->size();
+  string error;
 
   // Add authorizers..
   for ( int i = 0; i < spec.authorizers_.get().size(); ++i ) {
-    AuthorizerSpecs* const new_spec =
-        new AuthorizerSpecs(spec.authorizers_.get()[i]);
-    if ( !AddAuthorizerSpec(new_spec, &error) ) {
-      errors->push_back(error);
+    if ( !AddAuthorizerSpec(spec.authorizers_.get()[i], &error) ) {
+      out_errors->push_back(error);
     }
   }
 
   // Add policies..
   for ( int i = 0; i < spec.policies_.get().size(); ++i ) {
-    PolicySpecs* const new_spec =
-        new PolicySpecs(spec.policies_.get()[i]);
-    if ( !AddPolicySpec(new_spec, &error) ) {
-      errors->push_back(error);
+    if ( !AddPolicySpec(spec.policies_.get()[i], &error) ) {
+      out_errors->push_back(error);
     }
   }
 
   // Verify the validity of the element names and dependencies:
   for ( int i = 0; i < spec.elements_.get().size(); ++i ) {
-    MediaElementSpecs* const new_spec =
-        new MediaElementSpecs(spec.elements_.get()[i]);
-    if ( !AddElementSpec(new_spec, &error) ) {
-      errors->push_back(error);
+    if ( !AddElementSpec(spec.elements_.get()[i], &error) ) {
+      out_errors->push_back(error);
     }
   }
-  return errors->size() <= size_begin;
+  return out_errors->size() == size_begin;
 }
 
 
 // This is not very fast is fine ..
-bool ElementFactory::DeleteElementSpec(const string& name, ErrorData* error) {
+void ElementFactory::DeleteElementSpec(const string& name) {
   ElementSpecMap::iterator it_src = elements_map_.find(name);
   if ( it_src == elements_map_.end() ) {
-    error->description_ = "Unknown element: [" + name + "]";
-    return false;
+    return;
   }
-  delete it_src->second;
-  elements_map_.erase(it_src);
 
   // Clear the state of keys that were taken..
   if ( state_keeper_ != NULL ) {
@@ -813,31 +727,29 @@ bool ElementFactory::DeleteElementSpec(const string& name, ErrorData* error) {
     local_state_keeper_->DeletePrefix(string("src/") + name +
                                       ":policy/" + name + "/");
   }
-  return true;
+
+  // delete the spec
+  delete it_src->second;
+  elements_map_.erase(it_src);
 }
 
-bool ElementFactory::DeletePolicySpec(const string& policy_name,
-                                      ErrorData* error) {
+void ElementFactory::DeletePolicySpec(const string& policy_name) {
   PolicySpecMap::iterator it_policy = policies_map_.find(policy_name);
   if ( it_policy == policies_map_.end() ) {
-    error->description_ = "Cannot find policy name [" + policy_name + "]";
-    return false;
+    return;
   }
   delete it_policy->second;
   policies_map_.erase(it_policy);
-  return true;
+  return;
 }
 
-bool ElementFactory::DeleteAuthorizerSpec(const string& name,
-                                          ErrorData* error) {
+void ElementFactory::DeleteAuthorizerSpec(const string& name) {
   AuthorizerSpecMap::iterator it_authorizer = authorizers_map_.find(name);
   if ( it_authorizer == authorizers_map_.end() ) {
-    error->description_ = "Cannot find policy name [" + name + "]";
-    return false;
+    return;
   }
   delete it_authorizer->second;
   authorizers_map_.erase(it_authorizer);
-  return true;
   if ( state_keeper_ != NULL ) {
     state_keeper_->DeletePrefix(string("auth/") + name + "/");
   }

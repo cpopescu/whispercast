@@ -48,24 +48,6 @@
 
 //////////////////////////////////////////////////////////////////////
 
-DEFINE_string(saver_dir_prefix,
-              "saved",
-              "We write saved media under this directory - under the "
-              "one pointed by -base_media_dir");
-
-DEFINE_string(saver_description_file,
-              "description.txt",
-              "Where to put the description of our saves");
-
-
-DEFINE_int64(max_default_save_duration_sec,
-             10800,  // 3h
-             "When starting a save on command, we stop automatically "
-             "after these many seconds (even when no explicit stop command "
-             "is given (to prevent `forgotten` save operations)");
-
-//////////////////////////////////////////////////////////////////////
-
 DEFINE_int32(media_state_checkpoint_interval_sec,
              1200,
              "We checkpoint the state every so often..");
@@ -103,9 +85,8 @@ DEFINE_string(aux_elements_config_file,
 
 //////////////////////////////////////////////////////////////////////
 
-// Auxiliary mapper stuff
-
-//////////////////////////////////////////////////////////////////////
+const string MediaMapper::kConfigFile = "whispercast.config";
+const string MediaMapper::kHostAliasesFile = "hosts_aliases.config";
 
 MediaMapper::MediaMapper(net::Selector* selector,
                          http::Server* http_server,
@@ -133,23 +114,18 @@ MediaMapper::MediaMapper(net::Selector* selector,
     state_keeper_(media_state_directory, media_state_name),
     local_state_keeper_(media_state_directory, local_media_state_name),
     config_dir_(config_dir),
-    config_file_(strutil::JoinPaths(config_dir, "whispercast.config")),
-    hosts_aliases_config_file_(strutil::JoinPaths(config_dir,
-        "hosts_aliases.config")),
     factory_(&media_mapper_,
              selector,
              http_server,
              rpc_server,
              &aio_managers_,
              &buffer_manager_,
-             &host_aliases_,
              base_media_dir.c_str(),
              &state_keeper_,
              &local_state_keeper_),
     media_mapper_(selector, &factory_,
                   new io::StateKeepUser(&state_keeper_, "a/", -1)),
     aux_mapper_(NULL),
-    loaded_(false),
     state_checkpointing_alarm_(*selector),
     state_expiration_alarm_(*selector),
     admin_password_(),
@@ -172,11 +148,11 @@ MediaMapper::MediaMapper(net::Selector* selector,
   CHECK(factory_.InitializeLibraries(FLAGS_element_libraries_dir,
                                      &rpc_library_paths_));
 
-  rpc_http_server_->RegisterProcessor("/__admin__",
+  rpc_http_server_->RegisterProcessor("__admin__",
       NewPermanentCallback(this, &MediaMapper::ConfigRootPage), false, true);
-  rpc_http_server_->RegisterProcessor("/__bufstats__",
+  rpc_http_server_->RegisterProcessor("__bufstats__",
       NewPermanentCallback(this, &MediaMapper::BufferStatusPage), false, true);
-  rpc_http_server_->RegisterProcessor("/__checkpoint__",
+  rpc_http_server_->RegisterProcessor("__checkpoint__",
       NewPermanentCallback(this, &MediaMapper::CheckpointPage), false, true);
 
   if ( !FLAGS_element_libraries_dir.empty() &&
@@ -230,16 +206,8 @@ MediaMapper::~MediaMapper() {
         it_saver != savers_.end(); ++it_saver ) {
     delete it_saver->second;
   }
-  for ( SaverStopAlarmsMap::const_iterator it_stop = savers_stoppers_.begin();
-        it_stop != savers_stoppers_.end(); ++it_stop ) {
-    selector_->UnregisterAlarm(it_stop->second);
-    delete it_stop->second;
-  }
-  LOG_INFO << " Deleting saver specs";
-  for ( SaverSpecMap::const_iterator it_saver = saver_specs_.begin();
-        it_saver != saver_specs_.end(); ++it_saver ) {
-    delete it_saver->second;
-  }
+  savers_.clear();
+
   for ( AioManagersMap::const_iterator it_managers = aio_managers_.begin();
         it_managers != aio_managers_.end(); ++it_managers ) {
     delete it_managers->second;
@@ -248,138 +216,95 @@ MediaMapper::~MediaMapper() {
   is_deleting_ = false;
 }
 
-const char* MediaMapper::LoadErrorName(LoadError err) {
-  switch ( err ) {
-    CONSIDER(LOAD_OK);
-    CONSIDER(LOAD_FILE_ERROR);
-    CONSIDER(LOAD_DATA_ERROR);
-  }
-  LOG_FATAL << "Illegal LoadError value: " << err;
-  return "Unknown";
-}
-
 //////////////////////////////////////////////////////////////////////
 
 // Various loading parts :)
 
-MediaMapper::LoadError MediaMapper::LoadElements() {
+bool MediaMapper::LoadElements() {
   // Loading and decoding
+  string config_file = strutil::JoinPaths(config_dir_, kConfigFile);
   string config_str;
-  if ( !io::FileInputStream::TryReadFile(config_file_.c_str(),
-                                         &config_str) ) {
-    LOG_ERROR << " Cannot open config file: " << config_file_;
-    return LOAD_FILE_ERROR;
+  if ( !io::FileInputStream::TryReadFile(config_file, &config_str) ) {
+    LOG_ERROR << " Cannot open config file: " << config_file;
+    return false;
   }
   ElementConfigurationSpecs specs;
   io::MemoryStream iomis;
   iomis.Write(config_str);
-  rpc::JsonDecoder decoder(iomis);
+  rpc::JsonDecoder decoder;
 
-  LoadError err = LOAD_OK;
-  const rpc::DECODE_RESULT config_error = decoder.Decode(specs);
+  bool success = true;
+  const rpc::DECODE_RESULT config_error = decoder.Decode(iomis, &specs);
   if ( config_error != rpc::DECODE_RESULT_SUCCESS ) {
     LOG_ERROR << "Error decoding ElementConfigurationSpecs from file: "
-              << config_file_;
-    err = LOAD_DATA_ERROR;
+              << config_file;
+    success = false;
   }
   vector<ElementExportSpec> exports;
-  const rpc::DECODE_RESULT exports_error = decoder.Decode(exports);
+  const rpc::DECODE_RESULT exports_error = decoder.Decode(iomis, &exports);
   if ( exports_error != rpc::DECODE_RESULT_SUCCESS ) {
     LOG_ERROR << "Error decoding vector<ElementExportSpec> from file: "
-              << config_file_;
-    err = LOAD_DATA_ERROR;
+              << config_file;
+    success = false;
   }
   vector<MediaSaverSpec> saves;
-  const rpc::DECODE_RESULT saves_error = decoder.Decode(saves);
+  const rpc::DECODE_RESULT saves_error = decoder.Decode(iomis, &saves);
   if ( saves_error != rpc::DECODE_RESULT_SUCCESS ) {
     LOG_ERROR << "Error decoding vector<MediaSaverSpec> from file: "
-              << config_file_;
-    err = LOAD_DATA_ERROR;
+              << config_file;
+    success = false;
   }
 
   // Creation
-  vector<streaming::ElementFactory::ErrorData> errors;
+  vector<string> errors;
   if ( !factory_.AddSpecs(specs, &errors) ) {
-    LOG_ERROR << " Errors encountered while adding specs to media factory: ";
-    for ( int i = 0; i < errors.size(); ++i ) {
-      LOG_ERROR << "ERROR: " << errors[i].description_;
-      err = LOAD_DATA_ERROR;
-    }
+    LOG_ERROR << " Errors encountered while adding specs to media factory: \n"
+              << strutil::JoinStrings(errors, "\n");
+    success = false;
   }
   for ( int i = 0; i < exports.size(); ++i ) {
     string error;
-    if ( !ExportElement(exports[i], &error) ) {
+    if ( !AddExport(exports[i].media_name_, exports[i].protocol_,
+                    exports[i].path_, exports[i].authorizer_name_, &error) ) {
       LOG_ERROR << "Error exporting element: " << exports[i] << " : "
                 << error;
-      err = LOAD_DATA_ERROR;
+      success = false;
     }
   }
+  // load savers (don't start them, as the media_mapper_ is not yet initialized)
   for ( int i = 0; i < saves.size(); ++i ) {
-    LOG_INFO << " Adding save: " << saves[i];
-    saver_specs_.insert(make_pair(saves[i].name_,
-                                  new MediaSaverSpec(saves[i])));
+    const MediaSaverSpec& conf = saves[i];
+    LOG_INFO << "Adding saver: " << conf;
+    streaming::MediaFormat save_format = streaming::MFORMAT_FLV;
+    if ( !streaming::MediaFormatFromSmallType(conf.save_format_.get(),
+                                              &save_format) ) {
+      LOG_ERROR << "Invalid save format in saver config: " << conf;
+      continue;
+    }
+    MSaver* s = new MSaver(selector_, conf, save_format,
+        &media_mapper_, NewCallback(this, &MediaMapper::OnSaverStopped));
+    savers_[saves[i].name_] = s;
   }
-  return err;
+  return success;
 }
 
 void MediaMapper::InitializeSavers() {
-  for ( SaverSpecMap::const_iterator it = saver_specs_.begin();
-        it != saver_specs_.end(); ++it ) {
-    const string key_prefix(
-        strutil::StringPrintf("savers/%s/", it->first.c_str()));
-    string str_started_on_command;
-    string str_last_start_time;
-    if ( local_state_keeper_.GetValue(key_prefix + "started_on_command",
-                                      &str_started_on_command) &&
-         local_state_keeper_.GetValue(key_prefix + "last_start_time",
-                                      &str_last_start_time) ) {
-      int64 last_start_time = ::strtoll(str_last_start_time.c_str(), NULL, 10);
-      if ( str_started_on_command == "1" ) {
-        string error;
-        if ( !StartSaverInternal(it->first, "", 0,
-                                 last_start_time, &error) ) {
-          LOG_ERROR << "Cannot restart a previously started saver: "
-                    << it->first << ". Error: " << error;
-        }
-      } else {
-        StartSaverAlarm(it->first, last_start_time);
+  const int64 now_sec = timer::Date::Now() / 1000;
+  for ( SaverMap::iterator it = savers_.begin(); it != savers_.end(); ++it ) {
+    MSaver* s = it->second;
+    string str_end_ts;
+    if ( local_state_keeper_.GetValue(SaverStateKey(s->conf_.name_.get()),
+                                      &str_end_ts) ) {
+      int64 end_ts = ::strtoll(str_end_ts.c_str(), NULL, 10);
+      if ( end_ts > now_sec ) {
+        s->saver_.StartSaving(end_ts - now_sec);
       }
-    } else {
-      StartSaverAlarm(it->first, 0);
     }
   }
 }
 
-MediaMapper::LoadError MediaMapper::LoadHostAliases() {
-  // Loading and decoding the current aliases..
-  string aliases_str;
-  if ( !io::FileInputStream::TryReadFile(hosts_aliases_config_file_.c_str(),
-                                         &aliases_str) ) {
-    LOG_ERROR << " Cannot open aliases config file: "
-              << hosts_aliases_config_file_;
-    return LOAD_FILE_ERROR;
-  }
-  vector<MediaHostAliasSpec> current_aliases;
-  MediaMapper::LoadError err = LOAD_OK;
-
-  if ( !rpc::JsonDecoder::DecodeObject(aliases_str, &current_aliases) ) {
-    LOG_ERROR << "Error decoding vector<MediaHostAlias> from file: ["
-              << hosts_aliases_config_file_
-              << "]\nDecoded so far: " << current_aliases;
-    err = LOAD_DATA_ERROR;
-  }
-  for ( int i = 0; i < current_aliases.size(); ++i ) {
-    const string& name = current_aliases[i].alias_name_;
-    const string& ip = current_aliases[i].alias_ip_;
-    host_aliases_[name] = ip;
-    LOG_INFO << "Adding alias: [" << name << "] => [" << ip << "]";
-  }
-  return err;
-}
-
-
 // This loads the config file and creates the associated structures
-MediaMapper::LoadError MediaMapper::Load() {
+bool MediaMapper::Load() {
   if ( !state_keeper_.Initialize() ) {
     LOG_ERROR << " ============= ERROR - cannot initialize the state keeper !";
   }
@@ -390,23 +315,20 @@ MediaMapper::LoadError MediaMapper::Load() {
   state_checkpointing_alarm_.Start();
   state_expiration_alarm_.Start();
 
-  MediaMapper::LoadError err_aliases = LoadHostAliases();
-  MediaMapper::LoadError err_elements = LoadElements();
+  bool success_elements = LoadElements();
 
   media_mapper_.Initialize();
   InitializeSavers();
 
-  if ( err_elements == LOAD_OK ) {
-    return err_aliases;
-  }
-  return err_elements;
+  return success_elements;
 }
 
 //////////////////////////////////////////////////////////////////////
 
 // Saves the current configuration in the config file (safely :)
 bool MediaMapper::Save() const {
-  const string tmp_file(config_file_ + "__temp__");
+  const string config_file = strutil::JoinPaths(config_dir_, kConfigFile);
+  const string tmp_file(config_file + "__temp__");
   io::File f;
   if ( !f.Open(tmp_file,
                io::File::GENERIC_READ_WRITE,
@@ -426,11 +348,10 @@ bool MediaMapper::Save() const {
     }
   }
   {
-    io::MemoryStream ms;
-    rpc::JsonEncoder encoder(ms);
     vector< ElementExportSpec > ret;
     GetElementExports(&ret);
-    encoder.Encode(ret);
+    io::MemoryStream ms;
+    rpc::JsonEncoder().Encode(ret, &ms);
     if ( ms.Size() != f.Write(ms) ) {
       LOG_ERROR << " Error writing config to: " << tmp_file;
       return false;
@@ -446,7 +367,7 @@ bool MediaMapper::Save() const {
       return false;
     }
   }
-  if ( !io::Rename(tmp_file, config_file_, true) ) {
+  if ( !io::Rename(tmp_file, config_file, true) ) {
     LOG_ERROR << "Cannot move the temp config to the main config file";
     return false;
   }
@@ -457,34 +378,6 @@ void MediaMapper::Close(Closure* close_completed) {
   media_mapper_.Close(close_completed);
 }
 
-bool MediaMapper::SaveHostAliases() const {
-  const string tmp_file(hosts_aliases_config_file_ + "__temp__");
-  io::File f;
-  if ( !f.Open(tmp_file,
-               io::File::GENERIC_READ_WRITE,
-               io::File::CREATE_ALWAYS) ) {
-    LOG_ERROR << " Cannot open temporarely config file for writing: ["
-              << tmp_file << "]";
-    return false;
-  }
-  {
-    vector <MediaHostAliasSpec> aliases;
-    GetHostAliases(&aliases);
-    string s;
-    rpc::JsonEncoder::EncodeToString(aliases, &s);
-    if ( f.Write(s) != s.size() ) {
-      LOG_ERROR << " Error writing config to: " << tmp_file;
-      return false;
-    }
-  }
-  if ( !io::Rename(tmp_file, hosts_aliases_config_file_, true) ) {
-    LOG_ERROR << "Cannot move the temp hosts aliases config to "
-              << "the main config aliasesfile";
-    return false;
-  }
-  return true;
-}
-
 void MediaMapper::CheckpointState() {
   CHECK(state_keeper_.Checkpoint());
   CHECK(local_state_keeper_.Checkpoint());
@@ -493,7 +386,31 @@ void MediaMapper::ExpireStateKeys() {
   state_keeper_.ExpireTimeoutedKeys();
   local_state_keeper_.ExpireTimeoutedKeys();
 }
-
+streaming::Element* MediaMapper::FindElement(const string& element_name) {
+  streaming::Element* element = NULL;
+  vector<streaming::Policy*>* policies = NULL;
+  if ( !media_mapper_.GetElementByName(element_name, &element, &policies) ) {
+    return NULL;
+  }
+  return element;
+}
+bool MediaMapper::HasElement(const string& element_name) {
+  return FindElement(element_name) != NULL;
+}
+void MediaMapper::FindElementMatches(const string& prefix, const string& suffix,
+                                     vector<string>* middle_out) {
+  vector<string> elems;
+  media_mapper_.GetAllElements(&elems);
+  for ( uint32 i = 0; i < elems.size(); i++ ) {
+    const string& e = elems[i];
+    if ( strutil::StrStartsWith(e, prefix) &&
+         strutil::StrEndsWith(e, suffix) &&
+         e.size() > prefix.size() + suffix.size() ) {
+      middle_out->push_back(e.substr(prefix.size(),
+          e.size() - prefix.size() - suffix.size()));
+    }
+  }
+}
 void MediaMapper::BufferStatusPage(http::ServerRequest* req) {
   if ( !req->AuthenticateRequest(admin_authenticator_) ) {
     // TODO: we may want to authenticate asynchronously
@@ -531,6 +448,10 @@ void MediaMapper::ConfigRootPage(http::ServerRequest* req) {
       strutil::StringPrintf(
           "<a href=\"%s/MediaElementService/__forms\">Global Config</a><br/>",
           rpc_server_->path().c_str()));
+  req->request()->server_data()->Write(
+      strutil::StringPrintf(
+          "<a href=\"%s/HappHub/__forms\">HappHub</a><br/>",
+          rpc_server_->path().c_str()));
   for ( int i = 0; i < rpc_library_paths_.size(); ++i ) {
     req->request()->server_data()->Write(
         strutil::StringPrintf(
@@ -551,450 +472,179 @@ void MediaMapper::ConfigRootPage(http::ServerRequest* req) {
 
 
 void MediaMapper::AddPolicySpec(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const PolicySpecs& spec) {
-  MediaOperationErrorData ret;
-  streaming::ElementFactory::ErrorData err_data;
-  PolicySpecs* new_spec = new PolicySpecs(spec);
-  const bool success = factory_.AddPolicySpec(new_spec, &err_data);
-  if ( !success ) {
-    delete new_spec;
-    ret.error_.ref() = 1;
-    ret.description_.ref() = err_data.description_;
-  } else {
-    ret.error_.ref() = 0;
-  }
-  call->Complete(ret);
+    rpc::CallContext< MediaOpResult >* call,
+    const PolicySpecs& spec) {
+  string err;
+  call->Complete(MediaOpResult(AddPolicy(
+      spec.type_, spec.name_, spec.params_, &err), err));
 }
 
 void MediaMapper::DeletePolicySpec(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const string& name) {
-  MediaOperationErrorData ret;
-  streaming::ElementFactory::ErrorData err_data;
-  const bool success = factory_.DeletePolicySpec(name, &err_data);
-  if ( !success ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = err_data.description_;
-  } else {
-    // We delete just the specs .. we leave the created policies around ..
-    ret.error_.ref() = 0;
-  }
-  call->Complete(ret);
+    rpc::CallContext< rpc::Void >* call,
+    const string& name) {
+  DeletePolicy(name);
+  call->Complete();
 }
 
 void MediaMapper::AddAuthorizerSpec(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const AuthorizerSpecs& spec) {
-  MediaOperationErrorData ret;
-  streaming::ElementFactory::ErrorData err_data;
-  AuthorizerSpecs* new_spec = new AuthorizerSpecs(spec);
-  const bool success = factory_.AddAuthorizerSpec(new_spec, &err_data);
-  if ( !success ) {
-    delete new_spec;
-    ret.error_.ref() = 1;
-    ret.description_.ref() = err_data.description_;
-  } else {
-    if ( !media_mapper_.AddAuthorizer(spec.name_) ) {
-      factory_.DeleteAuthorizerSpec(spec.name_, &err_data);
-      call->Complete(MediaOperationErrorData(
-                         1, "Failed to create authorizer; "
-                         "check whispercast log."));
-      return;
-    }
-    ret.error_.ref() = 0;
-  }
-  call->Complete(ret);
+    rpc::CallContext< MediaOpResult >* call,
+    const AuthorizerSpecs& spec) {
+  string err;
+  bool success = AddAuthorizer(spec.type_, spec.name_, spec.params_, &err);
+  call->Complete(MediaOpResult(success, err));
 }
 
 void MediaMapper::DeleteAuthorizerSpec(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const string& name) {
-  MediaOperationErrorData ret;
-  streaming::ElementFactory::ErrorData err_data;
-  const bool success = factory_.DeleteAuthorizerSpec(name, &err_data);
-  if ( !success ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = err_data.description_;
-  } else {
-    media_mapper_.RemoveAuthorizer(name);
-    ret.error_.ref() = 0;
-  }
-  call->Complete(ret);
+    rpc::CallContext< rpc::Void >* call,
+    const string& name) {
+  DeleteAuthorizer(name);
+  call->Complete();
 }
 
 
 void MediaMapper::AddElementSpec(
-    rpc::CallContext< MediaOperationErrorData >* call,
+    rpc::CallContext< MediaOpResult >* call,
     const MediaElementSpecs& spec) {
-  streaming::ElementFactory::ErrorData err_data;
-  MediaElementSpecs* new_spec = new MediaElementSpecs(spec);
-  bool success = factory_.AddElementSpec(new_spec,
-                                         &err_data);
-  if ( !success ) {
-    delete new_spec;
-    call->Complete(MediaOperationErrorData(1, err_data.description_));
-    return;
-  }
-
-  const string& name(spec.name_);
-  if ( !media_mapper_.AddElement(name, spec.is_global_) ) {
-    factory_.DeleteElementSpec(new_spec->name_, &err_data);
-    call->Complete(MediaOperationErrorData(
-                       1, "failed to create element; check whispercast log."));
-    return;
-  }
-  call->Complete(MediaOperationErrorData(0, ""));
+  string err;
+  bool success = AddElement(spec.type_, spec.name_, spec.is_global_,
+      spec.params_, &err);
+  call->Complete(MediaOpResult(success, err));
 }
 
 void MediaMapper::DeleteElementSpec(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const string& name) {
-  MediaOperationErrorData ret;
-  streaming::ElementFactory::ErrorData err_data;
-  const bool success = factory_.DeleteElementSpec(name, &err_data);
-  if ( !success ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = err_data.description_;
-  } else {
-    media_mapper_.RemoveElement(name);
-    ret.error_.ref() = 0;
-  }
-  call->Complete(ret);
+    rpc::CallContext< rpc::Void >* call,
+    const string& name) {
+  DeleteElement(name);
+  call->Complete();
 }
 
-void MediaMapper::AddElementSaver(
-    rpc::CallContext< MediaOperationErrorData >* call,
-    const MediaSaverSpec& spec) {
-  const string& saver_name = spec.name_;
-  const string& media_name = spec.media_name_;
-
-  if ( saver_specs_.find(saver_name) != saver_specs_.end() ) {
-    call->Complete(MediaOperationErrorData(1,
-        "Saver already exists:" + saver_name));
+void MediaMapper::AddMediaSaver(
+    rpc::CallContext< MediaOpResult >* call,
+    const MediaSaverSpec& spec,
+    bool start_now) {
+  string err;
+  if ( !AddMediaSaver(spec.name_.get(), spec.media_name_.get(),
+                      spec.schedule_.get(), spec.save_dir_.get(),
+                      spec.save_format_.get(), &err) ) {
+    call->Complete(MediaOpResult(false, err));
     return;
   }
-  streaming::Capabilities caps;
-  if ( !media_mapper_.HasMedia(media_name.c_str(), &caps) ) {
-    call->Complete(MediaOperationErrorData(1, "Unknown Media::" + media_name));
-    return;
-  }
-
-  CHECK(saver_specs_.insert(make_pair(
-      saver_name, new MediaSaverSpec(spec))).second);
-  StartSaverAlarm(saver_name, 0);
-
-  call->Complete(MediaOperationErrorData(0, ""));
-}
-
-void MediaMapper::DeleteElementSaver(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const string& name) {
-  const string& saver_name(name);
-  MediaOperationErrorData ret;
-  SaverSpecMap::iterator it = saver_specs_.find(saver_name);
-  if ( saver_specs_.find(saver_name) == saver_specs_.end() ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "Saver does not exist:" + saver_name;
-  } else {
-    if ( savers_.find(saver_name) != savers_.end() ) {
-      ret.description_.ref() = "Warning: the saver is still active "
-        "(deleting the spec though)";
+  if ( start_now ) {
+    if ( !StartMediaSaver(spec.name_.get(), 0, &err) ) {
+      call->Complete(MediaOpResult(false, err));
+      return;
     }
-    delete it->second;
-    saver_specs_.erase(it);
-    ret.error_.ref() = 0;
   }
-  call->Complete(ret);
+  call->Complete(MediaOpResult(true, ""));
 }
+
+void MediaMapper::DeleteMediaSaver(
+    rpc::CallContext< rpc::Void >* call,
+    const string& name) {
+  DeleteMediaSaver(name);
+  call->Complete();
+}
+
+void MediaMapper::StartMediaSaver(
+    rpc::CallContext< MediaOpResult >* call,
+    const string& name,
+    int32 duration_sec) {
+  string err;
+  bool success = StartMediaSaver(name, duration_sec, &err);
+  call->Complete(MediaOpResult(success, err));
+}
+
+void MediaMapper::StopMediaSaver(
+    rpc::CallContext< rpc::Void >* call,
+    const string& name) {
+  StopMediaSaver(name);
+  call->Complete();
+}
+
 
 //////////////////////////////////////////////////////////////////////
 
-bool MediaMapper::ExportElement(const ElementExportSpec& spec,
-                                string* error) {
-  if ( spec.protocol_ != "http" &&
-       spec.protocol_ != "rtp" &&
-       spec.protocol_ != "rtmp" ) {
-    *error = "Invalid protocol specified";
-    return false;
-  }
-
-  LOG_INFO << "=======> Exporting spec: " << spec.ToString();
-  streaming::RequestServingInfo* serving_info =
-      new streaming::RequestServingInfo();
-  serving_info->FromElementExportSpec(spec);
-  if ( !media_mapper_.AddServingInfo(spec.protocol_,
-                                     spec.path_,
-                                     serving_info) ) {
-    *error = "Protocol:Path already registered";
-    delete serving_info;
-    return false;
-  }
-  return true;
-}
-
 void MediaMapper::StartExportElement(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const ElementExportSpec& spec) {
-  MediaOperationErrorData ret;
+    rpc::CallContext< MediaOpResult >* call,
+    const ElementExportSpec& spec) {
   string error;
-  if ( !ExportElement(spec, &error) ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = error;
-  } else {
-    ret.error_.ref() = 0;
-  }
-  call->Complete(ret);
+  call->Complete(MediaOpResult(AddExport(spec.media_name_, spec.protocol_,
+      spec.path_, spec.authorizer_name_, &error), error));
 }
 
 void MediaMapper::StopExportElement(
-  rpc::CallContext< MediaOperationErrorData > * call,
-  const string& protocol, const string& path) {
-  MediaOperationErrorData ret;
-  if ( !media_mapper_.RemoveServingInfo(protocol, path) ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "Proto/path not exported: " + path;
-  } else {
-    ret.error_.ref() = 0;
-  }
-  call->Complete(ret);
+    rpc::CallContext< rpc::Void > * call,
+    const string& protocol, const string& path) {
+  DeleteExport(protocol, path);
+  call->Complete();
 }
 
 //////////////////////////////////////////////////////////////////////
 
-void MediaMapper::StartSaver(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const string& name,
-  const string& description) {
-  const string& saver_name(name);
-  MediaOperationErrorData ret;
-
-  if ( saver_specs_.find(saver_name) == saver_specs_.end() ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "Saver does not exist:" + saver_name;
-  } else if ( savers_.find(saver_name) != savers_.end() ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "Saver already started";
-  } else {
-    string error;
-    if ( !StartSaverInternal(saver_name, description, 0, 0, &error) ) {
-      ret.error_.ref() = 1;
-      ret.description_.ref() = "Error starting saver: " + error;
-    } else {
-      ret.error_.ref() = 0;
-    }
-  }
-  call->Complete(ret);
-}
-
-void MediaMapper::StopSaver(
-  rpc::CallContext< MediaOperationErrorData >* call,
-  const string& name) {
-  const string& saver_name(name);
-  MediaOperationErrorData ret;
-  SaverMap::iterator it_saver = savers_.find(saver_name);
-  if ( it_saver == savers_.end() ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "No active saver: " + saver_name;
-  } else {
-    ret.error_.ref() = 0;
-    // will cause deletion and erasing from map:
-    LOG_INFO << " Stopping saver: " << saver_name;
-    it_saver->second->StopSaving();
-  }
-  call->Complete(ret);
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void MediaMapper::OnStartSaver(string* name,
-                               int duration_in_seconds,
-                               int64 last_start_time) {
-  string error;
-  if ( !StartSaverInternal(*name, "",
-                           duration_in_seconds, last_start_time,
-                           &error) ) {
-    LOG_WARNING << "OnStartSaver: " << error;
-  }
-  delete name;
-}
-
-void MediaMapper::StartSaverAlarm(const string& name,
-                                  int64 last_start_time) {
-  SaverSpecMap::const_iterator it = saver_specs_.find(name);
-  if ( it == saver_specs_.end() ) {
-    LOG_WARNING << "Cannot schedule a saver start for: " << name
-                << " as we don't have the saver spec..";
-    return;
-  }
+void MediaMapper::ScheduleSaver(MSaver* s) {
   const timer::Date now(false);
   int64 min_next_happening = kMaxInt64;
   int duration_in_seconds = 0;
-  for ( int i = 0; i < it->second->timespecs_.size(); ++i ) {
-    const int64 crt = streaming::NextHappening(
-      it->second->timespecs_[i], now);
-    LOG_INFO << " Crt Next Happening for: " << name << ": " << crt;
+  for ( int i = 0; i < s->conf_.schedule_.size(); ++i ) {
+    const int64 crt = streaming::NextHappening(s->conf_.schedule_[i], now);
     if ( crt > min_next_happening ) {
       continue;
     }
     min_next_happening = crt;
-    duration_in_seconds =
-      it->second->timespecs_[i].duration_in_seconds_;
-    if ( 0 > min_next_happening ) {
+    duration_in_seconds = s->conf_.schedule_[i].duration_in_seconds_;
+    if ( min_next_happening < 0 ) {
+      // event in the near past
       if ( -min_next_happening <= duration_in_seconds * 1000 ) {
-        duration_in_seconds += min_next_happening / 1000;
+        duration_in_seconds += min_next_happening / 1000; // reduce duration
       }
     }
-    LOG_INFO << " Min Next Happening for: " << name
-             << ": " << min_next_happening
-             << " with duration: " << duration_in_seconds;
   }
   if ( duration_in_seconds < 0 ||
        min_next_happening == kMaxInt64 ) {
-    LOG_WARNING << "Cannot schedule a saver start for: " << name
-                << " as it is manual or has no valid time spec.";
+    LOG_ERROR << "Cannot schedule a saver start for: " << s->conf_.name_.get()
+              << " as it is manual or has no valid time spec.";
     return;
   }
-  const int64 to_wait = max(min_next_happening, static_cast<int64>(0));
+  LOG_INFO << "Min Next Happening for: " << s->conf_.name_.get() << ": "
+           << timer::Date(now.GetTime() + min_next_happening).ToString()
+           << " with duration: " << duration_in_seconds;
+  const int64 to_wait = max(min_next_happening, (int64)0);
   CHECK_GE(to_wait, 0);
-  selector_->RegisterAlarm(NewCallback(this, &MediaMapper::OnStartSaver,
-                                       new string(name),
-                                       duration_in_seconds,
-                                       last_start_time),
-                           to_wait);
+
+  s->start_alarm_.Set(NewCallback(this, &MediaMapper::OnStartSaver,
+                        s->conf_.name_.get(), (uint32)duration_in_seconds),
+      true, to_wait, false, true);
 }
 
-bool MediaMapper::StartSaverInternal(const string& name,
-                                     const string& description,
-                                     int duration_sec,
-                                     int64 last_start_time,
-                                     string* error) {
-  const SaverMap::const_iterator it_saver = savers_.find(name);
-  timer::Date now(false);
-  if ( it_saver != savers_.end() ) {
-    *error = strutil::StringPrintf(
-      "Cannot start start saver '%s', as it is already running for %"PRId64" ms",
-      name.c_str(),
-      (now.GetTime() -
-                                 it_saver->second->start_time()));
-    return false;
+void MediaMapper::OnStartSaver(string name,
+                               uint32 duration_in_seconds) {
+  string error;
+  if ( !StartMediaSaver(name, duration_in_seconds, &error) ) {
+    LOG_ERROR << "OnStartSaver: " << error;
   }
-  const SaverSpecMap::const_iterator it_spec = saver_specs_.find(name);
-  if ( it_spec == saver_specs_.end() ) {
-    *error = ("Cannot start saver '" + name
-              + "' as we don't have an associated saver spec.");
-    return false;
-  }
-  const string& media_name = it_spec->second->media_name_;
-  string dirname;
-  if ( last_start_time == 0 ) {
-    dirname = now.ToShortString();
-    LOG_INFO << " Started new save at: " << now.ToString();
-  } else {
-    timer::Date lt(last_start_time, false);
-    LOG_INFO << " Using retreived last start time: "
-             << lt.ToString();
-    dirname = lt.ToShortString();
-  }
-  const string saver_dir(
-    strutil::StringPrintf("%s/%s/%s/%s/",
-                          factory_.base_media_dir().c_str(),
-                          FLAGS_saver_dir_prefix.c_str(),
-                          name.c_str(),
-                          dirname.c_str()));
-  streaming::Saver* const saver = new streaming::Saver(
-      name,
-      &media_mapper_,
-      streaming::Tag::kAnyType,
-      media_name,
-      saver_dir,
-      last_start_time == 0 ? now.GetTime() : last_start_time,
-      duration_sec == 0,
-      NewCallback(this, &MediaMapper::OnSaveStopped));
-  if ( !saver->StartSaving() ) {
-    *error = ("Cannot seem to be able to start saver '"+name +
-        "'(most probably a directory error).");
-    delete saver;
-    return false;
-  }
-  if ( !description.empty() ) {
-    if ( !io::FileOutputStream::TryWriteFile(
-           (saver_dir + "/" + FLAGS_saver_description_file).c_str(),
-           description) ) {
-      LOG_ERROR << "Cannot write saver description file to: " << saver_dir;
-    }
-  }
-  if ( duration_sec > 0 ) {
-    Closure* stopper = NewPermanentCallback(saver,
-                                            &streaming::Saver::StopSaving);
-    selector_->RegisterAlarm(stopper,
-                             duration_sec * 1000);
-    CHECK(savers_stoppers_.insert(make_pair(name, stopper)).second);
-  } else if ( FLAGS_max_default_save_duration_sec > 0 ) {
-    Closure* stopper = NewPermanentCallback(saver,
-                                            &streaming::Saver::StopSaving);
-    selector_->RegisterAlarm(stopper,
-                             FLAGS_max_default_save_duration_sec * 1000);
-    CHECK(savers_stoppers_.insert(make_pair(name, stopper)).second);
-  }
-  CHECK(savers_.insert(make_pair(name, saver)).second);
-  const string key_prefix(strutil::StringPrintf("savers/%s/", name.c_str()));
-  const bool started_on_command = saver->started_on_command();
-  const int64 saver_last_start_time = saver->start_time();
-  local_state_keeper_.SetValue(key_prefix + "started_on_command",
-      started_on_command ? "1" : "0");
-  local_state_keeper_.SetValue(key_prefix + "last_start_time",
-      strutil::StringPrintf("%"PRId64, saver_last_start_time));
-  return true;
 }
 
-void MediaMapper::OnSaveStopped(streaming::Saver* saver) {
-  const SaverMap::iterator it_saver = savers_.find(saver->name());
-  if ( it_saver != savers_.end() ) {
-    savers_.erase(it_saver);
-  } else {
-    LOG_ERROR << "Saver " << saver->name()
-              << " stopped - but I cannot find it in "
-              << "the active saver list.";
-  }
-  LOG_INFO << " Saver " << saver->name() << " Stopped..";
-  const SaverStopAlarmsMap::iterator
-    it_stop = savers_stoppers_.find(saver->name());
-  if ( it_stop != savers_stoppers_.end() ) {
-    selector_->UnregisterAlarm(it_stop->second);
-    // Deleting this way as we may be in it ..
-    selector_->DeleteInSelectLoop(it_stop->second);
-    savers_stoppers_.erase(it_stop);
-  } else {
-    LOG_ERROR << "Bad - no save stop callback found for: " << saver->name();
-  }
-  if ( !is_deleting_ && !selector_->IsExiting() ) {
-    saver->CreateSignalingFile(".save_done", "");
-    const string key_prefix(strutil::StringPrintf("savers/%s/",
-                                                  saver->name().c_str()));
-    local_state_keeper_.DeletePrefix(key_prefix);
-
-    // Schedule the next moment of saving
-    StartSaverAlarm(saver->name(), 0);
-  } else {
-    LOG_INFO << " Saver " << saver->name()
-             << " stopped on deleting - keeping its state.. ";
-  }
-  selector_->DeleteInSelectLoop(saver);
+void MediaMapper::OnSaverStopped(streaming::Saver* saver) {
+  SaverMap::iterator it = savers_.find(saver->name());
+  CHECK(it != savers_.end()) << "missing saver: [" << saver->name() << "]";
+  MSaver* s = it->second;
+  s->start_ts_ = 0;
+  local_state_keeper_.DeleteValue(SaverStateKey(saver->name()));
+  // Schedule the next moment of saving
+  ScheduleSaver(s);
 }
 
 //////////////////////////////////////////////////////////////////////
 
-void MediaMapper::GetSavesConfig(
-  vector< MediaSaverSpec >* saves) const {
-  for ( SaverSpecMap::const_iterator it = saver_specs_.begin();
-        it != saver_specs_.end(); ++it ) {
-    saves->push_back(*it->second);
+void MediaMapper::GetSavesConfig(vector< MediaSaverSpec >* saves) const {
+  for ( SaverMap::const_iterator it = savers_.begin();
+        it != savers_.end(); ++it ) {
+    saves->push_back(it->second->conf_);
   }
 }
 
 void MediaMapper::GetSavesConfig(
-  rpc::CallContext< vector< MediaSaverSpec > >* call) {
+    rpc::CallContext< vector< MediaSaverSpec > >* call) {
   vector<MediaSaverSpec> ret;
   GetSavesConfig(&ret);
   call->Complete(ret);
@@ -1006,9 +656,8 @@ void MediaMapper::GetCurrentSaves(
   vector< MediaSaverState >* saves) const {
   for ( SaverMap::const_iterator it = savers_.begin();
         it != savers_.end(); ++it ) {
-    saves->push_back(MediaSaverState(it->second->name(),
-                                    it->second->start_time(),
-                                    it->second->started_on_command()));
+    saves->push_back(MediaSaverState(it->first,
+        timer::Date(it->second->start_ts_).ToString()));
   }
 }
 
@@ -1097,109 +746,30 @@ void MediaMapper::SaveConfig(
 
 void MediaMapper::ListMedia(rpc::CallContext< vector<string> >* call,
                             const string& media_name) {
-  streaming::ElementDescriptions medias;
-  media_mapper_.ListMedia(media_name.c_str(), &medias);
-  vector<string> ret;
-  for ( int i = 0; i < medias.size(); ++i ) {
-    ret.push_back(string(medias[i].first));
-  }
-  call->Complete(ret);
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void MediaMapper::AddHostAlias(rpc::CallContext<MediaOperationErrorData>* call,
-                               const string& alias_name,
-                               const string& alias_ip) {
-  MediaOperationErrorData ret;
-  net::IpAddress ip(alias_ip.c_str());
-  if ( ip.IsInvalid() ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "Invalid IPV4 provided.";
-  } else {
-    Host2IpMap::iterator it = host_aliases_.find(alias_name);
-    if ( it != host_aliases_.end() ) {
-      ret.description_.ref() = string("Replacing old alias: [") +
-                               it->second + "]";
-      it->second = alias_ip;
-    } else {
-      host_aliases_.insert(make_pair(alias_name, alias_ip));
-    }
-    if ( !SaveHostAliases() ) {
-      ret.error_.ref() = 1;
-      ret.description_.ref() = "Error savind host aliases file!";
-    } else {
-      ret.error_.ref() = 0;
-    }
-  }
-  call->Complete(ret);
-}
-
-void MediaMapper::DeleteHostAlias(
-    rpc::CallContext<MediaOperationErrorData>* call,
-    const string& alias_name) {
-  MediaOperationErrorData ret;
-  Host2IpMap::iterator it = host_aliases_.find(alias_name);
-  if ( it != host_aliases_.end() ) {
-    host_aliases_.erase(it);
-    if ( !SaveHostAliases() ) {
-      ret.error_.ref() = 1;
-      ret.description_.ref() = "Error savind host aliases file!";
-    } else {
-      ret.error_.ref() = 0;
-    }
-  } else {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "Cannot find the given alias!";
-  }
-  call->Complete(ret);
-}
-
-void MediaMapper::GetHostAliases(
-    vector <MediaHostAliasSpec>* aliases) const {
-  for ( Host2IpMap::const_iterator it = host_aliases_.begin();
-        it != host_aliases_.end(); ++it ) {
-    MediaHostAliasSpec alias;
-    alias.alias_name_.ref() = it->first;
-    alias.alias_ip_.ref() = it->second;
-    aliases->push_back(alias);
-  }
-}
-
-void MediaMapper::GetHostAliases(
-  rpc::CallContext< vector <MediaHostAliasSpec> >* call) {
-  vector <MediaHostAliasSpec> aliases;
-  GetHostAliases(&aliases);
-  call->Complete(aliases);
+  vector<string> medias;
+  ListMedia(media_name, &medias);
+  call->Complete(medias);
 }
 
 //////////////////////////////////////////////////////////////////////
 
 void MediaMapper::GetAllMediaAliases(
     rpc::CallContext< vector<MediaAliasSpec> >* call) {
-  vector< pair<string, string> > vec_aliases;
-  media_mapper_.GetAllMediaAliases(&vec_aliases);
-  vector <MediaAliasSpec> aliases;
-  for ( int i = 0; i < vec_aliases.size(); ++i ) {
-    aliases.push_back(MediaAliasSpec(vec_aliases[i].first,
-                                    vec_aliases[i].second));
+  map<string, string> aliases;
+  media_mapper_.GetAllMediaAliases(&aliases);
+  vector <MediaAliasSpec> specs;
+  for ( map<string, string>::const_iterator it = aliases.begin();
+        it != aliases.end(); ++it ) {
+    specs.push_back(MediaAliasSpec(it->first, it->second));
   }
-  call->Complete(aliases);
+  call->Complete(specs);
 }
-void MediaMapper::SetMediaAlias(rpc::CallContext<MediaOperationErrorData>* call,
+void MediaMapper::SetMediaAlias(rpc::CallContext<MediaOpResult>* call,
                                 const string& alias_name,
                                 const string& media_name) {
-  MediaOperationErrorData ret;
   string error;
-  if ( media_mapper_.SetMediaAlias(alias_name,
-                                   media_name,
-                                   &error) ) {
-    ret.error_.ref() = 0;
-  } else {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = error;
-  }
-  call->Complete(ret);
+  call->Complete(MediaOpResult(media_mapper_.SetMediaAlias(
+      alias_name, media_name, &error), error));
 }
 void MediaMapper::GetMediaAlias(rpc::CallContext<string>* call,
                                 const string& alias_name) {
@@ -1209,4 +779,157 @@ void MediaMapper::GetMediaAlias(rpc::CallContext<string>* call,
   } else {
     call->Complete(string());
   }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool MediaMapper::AddElement(const string& class_name,
+                             const string& name,
+                             bool is_global,
+                             const string& params,
+                             string* out_error) {
+  if ( !factory_.AddElementSpec(MediaElementSpecs(class_name,
+      name, is_global, false, params), out_error) ) {
+    return false;
+  }
+  if ( !media_mapper_.AddElement(name, is_global) ) {
+    factory_.DeleteElementSpec(name);
+    *out_error = "Failed to AddElement: [" + name + "]";
+    return false;
+  }
+  return true;
+}
+void MediaMapper::DeleteElement(const string& name) {
+  factory_.DeleteElementSpec(name);
+  media_mapper_.RemoveElement(name);
+}
+
+bool MediaMapper::AddPolicy(const string& class_name,
+                            const string& name,
+                            const string& params,
+                            string* out_error) {
+  return factory_.AddPolicySpec(PolicySpecs(class_name, name, params), out_error);
+}
+void MediaMapper::DeletePolicy(const string& name) {
+  factory_.DeletePolicySpec(name);
+}
+
+bool MediaMapper::AddAuthorizer(const string& class_name,
+                                const string& name,
+                                const string& params,
+                                string* out_error) {
+  if ( !factory_.AddAuthorizerSpec(AuthorizerSpecs(class_name, name, params),
+      out_error) ) {
+    return false;
+  }
+  if ( !media_mapper_.AddAuthorizer(name) ) {
+    factory_.DeleteAuthorizerSpec(name);
+    *out_error = "Failed to AddAuthorizer: [" + name + "]";
+    return false;
+  }
+  return true;
+}
+void MediaMapper::DeleteAuthorizer(const string& name) {
+  factory_.DeleteAuthorizerSpec(name);
+  media_mapper_.RemoveAuthorizer(name);
+}
+bool MediaMapper::AddExport(const string& media_name,
+                            const string& export_protocol,
+                            const string& export_path,
+                            const string& authorizer_name,
+                            string* out_error) {
+  if ( export_protocol != "http" &&
+       export_protocol != "rtmp" &&
+       export_protocol != "rtp" ) {
+    *out_error = "Invalid protocol: " + export_protocol;
+    return false;
+  }
+  streaming::RequestServingInfo* serving_info =
+      new streaming::RequestServingInfo();
+  serving_info->media_name_ = media_name;
+  serving_info->export_path_ = export_path;
+  serving_info->authorizer_name_ = authorizer_name;
+
+  if ( !media_mapper_.AddServingInfo(export_protocol,
+                                     export_path,
+                                     serving_info) ) {
+    *out_error = "Already registered: " + export_protocol + ":" + export_path;
+    delete serving_info;
+    return false;
+  }
+  return true;
+}
+void MediaMapper::DeleteExport(const string& protocol, const string& path) {
+  media_mapper_.RemoveServingInfo(protocol, path);
+}
+bool MediaMapper::AddMediaSaver(const string& saver_name,
+                                const string& media_name,
+                                const vector<TimeSpec>&  timespecs,
+                                const string& save_dir,
+                                const string& save_format,
+                                string* out_error) {
+  if ( savers_.find(saver_name) != savers_.end() ) {
+    *out_error = "Saver already exists: " + saver_name;
+    return false;
+  }
+  if ( !media_mapper_.HasMedia(media_name) ) {
+    *out_error = "Unknown Media: " + media_name;
+    return false;
+  }
+  streaming::MediaFormat mformat = streaming::MFORMAT_FLV;
+  if ( !streaming::MediaFormatFromSmallType(save_format, &mformat) ) {
+    *out_error = "Invalid save format: " + save_format;
+    return false;
+  }
+
+  MSaver* s = new MSaver(selector_,
+      MediaSaverSpec(saver_name, media_name, timespecs, save_dir, save_format),
+      mformat, &media_mapper_,
+      NewCallback(this, &MediaMapper::OnSaverStopped));
+  savers_[saver_name] = s;
+  ScheduleSaver(s);
+  return true;
+}
+void MediaMapper::DeleteMediaSaver(const string& name) {
+  SaverMap::iterator it = savers_.find(name);
+  if ( it == savers_.end() ) {
+    return;
+  }
+  delete it->second;
+  savers_.erase(it);
+}
+
+bool MediaMapper::StartMediaSaver(const string& name,
+                                  uint32 duration_sec,
+                                  string* out_error) {
+  const SaverMap::iterator it = savers_.find(name);
+  if ( it == savers_.end() ) {
+    *out_error = "Saver does not exist: [" + name + "]";
+    return false;
+  }
+  if ( !it->second->saver_.StartSaving(duration_sec) ) {
+    *out_error = "Failed to StartSaving(" + name + "), the saved media"
+                 " probably does not exist";
+    return false;
+  }
+  it->second->start_ts_ = timer::Date::Now();
+
+  int64 end_time = duration_sec == 0 ? 0 :
+                   (timer::Date::Now()/1000 + duration_sec);
+  local_state_keeper_.SetValue(SaverStateKey(name),
+                               strutil::StringPrintf("%"PRId64"", end_time));
+
+  return true;
+}
+void MediaMapper::StopMediaSaver(const string& name) {
+  SaverMap::iterator it_saver = savers_.find(name);
+  if ( it_saver == savers_.end() ) {
+    return;
+  }
+  // will cause deletion and erasing from map:
+  LOG_INFO << "Stopping saver: " << name;
+  it_saver->second->saver_.StopSaving();
+}
+
+void MediaMapper::ListMedia(const string& media, vector<string>* out) {
+  media_mapper_.ListMedia(media, out);
 }

@@ -33,39 +33,56 @@
 
 namespace thread {
 
-ThreadPool::ThreadPool(int pool_size, int backlog_size)
-  : jobs_(backlog_size) {
+ThreadPool::ThreadPool(uint32 pool_size, uint32 backlog_size)
+  : jobs_(backlog_size),
+    threads_(pool_size, NULL) {
+  CHECK_GT(pool_size, 0);
   CHECK_GT(backlog_size, pool_size);
-  for ( int i = 0; i < pool_size; ++i ) {
-    threads_.push_back(new Thread(NewCallback(this, &ThreadPool::ThreadRun)));
-  }
+}
+
+
+ThreadPool::~ThreadPool() {
+  Stop(true);
+}
+
+void ThreadPool::Start() {
+  CHECK(threads_[0] == NULL) << "Multiple Start()";
   for ( int i = 0; i < threads_.size(); ++i ) {
+    threads_[i] = new Thread(NewCallback(this, &ThreadPool::ThreadRun));
     threads_[i]->SetJoinable();
     threads_[i]->Start();
   }
 }
 
+void ThreadPool::Stop(bool cancel_pending) {
+  if ( threads_[0] == NULL ) {
+    // already stopped
+    return;
+  }
 
-ThreadPool::~ThreadPool() {
-  Closure* callback;
-  do {
-    callback = jobs_.Get(0);
-    if ( callback != NULL && !callback->is_permanent() ) {
-      delete callback;
-    }
-  } while ( callback != NULL );
-  for ( int i = 0; i < threads_.size(); ++i ) {
-    while ( !jobs_.Put(NULL, 0) ) {
-      callback = jobs_.Get(0);
-      if ( callback != NULL && !callback->is_permanent() ) {
+  // cancel all jobs that were not started yet
+  if ( cancel_pending ) {
+    while ( true ) {
+      Closure* callback = jobs_.Get(0);
+      if ( callback == NULL ) {
+        break;
+      }
+      if ( !callback->is_permanent() ) {
         delete callback;
       }
     }
   }
-  for ( int i = 0; i < threads_.size(); ++i ) {
+
+  // the NULL job is a signal for each thread that it should terminate
+  jobs_.Put(NULL);
+  for ( uint32 i = 0; i < threads_.size(); i++ ) {
     threads_[i]->Join();
     delete threads_[i];
+    threads_[i] = NULL;
   }
+  Closure* last_job = jobs_.Get(0);
+  CHECK_NULL(last_job);
+  CHECK(jobs_.IsEmpty());
 }
 
 
@@ -73,6 +90,7 @@ void ThreadPool::ThreadRun() {
   while ( true ) {
     Closure* callback = jobs_.Get();
     if ( callback == NULL ) {
+      jobs_.Put(NULL);
       return;
     }
     callback->Run();

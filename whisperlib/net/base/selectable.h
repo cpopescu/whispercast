@@ -40,24 +40,24 @@ namespace net {
 class Selectable {
  public:
   Selectable()
-      : selector_(NULL),
-        desire_(Selector::kWantRead | Selector::kWantError) {
-  }
-  explicit Selectable(Selector* selector)
-      : selector_(selector),
-        desire_(Selector::kWantRead | Selector::kWantError) {
+      : desire_(Selector::kWantRead | Selector::kWantError),
+        registered_selector_(NULL) {
   }
 
   virtual ~Selectable() {
   }
 
-  Selector* selector() const {
-    return selector_;
+ protected:
+  // These are accessible only to Selector. Used as bug trap to verify that
+  // the Selectable is registered to the right selector.
+  Selector* registered_selector() const {
+    return registered_selector_;
   }
-  void set_selector(Selector* selector) {
-    CHECK(selector_ == NULL || selector == NULL);
-    selector_ = selector;
+  void set_registered_selector(Selector* selector) {
+    CHECK(registered_selector_ == NULL || selector == NULL);
+    registered_selector_ = selector;
   }
+ public:
 
   // In any of the following events the obj is safe to close itself.
   // The selector will notice the closure (by checking IsOpen()),
@@ -65,25 +65,19 @@ class Selectable {
 
   // Signal that informs the selectable object that it should read from
   // its registered fd.
-  // Return true if the events should be contiued to be processesd w/ respect
+  // Return true if the events should be continued to be processed w/ respect
   // to this selectable object.
-  virtual bool HandleReadEvent(const SelectorEventData& event) {
-    return true;
-  }
+  virtual bool HandleReadEvent(const SelectorEventData& event) = 0;
 
   // Signal that informs the selectable object that it can write data out
-  // Return true if the events should be contiued to be processesd w/ respect
+  // Return true if the events should be continued to be processed w/ respect
   // to this selectable object.
-  virtual bool HandleWriteEvent(const SelectorEventData& event) {
-    return true;
-  }
+  virtual bool HandleWriteEvent(const SelectorEventData& event) = 0;
 
-  // Signal an error(exception) occured on the fd.
-  // Return true if the events should be contiued to be processesd w/ respect
+  // Signal an error(exception) occurred on the fd.
+  // Return true if the events should be continued to be processed w/ respect
   // to this selectable object.
-  virtual bool HandleErrorEvent(const SelectorEventData& event) {
-    return true;
-  }
+  virtual bool HandleErrorEvent(const SelectorEventData& event) = 0;
 
   // Returns the file descriptor associated w/ this Selectable object (if any)
   virtual int GetFd() const = 0;
@@ -99,12 +93,13 @@ class Selectable {
   int32 Write(io::MemoryStream* ms, int32 size = -1);
   int32 Read(io::MemoryStream* ms, int32 size = -1);
 
-  // the selector that controls this object
-  Selector* selector_;
-
  private:
   // the desire for read or write **DO NOT TOUCH** updated by the selector only
   int32 desire_;
+
+  // the selector that controls this object.
+  // This is meant not for regular usage but rather for bug trap & testing.
+  Selector* registered_selector_;
 
   friend class Selector;
 };

@@ -95,6 +95,10 @@ class Date {
   // For local time: takes care of daylight saving time.
   static int64 ShiftDay(int64 time, int32 days, bool is_utc);
 
+  // a very far in the future date value.
+  // Suitable for when you need to specify the end of an endless interval.
+  // NOTE: because time_t has 4 bytes, the 'seconds' value must be int32 valid
+  static const int64 kFar = 2145920461000LL; // "01.01.2038 01:01:01" in ms
  public:
   // Initialize to current (now!) date & time.
   // If use_utc = true the broken down time will be stored in UTC format,
@@ -177,15 +181,16 @@ class Date {
   // sets the current broken down representation to UTC or Local Time.
   void SetUTC(bool use_utc);
 
-  // Builds a date from a short string
-  bool SetFromShortString(const string& s, bool is_utc);
   //
   // Operators
   //
   Date& operator=(const Date&);
   bool operator==(const Date&) const;
 
+  // short string encoding
+  bool FromShortString(const string& s, bool is_utc);
   string ToShortString() const;
+
   string ToString() const;
 };
 

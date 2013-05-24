@@ -36,8 +36,10 @@
 #include <queue>
 
 #include <whisperlib/net/base/selector.h>
+#include <whisperstreamlib/base/element_mapper.h>
 #include <whisperstreamlib/base/tag.h>
 #include <whisperstreamlib/base/request.h>
+#include <whisperstreamlib/base/stream_auth.h>
 #include <whisperstreamlib/base/tag_normalizer.h>
 #include <whisperstreamlib/stats2/stats_keeper.h>
 #include <whisperstreamlib/flv/flv_tag.h>
@@ -75,8 +77,7 @@ class Exporter {
         request_(NULL),
         processing_callback_(NewPermanentCallback(this,
             &Exporter::ProcessTag)),
-        auth_helper_(NULL),
-        reauthorize_alarm_(*media_selector),
+        auth_(*media_selector),
         is_export_registered_(false),
         is_request_registered_(false),
         protocol_type_(protocol),
@@ -92,14 +93,11 @@ class Exporter {
         pausing_(false),
         scheduled_tags_length_(0) {
     DCHECK(net_selector_->IsInSelectThread());
-    reauthorize_alarm_.Set(NewPermanentCallback(this,
-        &Exporter::ReauthorizeRequest), true, 0, true, false);
   }
   virtual ~Exporter() {
     DCHECK(net_selector_->IsInSelectThread());
 
     CHECK_NULL(request_);
-    CHECK_NULL(auth_helper_);
     CHECK(!stream_stats_opened_);
     CHECK(!is_export_registered_);
 
@@ -130,7 +128,7 @@ class Exporter {
   virtual const ConnectionEnd& connection_end_stats() const = 0;
 
   virtual void OnStreamNotFound() = 0;
-  virtual void OnAuthorizationFailed(bool is_reauthorization) = 0;
+  virtual void OnAuthorizationFailed() = 0;
   virtual void OnTooManyClients() = 0;
   virtual void OnAddRequestFailed() = 0;
   virtual void OnPlay() = 0;
@@ -164,8 +162,12 @@ class Exporter {
     CloseStreamStats(reason);
     set_state(STATE_CLOSED);
 
-    if ( request_ != NULL && is_request_registered_ ) {
-      element_mapper_->RemoveRequest(request_, processing_callback_);
+    if ( request_ != NULL ) {
+      if ( is_request_registered_ ) {
+        element_mapper_->RemoveRequest(request_, processing_callback_);
+      } else {
+        delete request_;
+      }
       request_ = NULL;
       is_request_registered_ = false;
     }
@@ -177,15 +179,7 @@ class Exporter {
       is_export_registered_ = false;
     }
 
-    if ( auth_helper_ != NULL ) {
-      if ( auth_helper_->is_started() ) {
-        auth_helper_->Cancel();
-      } else {
-        delete auth_helper_;
-      }
-      auth_helper_ = NULL;
-    }
-    reauthorize_alarm_.Stop();
+    auth_.Stop();
   }
 
   void GetMediaDetailsCompleted(bool success) {
@@ -212,54 +206,42 @@ class Exporter {
           request_->serving_info().flavour_mask_;
     }
 
+
+    set_state(STATE_AUTHORIZING);
+
+    if ( request_->serving_info().authorizer_name_ == "" ) {
+      AuthorizeCompleted(true);
+      return;
+    }
+
     streaming::Authorizer* authorizer = element_mapper_->GetAuthorizer(
         request_->serving_info().authorizer_name_);
     if ( authorizer == NULL ) {
-      request_->mutable_auth_reply()->allowed_ = true;
-      IncRef();
-      AuthorizeCompleted(NULL);
+      AuthorizeCompleted(false);
       return;
     }
 
-    set_state(STATE_AUTHORIZING);
-    authorizer->IncRef();
-    IncRef();
-    authorizer->Authorize(request_->info().auth_req_,
-        request_->mutable_auth_reply(),
-        NewCallback(this, &Exporter::AuthorizeCompleted, authorizer));
+    // no need to IncRef(), auth_ automatically Cancels on destructor
+
+    auth_.Start(authorizer, request_->info().auth_req_,
+        NewCallback(this, &Exporter::AuthorizeCompleted),
+        NewCallback(this, &Exporter::ReauthorizeFailed));
   }
 
-  void AuthorizeCompleted(streaming::Authorizer* authorizer) {
+  void AuthorizeCompleted(bool allowed) {
     DCHECK(media_selector_->IsInSelectThread());
-    AutoDecRef auto_dec_ref(this);
 
     if ( is_closed() ) {
+      // exporter closed meanwhile, authorization is meaningless now
       return;
     }
 
-    if ( !request_->auth_reply().allowed_ ) {
-      LOG_INFO << "Playing stream [" << request_path_ <<
-          "] was not authorized, failing request";
-
-      if ( authorizer != NULL ) {
-        authorizer->DecRef();
-      }
-
-      OnAuthorizationFailed(false);
+    if ( !allowed ) {
+      LOG_ERROR << "NOT AUTHORIZED: [" << request_path_ <<
+                   "], failing request: " << request_->ToString();
+      OnAuthorizationFailed();
       CloseRequest("AUTHORIZATION FAILED");
       return;
-    }
-
-    if ( authorizer != NULL ) {
-      // if reauthorization required: setup reauthorization
-      if ( request_->auth_reply().reauthorize_interval_ms_ > 0 ) {
-        auth_helper_ = new streaming::AuthorizeHelper(authorizer);
-        *(auth_helper_->mutable_req()) = request_->info().auth_req_;
-        reauthorize_alarm_.ResetTimeout(
-            request_->auth_reply().reauthorize_interval_ms_);
-        reauthorize_alarm_.Start();
-      }
-      authorizer->DecRef();
     }
 
     export_path_ = request_->serving_info().export_path_;
@@ -299,43 +281,20 @@ class Exporter {
     is_request_registered_ = true;
 
     OnPlay();
-    normalizer_.Reset(request_);
+    if ( is_closed() ) {
+      CloseRequest("OnPlay failed");
+      return;
+    }
 
+    normalizer_.Reset(request_);
     set_state(STATE_PLAYING);
   }
 
-  void ReauthorizeRequest() {
-    DCHECK(media_selector_->IsInSelectThread());
-
-    CHECK_NOT_NULL(auth_helper_);
-    auth_helper_->mutable_req()->action_performed_ms_ = RunTimeMs();
-    if ( auth_helper_->is_started() ) {
-      // previous reauthorize still in progress
-      return;
-    }
-
-    IncRef();
-    auth_helper_->Start(NewCallback(this,
-        &Exporter::ReauthorizeRequestCompleted));
-  }
-  void ReauthorizeRequestCompleted() {
-    DCHECK(media_selector_->IsInSelectThread());
-    AutoDecRef auto_dec_ref(this);
-
-    if ( is_closed() ) {
-      return;
-    }
-
-    CHECK_NOT_NULL(auth_helper_);
-    *(request_->mutable_auth_reply()) = auth_helper_->reply();
-    if ( !auth_helper_->reply().allowed_ ) {
-      LOG_INFO << "Reauthorization failed while playing ["
-               << request_path_ << "]";
-
-      OnAuthorizationFailed(true);
-      CloseRequest("REAUTHORIZATION FAILED");
-      return;
-    }
+  void ReauthorizeFailed() {
+    LOG_INFO << "Reauthorization failed while playing ["
+             << request_path_ << "]";
+    OnAuthorizationFailed();
+    CloseRequest("REAUTHORIZATION FAILED");
   }
 
   void ProcessTag(const streaming::Tag* tag, int64 timestamp_ms) {
@@ -391,7 +350,6 @@ class Exporter {
       case streaming::Tag::TYPE_SOURCE_STARTED: {
         const streaming::SourceStartedTag* source_started =
           static_cast<const streaming::SourceStartedTag*>(tag);
-
         {
           synch::MutexLocker l(mutex());
           media_name_ = source_started->source_element_name();
@@ -422,27 +380,18 @@ class Exporter {
         HandleTag(tag);
         return;
 
-      case streaming::Tag::TYPE_FLUSH:
-        HandleTag(tag);
-        return;
-
       case streaming::Tag::TYPE_EOS:
         // Instead of RemoveCallback() which requires separate context from EOS,
         // forward the EosTag to network, and let network call CloseRequest()
         HandleTag(tag);
         return;
 
-      case streaming::Tag::TYPE_BOOTSTRAP_BEGIN:
-        HandleTag(tag);
-        return;
-      case streaming::Tag::TYPE_BOOTSTRAP_END:
-        HandleTag(tag);
-        return;
-
       // all the media tags need to get into the network thread
+      case streaming::Tag::TYPE_MEDIA_INFO:
       case streaming::Tag::TYPE_COMPOSED:
       case streaming::Tag::TYPE_FLV:
       case streaming::Tag::TYPE_F4V:
+      case streaming::Tag::TYPE_MTS:
       case streaming::Tag::TYPE_MP3:
       case streaming::Tag::TYPE_AAC:
       case streaming::Tag::TYPE_RAW:
@@ -451,7 +400,8 @@ class Exporter {
         return;
 
       // these are just ignored
-      case streaming::Tag::TYPE_BOS:
+      case streaming::Tag::TYPE_BOOTSTRAP_BEGIN:
+      case streaming::Tag::TYPE_BOOTSTRAP_END:
       case streaming::Tag::TYPE_FLV_HEADER:
       case streaming::Tag::TYPE_FEATURE_FOUND:
       case streaming::Tag::TYPE_CUE_POINT:
@@ -530,18 +480,28 @@ class Exporter {
     if ( tag->is_audio_tag() ) { stats_keeper_.audio_frames_add(1); }
 
     // stop dropping interframes on first keyframe
-    if ( dropping_interframes_ && tag->is_video_tag() && tag->can_resync() ) {
+    if ( dropping_interframes_ && tag->is_video_tag() &&
+        tag->can_resync() && tag->is_droppable() ) {
+      VLOG(8) << "Resync on: " << tag->ToString();
       dropping_interframes_ = false;
     }
 
-    // update metadata before sending to network
-    if ( tag->type() == streaming::Tag::TYPE_FLV ) {
-      const streaming::FlvTag* flv_tag =
-          static_cast<const streaming::FlvTag*>(tag);
-      if ( flv_tag->body().type() == FLV_FRAMETYPE_METADATA ) {
-        scoped_ref<streaming::FlvTag> metadata =
-            new streaming::FlvTag(*flv_tag, -1, true);
-        UpdateFlvMetadata(metadata->mutable_metadata_body());
+    // update media info before sending to network
+    if ( tag->type() == Tag::TYPE_MEDIA_INFO ) {
+      scoped_ref<MediaInfoTag> info =
+          new MediaInfoTag(*static_cast<const MediaInfoTag*>(tag));
+      UpdateMediaInfo(info->mutable_info());
+      ScheduleTag(info.get());
+      return;
+    }
+
+    // update onCuePoint metadata before sending to network
+    if ( tag->type() == Tag::TYPE_FLV ) {
+      const FlvTag* flv_tag = static_cast<const FlvTag*>(tag);
+      if ( flv_tag->body().type() == FLV_FRAMETYPE_METADATA &&
+           flv_tag->metadata_body().name().value() == kOnCuePoint ) {
+        scoped_ref<FlvTag> metadata = new FlvTag(*flv_tag, -1, true);
+        UpdateFlvCuePoint(metadata->mutable_metadata_body());
         ScheduleTag(metadata.get());
         return;
       }
@@ -607,13 +567,6 @@ class Exporter {
         scheduled_tags_length_ = scheduled_tags_.back().stream_time_ms_ -
             stag.stream_time_ms_;
         scheduled_tags_.pop();
-
-        if ( stag.tag_->type() == Tag::TYPE_FLUSH ) {
-          while ( !scheduled_tags_.empty() ) {
-            scheduled_tags_.pop();
-          }
-          scheduled_tags_length_ = 0;
-        }
       }
 
       // send the tag
@@ -631,35 +584,30 @@ class Exporter {
   }
 
  private:
-  void UpdateFlvMetadata(streaming::FlvTag::Metadata& metadata) {
-    // metadata should be updated from media thread, before sending to net
+  void UpdateMediaInfo(MediaInfo* media_info) {
+    // media_info should be updated in media thread, before sending to net
     CHECK(media_selector_->IsInSelectThread());
-    if ( metadata.name().value() == streaming::kOnMetaData ) {
-      streaming::ElementController* controller = request_->controller();
+    streaming::ElementController* controller = request_->controller();
 
-      if ( (controller == NULL) || !controller->SupportsSeek() ) {
-        metadata.mutable_values()->Set(
-            "canSeekToEnd", new rtmp::CBoolean(false));
-        metadata.mutable_values()->Set(
-            "unseekable", new rtmp::CBoolean(true));
-      }
-      if ( (controller == NULL) || !controller->SupportsPause() ) {
-        metadata.mutable_values()->Set(
-            "unpausable", new rtmp::CBoolean(true));
-      }
-      metadata.mutable_values()->Set(
-          "origin", new rtmp::CNumber((normalizer_.stream_time_ms() -
-              normalizer_.media_time_ms())/1000.0));
-      metadata.mutable_values()->Erase("cuePoints");
+    if ( controller == NULL || !controller->SupportsSeek() ) {
+      media_info->set_seekable(false);
+      media_info->mutable_flv_extra_metadata()->Set(
+          "canSeekToEnd", new rtmp::CBoolean(false));
     }
-    if ( metadata.name().value() == streaming::kOnCuePoint ) {
-      FlvCoder::UpdateTimeInCuePoint(&metadata, 0,
-          normalizer_.media_time_ms(), false);
+    if ( controller == NULL || !controller->SupportsPause() ) {
+      media_info->set_pausable(false);
     }
-
-    metadata.mutable_values()->Set("media", new rtmp::CString(media_name_));
+    media_info->mutable_flv_extra_metadata()->Set(
+        "origin", new rtmp::CNumber((normalizer_.stream_time_ms() -
+            normalizer_.media_time_ms())/1000.0));
+    media_info->mutable_flv_extra_metadata()->Set(
+        "media", new rtmp::CString(media_name_));
   }
-
+  void UpdateFlvCuePoint(FlvTag::Metadata& metadata) {
+    CHECK_EQ(metadata.name().value(), streaming::kOnCuePoint);
+    FlvCoder::UpdateTimeInCuePoint(&metadata, 0,
+        normalizer_.media_time_ms(), false);
+  }
 
  private:
   void OpenStreamStats() {
@@ -723,9 +671,7 @@ class Exporter {
   streaming::Request* request_;
   streaming::ProcessingCallback* processing_callback_;
 
-  streaming::AuthorizeHelper* auth_helper_;
-  // repetitive reauthorization alarm
-  util::Alarm reauthorize_alarm_;
+  streaming::AsyncAuthorize auth_;
 
   string request_path_;
   string export_path_;
@@ -777,10 +723,8 @@ class Exporter {
     int64 stream_time_ms_;
 
     ScheduledTag() : tag_(), stream_time_ms_(0) {}
-    ScheduledTag(const Tag* tag, int64 stream_time_ms):
-      tag_(tag),
-      stream_time_ms_(stream_time_ms) {
-    }
+    ScheduledTag(const Tag* tag, int64 stream_time_ms)
+        : tag_(tag), stream_time_ms_(stream_time_ms) {}
   };
 
   queue<ScheduledTag> scheduled_tags_;

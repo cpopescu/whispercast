@@ -61,28 +61,22 @@ DEFINE_string(base_dir,
 //
 string GenerateDirListing(const string& url_path) {
   const string dirpath(FLAGS_base_dir + url_path);
-  vector<string> dir_names;
-  if ( !io::DirList(dirpath, &dir_names, true) ) {
+  vector<string> paths;
+  if ( !io::DirList(dirpath, io::LIST_FILES | io::LIST_DIRS, NULL, &paths) ) {
     return "Error";
   }
   string s = strutil::StringPrintf("<h1>Directory: %s</h1>", url_path.c_str());
-  for ( int i = 0; i < dir_names.size(); i++ ) {
-    const string crt_path(dirpath + "/" + dir_names[i]);
-    string crt_url;
-
-    if ( !url_path.empty() && url_path[url_path.size() - 1] == '/' ) {
-      crt_url = url_path + dir_names[i];
-    } else {
-      crt_url = (url_path + "/" + dir_names[i]);
-    }
-    if ( io::IsDir(crt_path.c_str()) ) {
+  for ( int i = 0; i < paths.size(); i++ ) {
+    const string& crt_path = paths[i];
+    string crt_url = strutil::JoinPaths(url_path, crt_path);
+    if ( io::IsDir(crt_path) ) {
       s += strutil::StringPrintf("<p>[DIR] <a href=\"%s/\">%s/</a></p>",
                                  crt_url.c_str(),
-                                 dir_names[i].c_str());
+                                 crt_path.c_str());
     } else {
       s += strutil::StringPrintf("<p><a href=\"%s\">%s</a></p>",
                                  crt_url.c_str(),
-                                 dir_names[i].c_str());
+                                 crt_path.c_str());
     }
   }
   return s;

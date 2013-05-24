@@ -1,36 +1,10 @@
-// Copyright (c) 2009, Whispersoft s.r.l.
+// Copyright (c) 2013, Whispersoft s.r.l.
 // All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// * Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// * Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// * Neither the name of Whispersoft s.r.l. nor the names of its
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Author: Cosmin Tudorache
 
-#ifndef __COMMON_SYNC_PROCESS_H__
-#define __COMMON_SYNC_PROCESS_H__
+#ifndef __COMMON_SYNC_PROCESS2_H__
+#define __COMMON_SYNC_PROCESS2_H__
 
 #include <string>
 #include <vector>
@@ -40,67 +14,68 @@
 #include <whisperlib/common/base/common.h>
 #include <whisperlib/common/sync/thread.h>
 #include <whisperlib/common/sync/event.h>
+#include <whisperlib/net/base/selector.h>
+
+// A smarter process.
+// - The child's stdout & stderr are piped back to the parent, and message
+//    lines are transmited to the application through asynchronous callbacks.
+// - The child's stdin although not used now, it could be implemented
+//    to transmit messages to child.
+// - easy synchronization: If you provide a selector, than all callbacks are
+//    executed in selector context.
+//    If the selector is NULL then callbacks are executed on a separate thread.
+//
+// PROBLEM: with stdout buffering
+// - the C runtime detects if stdout is a terminal. If it's a terminal then it
+//    enables line-buffer, otherwise (pipe,file,socket) enables block-buffer.
+//    The call to execve() reinitializes the C runtime for the child,
+//    so whatever buffer settings made before execve() are useless.
+// - fork() creates a child with no terminal, so it's stdout is block-buffered
+//    meaning the parent receives no msgs until the buf is full or child exits
+// - solution: use forkpty() to create a pseudo-terminal which makes the stdout
+//    line-buffered
+// - workaround: use fflush() calls in child process to force stdout output
 
 namespace process {
-
 class Process {
- public:
+ private:
   static const pid_t kInvalidPid;
+ public:
+  // exe: path to the executable
+  // argv: program arguments. arg[0] should be your first argument,
+  //       and NOT the program name.
+  // envp: can be NULL. Specifies additional environment variables
+  //       (additional to environ)
+  Process(const string& exe, const vector<string>& argv,
+          const vector<string>* envp = NULL);
+  virtual ~Process();
 
-  // the process is still running
-  static const int kInvalidExitValue;
-  // error retrieving process exit code
-  static const int kErrorExitValue;
-  // detached from process
-  static const int kDetachedExitValue;
+  const string& path() const { return exe_; }
 
-  // How long to wait for a process to start
-  static const uint32 kStartupWaitMs;
-  // How long to wait for a process to stop before killing it
-  static const uint32 kKillWaitMs;
-
-  // constructs a process from executable image and parameters
-  // arg[0] should be your first argument, and NOT the program name
-  // The constructors which don't specify "envp" will use current "environ".
-  //
-  // IMPORTANT NOTE: You MUST set the last argument as NULL in all cases
-  //   e.g.
-  //     new Process("/usr/sleep", "10", NULL);
-  //   or with no arguments:
-  //     new Process("/usr/bin/uname", NULL, NULL);
-  //     // The first NULL is enough for the call to behave correctly,
-  //     // the second NULL exists just to satisfy
-  //     // the G_GNUC_NULL_TERMINATED sentinel attribute.
-  //
-  Process(const char* path, const char* arg, ...) G_GNUC_NULL_TERMINATED;
-  Process(const char* path, char* const argv[], char* const envp[]);
-  Process(const string& path, const vector<string>& argv);
-  Process(const string& path, const
-          vector<string>& argv,
-          const vector<string>& envp);
-  // binds to an existing process. You still have to call Start() to bind.
-  explicit Process(pid_t pid);
-  ~Process();
-
-  const string& path() const;
-  const vector<string>& argv() const;
-
-  // Either starts the process or binds to an existing process (if you
-  // specified a pid).
-  // Returns success status. On failure, call GetLastSystemError() for
-  // errno code.
-  bool Start();
-
-  // Returns the running process pid.
-  // If the process is not started, returns INVALID_PID_VALUE.
-  pid_t Pid() const;
+  // Returns success status. On failure, call GetLastSystemErrorDescription().
+  // stdout_reader: can be NULL. Must be a permanent callback.
+  //                Called with lines from child's stdout.
+  // auto_delete_stdout_reader: stdout_reader closure is deleted on termination
+  // stderr_reader: can be NULL. Must be a permanent callback.
+  //                Called with lines from child's stderr.
+  // auto_delete_stderr_reader: stderr_reader closure is deleted on termination
+  // exit_callback: can be NULL. May be temporary / permanent.
+  //                Called just once upon termination with child's exit code.
+  // selector: can be NULL. If not null then all callbacks are run in selector.
+  //           Otherwise, callbacks are run on a separate random thread.
+  bool Start(Callback1<const string&>* stdout_reader,
+             bool auto_delete_stdout_reader,
+             Callback1<const string&>* stderr_reader,
+             bool auto_delete_stderr_reader,
+             Callback1<int>* exit_callback,
+             net::Selector* selector);
 
   // Sends a signal to the running process.
-  // Returns success status. On failure, call GetLastSystemError() for
-  // errno code.
+  // Returns success status. On failure, call GetLastSystemError().
   bool Signal(int signum);
 
-  // Kills the process.
+  // Kills the running process.
+  // Does nothing if the process is not running.
   void Kill();
 
   // Detaches from the executing process. So you can delete this
@@ -110,53 +85,37 @@ class Process {
   //  Wait for the running process to terminate.
   // Returns:
   //  true: the process terminated.
-  //        exit_status contains the process exit status.
-  //  false: timeout or the process was not started. Call GetLastSystemError()
-  //         for errno code.
-  bool Wait(uint32 timeout_ms, int* exit_status);
+  //        exit_status (if not null) contains the process exit status.
+  //  false: timeout or the process was not started. Call GetLastSystemError().
+  bool Wait(uint32 timeout_ms, int* exit_status = NULL);
 
-  // The callback parameter is the process exit status.
-  typedef Callback1<int> ExitCallback;
-
-  // Sets a callback to be run when the process terminated.
-  void SetExitCallback(ExitCallback* exit_callback);
-
- private:
-  // Test if the process has been started once.
-  bool IsStarted() const;
-
-  // Tests if the executor thread is running (i.e. the external process
-  // is running).
   bool IsRunning() const;
 
-  // Executor thread.
-  void ExecutorRun();
+ private:
+  void Runner();
+  void RunExitCallback(int exit_code);
+  void RunStdoutReader(const string& line);
+  void RunStderrReader(const string& line);
 
  private:
-  const string path_;
-  vector<string> argv_;
+  const string exe_;
+  const vector<string> argv_;
   vector<string> envp_;
-  const pid_t bind_pid_;
+
   pid_t pid_;
   int exit_status_;
 
-  ExitCallback* exit_callback_;
+  thread::Thread* runner_;
+  synch::Event runner_start_;
+  bool runner_error_;
 
-  // The thread which runns the process and wait(blocking)
-  // for process termination.
-  thread::Thread executor_thread_;
-  // Signaled by the inner thread after initialization.
-  // Used by the application to wait for thread initialization.
-  synch::Event executor_thread_start_;
-  // Signaled by the inner thread on termination.
-  // Used by the application to wait (with timeout) for thread termination.
-  synch::Event executor_thread_stop_;
-  // when signaled, tells the executor thread it should terminate
-  synch::Event executor_end_;
-
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(Process);
+  Callback1<const string&>* stdout_reader_;
+  bool auto_delete_stdout_reader_;
+  Callback1<const string&>* stderr_reader_;
+  bool auto_delete_stderr_reader_;
+  Callback1<int>* exit_callback_;
+  net::Selector* selector_;
 };
 }
 
-#endif  //  __COMMON_SYNC_PROCESS_H__
+#endif  //  __COMMON_SYNC_PROCESS2_H__

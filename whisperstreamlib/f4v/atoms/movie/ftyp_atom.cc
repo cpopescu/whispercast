@@ -10,6 +10,13 @@ FtypAtom::FtypAtom()
     minor_version_(0),
     compatible_brands_() {
 }
+FtypAtom::FtypAtom(uint32 major_brand,
+                   uint32 minor_version)
+   : BaseAtom(kType),
+     major_brand_(major_brand),
+     minor_version_(minor_version),
+     compatible_brands_() {
+}
 FtypAtom::FtypAtom(const FtypAtom& other)
   : BaseAtom(other),
     major_brand_(other.major_brand()),
@@ -28,8 +35,8 @@ uint32 FtypAtom::minor_version() const {
 const vector<uint32>& FtypAtom::compatible_brands() const {
   return compatible_brands_;
 }
-vector<uint32>& FtypAtom::mutable_compatible_brands() {
-  return compatible_brands_;
+void FtypAtom::add_compatible_brand(uint32 brand) {
+  compatible_brands_.push_back(brand);
 }
 
 void FtypAtom::set_major_brand(uint32 major_brand) {
@@ -39,6 +46,12 @@ void FtypAtom::set_minor_version(uint32 minor_version) {
   minor_version_ = minor_version;
 }
 
+bool FtypAtom::EqualsBody(const BaseAtom& other) const {
+  const FtypAtom& a = static_cast<const FtypAtom&>(other);
+  return major_brand_ == a.major_brand_ &&
+         minor_version_ == a.minor_version_ &&
+         compatible_brands_ == a.compatible_brands_;
+}
 void FtypAtom::GetSubatoms(vector<const BaseAtom*>& subatoms) const {
 }
 BaseAtom* FtypAtom::Clone() const {

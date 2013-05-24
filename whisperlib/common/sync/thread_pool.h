@@ -42,17 +42,21 @@ class ThreadPool {
  public:
   // Constructs a thread pool w/ pool_size threads and a queue of
   // backlog_size (condition: backlog_size > pool_size).
-  ThreadPool(int pool_size, int backlog_size);
+  ThreadPool(uint32 pool_size, uint32 backlog_size);
   // Stops all threads (as soon as they are idle).
   ~ThreadPool();
 
-  // Use this accessors to add jobs to the pool (in a blocking on non
+  void Start();
+  void Stop(bool cancel_pending = false);
+
+  // Use this accessor to add jobs to the pool (in a blocking or non
   // blocking way).
   // Example:
   //   thread_pool->jobs()->Put(NewCallback(this, &Worker::DoWork, work_data));
   synch::ProducerConsumerQueue<Closure*>* jobs() {
     return &jobs_;
   }
+
  private:
   void ThreadRun();
   synch::ProducerConsumerQueue<Closure*> jobs_;

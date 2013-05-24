@@ -32,6 +32,7 @@
 #include "common/base/strutil.h"
 #include "common/base/common.h"
 #include "common/base/scoped_ptr.h"
+#include "net/rpc/lib/codec/rpc_codec.h"
 #include "net/rpc/lib/client/rpc_failsafe_client_connection_http.h"
 #include "net/rpc/lib/rpc_constants.h"
 
@@ -39,12 +40,12 @@ namespace rpc {
 
 FailsafeClientConnectionHTTP::FailsafeClientConnectionHTTP(
     net::Selector* selector,
-    rpc::CODEC_ID codec_id,
+    rpc::CodecId codec,
     http::FailSafeClient* failsafe_client,
     const string& http_request_path,
     const string& auth_user,
     const string& auth_pass)
-    : IClientConnection(*selector, rpc::CONNECTION_FAILSAFE_HTTP, codec_id),
+    : IClientConnection(*selector, rpc::CONNECTION_FAILSAFE_HTTP, codec),
       failsafe_client_(failsafe_client),
       http_request_path_(http_request_path),
       auth_user_(auth_user),
@@ -100,8 +101,8 @@ void FailsafeClientConnectionHTTP::Send(const rpc::Message* p) {
 
   // write codec ID
   req->request()->client_header()->AddField(
-      string(RPC_HTTP_FIELD_CODEC_ID),
-      strutil::StringPrintf("%d", GetCodec().GetCodecID()), false);
+      kHttpFieldCodec,
+      CodecName(codec()), false);
 
   if ( !auth_user_.empty() ) {
     req->request()->client_header()->SetAuthorizationField(auth_user_,
@@ -109,7 +110,7 @@ void FailsafeClientConnectionHTTP::Send(const rpc::Message* p) {
   }
 
   // write RPC message
-  GetCodec().EncodePacket(*req->request()->client_data(), *p);
+  EncodeBy(codec(), *p, req->request()->client_data());
 
   QueryStruct* qs = new QueryStruct(req, p);
   queries_.insert(make_pair(qs->xid_, qs));
@@ -153,18 +154,18 @@ void FailsafeClientConnectionHTTP::CallbackRequestDone(QueryStruct* qs) {
                        // it for debug
       // decode RPC message from inside http request
       rpc::Message* msg = new rpc::Message();
-      DECODE_RESULT result = GetCodec().DecodePacket(*in, *msg);
+      DECODE_RESULT result = DecodeBy(codec(), *in, msg);
       if ( result == DECODE_RESULT_ERROR ) {
         LOG_ERROR << "Error in RPC encountered: "
-                  << qs->msg_->cbody_.service_ << "::"
-                  << qs->msg_->cbody_.method_;
+                  << qs->msg_->cbody().service() << "::"
+                  << qs->msg_->cbody().method();
         in->MarkerRestore();
         DLOG_DEBUG << "Received message: " << in->DebugString();
         delete msg;
       } else if ( result == DECODE_RESULT_NOT_ENOUGH_DATA ) {
         LOG_ERROR << "RPC Decode Message insufficient data, in http reply for "
-                  << qs->msg_->cbody_.service_ << "::"
-                  << qs->msg_->cbody_.method_;
+                  << qs->msg_->cbody().service() << "::"
+                  << qs->msg_->cbody().method();
         in->MarkerRestore();
         DLOG_DEBUG << "Received message: " << in;
         delete msg;

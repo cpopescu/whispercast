@@ -36,6 +36,10 @@
 namespace streaming {
 namespace f4v {
 
+Frame::Frame()
+  : header_(),
+    data_() {
+}
 Frame::Frame(const FrameHeader& header)
   : header_(header),
     data_() {
@@ -56,6 +60,11 @@ const io::MemoryStream& Frame::data() const {
 }
 io::MemoryStream& Frame::mutable_data() {
   return data_;
+}
+
+bool Frame::Equals(const Frame& other) const {
+  return header_.Equals(other.header_) &&
+         data_.Equals(other.data_);
 }
 
 TagDecodeStatus Frame::Decode(io::MemoryStream& in, Decoder& decoder) {

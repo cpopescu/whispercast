@@ -29,24 +29,28 @@
 //
 // Author: Cosmin Tudorache
 
-#include "net/rpc/lib/codec/rpc_codec.h"
+#include <whisperlib/common/base/log.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
+#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/binary/rpc_binary_decoder.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/json/rpc_json_decoder.h>
 
 namespace rpc {
-const char* Codec::GetCodecName() const {
-  return rpc::CodecName(GetCodecID());
+
+Encoder* CreateEncoder(CodecId codec) {
+  switch ( codec ) {
+    case kCodecIdBinary: return new BinaryEncoder();
+    case kCodecIdJson: return new JsonEncoder();
+  }
+  LOG_FATAL << "Illegal Codec ID: " << codec;
+}
+Decoder* CreateDecoder(CodecId codec) {
+  switch ( codec ) {
+    case kCodecIdBinary: return new BinaryDecoder();
+    case kCodecIdJson: return new JsonDecoder();
+  }
+  LOG_FATAL << "Illegal Codec ID: " << codec;
 }
 
-void Codec::EncodePacket(io::MemoryStream& out, const rpc::Message& p) {
-  rpc::Encoder* const encoder = CreateEncoder(out);
-  encoder->EncodePacket(p);
-  delete encoder;
-}
-
-DECODE_RESULT Codec::DecodePacket(io::MemoryStream& in,
-                                           rpc::Message& p) {
-  rpc::Decoder* const decoder = CreateDecoder(in);
-  const DECODE_RESULT result = decoder->DecodePacket(p);
-  delete decoder;
-  return result;
-}
 }

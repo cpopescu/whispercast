@@ -43,9 +43,11 @@ struct AvccParameter {
   io::MemoryStream raw_data_;
 
   AvccParameter();
+  AvccParameter(const string& data);
   AvccParameter(const AvccParameter& other);
   ~AvccParameter();
 
+  bool Equals(const AvccParameter& other) const;
   AvccParameter* Clone() const;
 
   bool Decode(io::MemoryStream& in, uint64 in_size);
@@ -62,6 +64,13 @@ class AvccAtom : public BaseAtom {
   static const uint32 kBodyMinSize = 7;
  public:
   AvccAtom();
+  AvccAtom(uint8 configuration_version,
+           uint8 profile,
+           uint8 profile_compatibility,
+           uint8 level,
+           uint8 nalu_length_size,
+           const vector<string>& seq_parameters,
+           const vector<string>& pic_parameters);
   AvccAtom(const AvccAtom& other);
   virtual ~AvccAtom();
 
@@ -72,10 +81,21 @@ class AvccAtom : public BaseAtom {
   uint8 nalu_length_size() const;
   const vector<AvccParameter*>& seq_parameters() const;
   const vector<AvccParameter*>& pic_parameters() const;
+  void get_seq_parameters(vector<string>* out) const;
+  void get_pic_parameters(vector<string>* out) const;
+
+  //void set_configuration_version(uint8 configuration_version) const;
+  //void set_profile(uint8 profile) const;
+  //void set_profile_compatibility(uint8 profile_compatiblity) const;
+  //void set_level(uint8 level) const;
+  //void set_nalu_length_size(uint8 nalu_length_size) const;
+  //void set_seq_parameters(const vector<string>& data) const;
+  //void set_pic_parameters(const vector<string>& data) const;
 
   ///////////////////////////////////////////////////////////////////////////
 
   // Methods from BaseAtom
+  virtual bool EqualsBody(const BaseAtom& other) const;
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
   virtual BaseAtom* Clone() const;
   virtual TagDecodeStatus DecodeBody(uint64 size,
@@ -86,15 +106,13 @@ class AvccAtom : public BaseAtom {
   virtual string ToStringBody(uint32 indent) const;
 
  private:
-   uint8 configuration_version_;
-   uint8 profile_;
-   uint8 profile_compatibility_;
-   uint8 level_;
-   uint8 original_nalu_length_size_;
-   uint8 nalu_length_size_;
-   uint8 original_seq_count_;
-   vector<AvccParameter*> seq_parameters_;
-   vector<AvccParameter*> pic_parameters_;
+  uint8 configuration_version_;
+  uint8 profile_;
+  uint8 profile_compatibility_;
+  uint8 level_;
+  uint8 nalu_length_size_;
+  vector<AvccParameter*> seq_parameters_;
+  vector<AvccParameter*> pic_parameters_;
 };
 }
 }

@@ -51,12 +51,13 @@ ADD_CUSTOM_COMMAND (
 
 ####################
 
-ADD_LIBRARY (standard_streaming_elements MODULE
+ADD_LIBRARY (standard_streaming_elements SHARED
   standard_library/standard_library.cc
   standard_library/aio_file/aio_file_element.cc
   standard_library/dropping/dropping_element.cc
   standard_library/http_client/http_client_element.cc
   standard_library/http_poster/http_poster_element.cc
+  standard_library/http_server/import_element.cc
   standard_library/http_server/http_server_element.cc
   standard_library/keyframe/keyframe_element.cc
   standard_library/lookup/lookup_element.cc
@@ -67,7 +68,6 @@ ADD_LIBRARY (standard_streaming_elements MODULE
   standard_library/remote_resolver/remote_resolver_element.cc
   standard_library/rtmp_publishing/rtmp_publishing_element.cc
   standard_library/saving/saving_element.cc
-  standard_library/splitting/splitting_element.cc
   standard_library/stream_renamer/stream_renamer_element.cc
   standard_library/switching/switching_element.cc
   standard_library/timesaving/timesaving_element.cc
@@ -83,7 +83,6 @@ ADD_DEPENDENCIES(standard_streaming_elements
   whisper_streamlib)
 
 ######################################################################
-
 
 # command_library -> MODULE
 
@@ -115,24 +114,12 @@ ADD_DEPENDENCIES (command_streaming_elements
   whisper_streamlib)
 
 #TARGET_LINK_LIBRARIES(command_streaming_elements
-#  ${whisperlib_LIBRARY}
-# ${whisperstreamlib_LIBRARY}
+#  whisper_lib
+#  whisper_streamlib)
 #)
 endif (NOT APPLE)
 
 ######################################################################
-
-ADD_EXECUTABLE(http_tag_printer
-  standard_library/http_client/http_client_element.cc
-  standard_library/http_client/http_client_tag_printer.cc)
-ADD_DEPENDENCIES(http_tag_printer
-  ${whisperlib_LIBRARY}
-  whisper_streamlib)
-TARGET_LINK_LIBRARIES(http_tag_printer
-  ${whisperlib_LIBRARY}
-  whisper_streamlib)
-
-####################
 
 #  ADD_SUBDIRECTORY (test)
 

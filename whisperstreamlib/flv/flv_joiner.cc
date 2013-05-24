@@ -49,12 +49,12 @@
 
 namespace streaming {
 
-FlvJoinProcessor::FlvJoinProcessor(bool keep_all_metadata)
+FlvJoinProcessor::FlvJoinProcessor(uint32 cue_ms)
   : streaming::JoinProcessor(),
     writer_(true, true),
-    keep_all_metadata_(keep_all_metadata),
-    has_video_(false),
-    has_audio_(false),
+    cue_ms_(cue_ms),
+    has_video_(true),
+    has_audio_(true),
     video_tag_count_(0),
     audio_tag_count_(0),
     last_in_timestamp_ms_(-1),
@@ -69,12 +69,8 @@ void FlvJoinProcessor::MarkNewFile() {
   last_in_timestamp_ms_ = -1;
 }
 
-bool FlvJoinProcessor::InitializeOutput(const string& out_file,
-                                        int cue_ms_time) {
-  if ( !streaming::JoinProcessor::InitializeOutput(out_file, cue_ms_time) ) {
-    return false;
-  }
-
+bool FlvJoinProcessor::Initialize(const string& out_file) {
+  out_file_ = out_file;
   out_file_tmp_ = strutil::JoinPaths(strutil::Dirname(out_file),
                                      "tmp." + strutil::Basename(out_file));
   if ( !writer_.Open(out_file_tmp_) ) {
@@ -86,8 +82,8 @@ bool FlvJoinProcessor::InitializeOutput(const string& out_file,
   last_in_timestamp_ms_ = -1;
   last_out_timestamp_ms_ = 0;
   next_cue_timestamp_ms_ = 0;
-  has_video_ = false;
-  has_audio_ = false;
+  has_video_ = true;
+  has_audio_ = true;
   return true;
 }
 
@@ -123,10 +119,6 @@ bool FlvJoinProcessor::ProcessMetaData(const FlvTag::Metadata& metadata,
   if ( metadata_.Empty() ) {
     metadata_.SetAll(metadata.values());
   }
-  if ( keep_all_metadata_ ) {
-    LOG_DEBUG << "Keeping all metadata...";
-    return true;
-  }
   // we won't keep this metadata. But let's check if it's identical with the
   // saved one. Identical => continue join. Different => skip file.
   for ( rtmp::CMixedMap::Map::const_iterator it = metadata_.data().begin();
@@ -161,7 +153,8 @@ bool FlvJoinProcessor::ProcessMetaData(const FlvTag::Metadata& metadata,
   return false;
 }
 
-JoinProcessor::PROCESS_STATUS FlvJoinProcessor::ProcessTag(const Tag* tag) {
+JoinProcessor::PROCESS_STATUS FlvJoinProcessor::ProcessTag(const Tag* tag,
+    int64 timestamp_ms) {
   if ( tag->type() == Tag::TYPE_FLV_HEADER ) {
     const FlvHeader* header = static_cast<const FlvHeader*>(tag);
     has_audio_ = has_audio_ || header->has_audio();
@@ -200,35 +193,35 @@ JoinProcessor::PROCESS_STATUS FlvJoinProcessor::ProcessTag(const Tag* tag) {
 
   // maybe initialize. A file may start with tags from 1234 for example.
   if ( last_in_timestamp_ms_ == -1 ) {
-    last_in_timestamp_ms_ = flv_tag->timestamp_ms();
+    last_in_timestamp_ms_ = timestamp_ms;
   }
-  int64 delta = flv_tag->timestamp_ms() - last_in_timestamp_ms_;
+  int64 delta = timestamp_ms - last_in_timestamp_ms_;
   if ( delta < 0 || delta > 20000 ) {
-    LOG_WARNING << "Weird timestamp difference - previous tag ts: "
-             << last_in_timestamp_ms_ << " ms, current tag ts: "
-             << flv_tag->timestamp_ms() << " ms";
+    LOG_ERROR << "Weird timestamp difference - previous tag ts: "
+              << last_in_timestamp_ms_ << " ms, current tag ts: "
+              << timestamp_ms << " ms";
     return PROCESS_CONTINUE;
   }
   // update last timestamps
-  last_in_timestamp_ms_ = flv_tag->timestamp_ms();
+  last_in_timestamp_ms_ = timestamp_ms;
   last_out_timestamp_ms_ += delta;
 
   // possibly mark a cue point
-  if (cue_ms_time_ > 0 && !keep_all_metadata_ ) {
+  if (cue_ms_ > 0 ) {
     bool is_keyframe = (flv_tag->is_video_tag() && flv_tag->can_resync());
     if ( !has_video_ || is_keyframe ) {
       // good spot for a cuepoint, just before a keyframe
       if ( last_out_timestamp_ms_ >= next_cue_timestamp_ms_ ) {
-        next_cue_timestamp_ms_ += cue_ms_time_;
+        next_cue_timestamp_ms_ += cue_ms_;
         LOG_DEBUG << "Marking cue point, has_video_: " << has_video_
-                 << ", at ts: " << last_out_timestamp_ms_
-                 << ", just before tag: " << flv_tag->ToString();
+                  << ", at ts: " << last_out_timestamp_ms_
+                  << ", just before tag: " << flv_tag->ToString();
         cues_.push_back(CuePoint(last_out_timestamp_ms_, writer_.Position()));
       }
     }
   }
 
-    // write
+  // write
   if ( !writer_.Write(*flv_tag, last_out_timestamp_ms_) ) {
     return PROCESS_ABANDON;
   }
@@ -239,8 +232,8 @@ JoinProcessor::PROCESS_STATUS FlvJoinProcessor::ProcessTag(const Tag* tag) {
 void FlvJoinProcessor::WriteCuePoint(int crt_cue,
                                      double position,
                                      int64 timestamp_ms) {
-  scoped_ref<FlvTag> point(new FlvTag(0, kDefaultFlavourMask, timestamp_ms,
-      new FlvTag::Metadata()));
+  scoped_ref<FlvTag> point(new FlvTag(Tag::ATTR_METADATA,
+      kDefaultFlavourMask, timestamp_ms, new FlvTag::Metadata()));
   point->set_stream_id(0);
   point->mutable_metadata_body().mutable_name()->set_value(streaming::kOnCuePoint);
   PrepareCuePoint(crt_cue, position, timestamp_ms,
@@ -254,14 +247,11 @@ int64 FlvJoinProcessor::FinalizeFile() {
 
   // Open the temp output.
   MediaFileReader reader;
-  if ( !reader.Open(out_file_tmp_, TagSplitter::TS_FLV) ) {
+  if ( !reader.Open(out_file_tmp_, MFORMAT_FLV) ) {
     LOG_ERROR << "Cannot open file: [" << out_file_tmp_ << "]";
     return -1;
   }
-  if ( reader.splitter()->type() != TagSplitter::TS_FLV ) {
-    LOG_ERROR << "Not a FLV file: [" << out_file_tmp_ << "]";
-    return -1;
-  }
+  CHECK_EQ(reader.splitter()->media_format(), MFORMAT_FLV);
   const int64 file_size = io::GetFileSize(out_file_tmp_);
   if ( file_size < 0 ) {
     LOG_ERROR << "io::GetFileSize failed, file: [" << out_file_tmp_ << "]";
@@ -279,45 +269,44 @@ int64 FlvJoinProcessor::FinalizeFile() {
   }
 
   int64 duration_ms = last_out_timestamp_ms_;
-  if ( !keep_all_metadata_ ) {
-    ///////////////////////////
-    // Write metadata (include cuepoints)
 
-    // cues_ now contain position inside the tmp file, which has no metadata
-    // and no cues. We need to predict the cues positions inside the output
-    // file which will contain both metadata & cue points.
+  ///////////////////////////
+  // Write metadata (include cuepoints)
 
-    // Prepare metadata with the wrong cue positions.
-    PrepareMetadataValues(duration_ms/1000.0, file_size, cues_, &metadata_);
+  // cues_ now contain position inside the tmp file, which has no metadata
+  // and no cues. We need to predict the cues positions inside the output
+  // file which will contain both metadata & cue points.
 
-    // Measure metadata
-    scoped_ref<FlvTag> tmp_metadata(new FlvTag(0, kDefaultFlavourMask, 0,
-              new FlvTag::Metadata(kOnMetaData, metadata_)));
-    uint32 metadata_size = FlvTagSerializer::EncodingSize(tmp_metadata.get());
+  // Prepare metadata with the wrong cue positions.
+  PrepareMetadataValues(duration_ms/1000.0, file_size, cues_, &metadata_);
 
-    // Measure a cue point
-    scoped_ref<FlvTag> tmp_cuepoint(new FlvTag(0, kDefaultFlavourMask, 0,
-              new FlvTag::Metadata()));
-    tmp_cuepoint->mutable_metadata_body().mutable_name()->set_value(kOnCuePoint);
-    PrepareCuePoint(0,0,0,tmp_cuepoint->mutable_metadata_body().mutable_values());
-    uint32 cuepoint_size = FlvTagSerializer::EncodingSize(tmp_cuepoint.get());
+  // Measure metadata
+  scoped_ref<FlvTag> tmp_metadata(new FlvTag(Tag::ATTR_METADATA,
+      kDefaultFlavourMask, 0, new FlvTag::Metadata(kOnMetaData, metadata_)));
+  uint32 metadata_size = FlvTagSerializer::EncodingSize(tmp_metadata.get());
 
-    // Update positions inside cues_
-    for ( uint32 i = 0; i < cues_.size(); i++ ) {
-      cues_[i].position_ += metadata_size + i * cuepoint_size;
-    }
+  // Measure a cue point
+  scoped_ref<FlvTag> tmp_cuepoint(new FlvTag(Tag::ATTR_METADATA,
+      kDefaultFlavourMask, 0, new FlvTag::Metadata()));
+  tmp_cuepoint->mutable_metadata_body().mutable_name()->set_value(kOnCuePoint);
+  PrepareCuePoint(0,0,0,tmp_cuepoint->mutable_metadata_body().mutable_values());
+  uint32 cuepoint_size = FlvTagSerializer::EncodingSize(tmp_cuepoint.get());
 
-    // Prepare metadata again, using the correct positions.
-    PrepareMetadataValues(duration_ms/1000.0, file_size, cues_, &metadata_);
-    scoped_ref<FlvTag> metadata_tag(new FlvTag(0, kDefaultFlavourMask, 0,
-              new FlvTag::Metadata(kOnMetaData, metadata_)));
-
-    // Finally write metadata
-    uint64 start_pos = writer_.Position();
-    writer_.Write(metadata_tag, 0);
-    uint64 encoded_size = writer_.Position() - start_pos;
-    CHECK_EQ(metadata_size, encoded_size);
+  // Update positions inside cues_
+  for ( uint32 i = 0; i < cues_.size(); i++ ) {
+    cues_[i].position_ += metadata_size + i * cuepoint_size;
   }
+
+  // Prepare metadata again, using the correct positions.
+  PrepareMetadataValues(duration_ms/1000.0, file_size, cues_, &metadata_);
+  scoped_ref<FlvTag> metadata_tag(new FlvTag(Tag::ATTR_METADATA,
+      kDefaultFlavourMask, 0, new FlvTag::Metadata(kOnMetaData, metadata_)));
+
+  // Finally write metadata
+  uint64 start_pos = writer_.Position();
+  writer_.Write(metadata_tag, 0);
+  uint64 encoded_size = writer_.Position() - start_pos;
+  CHECK_EQ(metadata_size, encoded_size);
 
   // Read tags from temp output, write to final output.
   LOG_INFO << "Starting post-processing of: " << out_file_tmp_;
@@ -354,25 +343,25 @@ int64 FlvJoinProcessor::FinalizeFile() {
 
     streaming::FlvTag* flv_tag = const_cast<streaming::FlvTag*>(
       static_cast<const streaming::FlvTag*>(media_tag.get()));
-    if ( !keep_all_metadata_ ) {
-      // in the tmp file there should be NO metadata.
-      if (flv_tag->body().type() == FLV_FRAMETYPE_METADATA &&
-          flv_tag->metadata_body().name().value() == kOnMetaData ) {
-        LOG_ERROR << "Unexpected metadata tag in [" << out_file_tmp_
-                  << "], file position: " << reader.Position();
 
-        duration_ms = -1;
-        goto done;
-      }
+    // in the tmp file there should be NO metadata.
+    if (flv_tag->body().type() == FLV_FRAMETYPE_METADATA &&
+        flv_tag->metadata_body().name().value() == kOnMetaData ) {
+      LOG_ERROR << "Unexpected metadata tag in [" << out_file_tmp_
+                << "], file position: " << reader.Position();
+
+      duration_ms = -1;
+      goto done;
     }
 
     // maybe it is time to insert a cue-point ...
     if ( crt_cue < cues_.size() &&
          writer_.Position() >= cues_[crt_cue].position_ ) {
-      LOG_DEBUG << "Inserting cue point, index: " << crt_cue
+      LOG_INFO << "Inserting cue point, index: " << crt_cue
                << ", ts: " << cues_[crt_cue].timestamp_ << " ms"
                   ", position: " << cues_[crt_cue].position_
-               << ", before tag: " << flv_tag->ToString();
+               << ", before tag: " << flv_tag->ToString()
+               << ", at file position: " << writer_.Position();
       CHECK_EQ(cues_[crt_cue].timestamp_, timestamp_ms);
       CHECK_EQ(cues_[crt_cue].position_, writer_.Position());
       if ( has_video_ ) {
@@ -431,5 +420,73 @@ void FlvJoinProcessor::PrepareMetadataValues(double file_duration,
 }
 
 //////////////////////////////////////////////////////////////////////
+
+// The main join function - we basically use the processor to
+// do our job..
+int64 JoinFilesIntoFlv(const vector<string>& in_files,
+                       const string& out_file,
+                       uint32 cue_ms_time) {
+  FlvJoinProcessor processor(cue_ms_time);
+  if ( !processor.Initialize(out_file) ) {
+    return -1;
+  }
+  for ( int i = 0; i < in_files.size(); ++i ) {
+    const string& filename = in_files[i];
+    MediaFileReader reader;
+    if ( !reader.Open(filename, MFORMAT_FLV) ) {
+      LOG_ERROR << "Cannot open file: [" << filename << "] skipping..";
+      continue;
+    }
+    CHECK_EQ(reader.splitter()->media_format(), MFORMAT_FLV);
+    reader.splitter()->set_generic_tags(false);
+    LOG_INFO << "Processing file: [" << filename << "] for joining";
+
+    processor.MarkNewFile();
+
+    io::MemoryStream ms;
+    while ( true ) {
+      int64 timestamp_ms;
+      scoped_ref<Tag> tag;
+      streaming::TagReadStatus err = reader.Read(&tag, &timestamp_ms);
+
+      if ( err == streaming::READ_EOF ) {
+        LOG_INFO << "Joiner: [" << filename << "] EOF";
+        break;
+      }
+      if ( err == streaming::READ_SKIP ) {
+        LOG_DEBUG << "Joiner: [" << filename << "] READ_SKIP";
+        continue;
+      }
+      if ( err != streaming::READ_OK ) {
+        LOG_ERROR << "Joiner: Cannot read next tag, filename: [" << filename
+                  << "], result: " << TagReadStatusName(err)
+                  << " going to next file.";
+        break;
+      }
+
+      JoinProcessor::PROCESS_STATUS status =
+          processor.ProcessTag(tag.get(), timestamp_ms);
+      if ( status == JoinProcessor::PROCESS_SKIP_FILE ) {
+        LOG_ERROR << "Skipping the rest of current file: [" << filename << "]";
+        break;
+      }
+      if ( status == JoinProcessor::PROCESS_ABANDON ) {
+        LOG_ERROR << "Abandoning job on current file: [" << filename << "]";
+        break;
+      }
+      CHECK(status == JoinProcessor::PROCESS_CONTINUE)
+        << " Untreated PROCESS_STATUS case: " << status;
+    }
+  }
+  return processor.FinalizeFile();
+}
+
+int64 JoinFilesIntoFlv(const string& in_file,
+                       const string& out_file,
+                       uint32 cue_ms_time) {
+  vector<string> in_files(1);
+  in_files.push_back(in_file);
+  return JoinFilesIntoFlv(in_files, out_file, cue_ms_time);
+}
 
 }

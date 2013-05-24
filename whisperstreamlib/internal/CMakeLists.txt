@@ -32,8 +32,8 @@ project (whisperstreamlib)
 ADD_EXECUTABLE(internal_tag_printer
   internal_tag_printer.cc)
 ADD_DEPENDENCIES(internal_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)
 TARGET_LINK_LIBRARIES(internal_tag_printer
-  whisper_streamlib
-  ${whisperlib_LIBRARY})
+  whisper_lib
+  whisper_streamlib)

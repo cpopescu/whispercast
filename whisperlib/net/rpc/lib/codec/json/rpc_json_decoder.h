@@ -39,44 +39,61 @@ namespace rpc {
 
 class JsonDecoder : public rpc::Decoder {
  public:
-  explicit JsonDecoder(io::MemoryStream& in)
-      : rpc::Decoder(in),
+  JsonDecoder()
+      : Decoder(kCodecIdJson),
         decoding_map_key_(false),
-        is_first_item_(true) {
-  }
-  virtual ~JsonDecoder() {
-  }
+        is_first_item_(true) { }
+  virtual ~JsonDecoder() { }
 
   //////////////////////////////////////////////////////////////////////
   //
   //                   rpc::Decoder interface methods
   //
-  DECODE_RESULT DecodeStructStart(uint32& num_attribs);
-  DECODE_RESULT DecodeStructContinue(bool& more_attribs);
-  DECODE_RESULT DecodeStructAttribStart();
-  DECODE_RESULT DecodeStructAttribMiddle();
-  DECODE_RESULT DecodeStructAttribEnd();
-  DECODE_RESULT DecodeArrayStart(uint32& num_elements);
-  DECODE_RESULT DecodeArrayContinue(bool& more_elements);
-  DECODE_RESULT DecodeMapStart(uint32& num_pairs);
-  DECODE_RESULT DecodeMapContinue(bool& more_pairs);
-  DECODE_RESULT DecodeMapPairStart();
-  DECODE_RESULT DecodeMapPairMiddle();
-  DECODE_RESULT DecodeMapPairEnd();
+  virtual DECODE_RESULT DecodeStructStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeStructContinue(io::MemoryStream& in, bool* more_attribs);
+  virtual DECODE_RESULT DecodeStructAttribStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeStructAttribMiddle(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeStructAttribEnd(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeArrayStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeArrayContinue(io::MemoryStream& in, bool* more_elements);
+  virtual DECODE_RESULT DecodeMapStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeMapContinue(io::MemoryStream& in, bool* more_pairs);
+  virtual DECODE_RESULT DecodeMapPairStart(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeMapPairMiddle(io::MemoryStream& in);
+  virtual DECODE_RESULT DecodeMapPairEnd(io::MemoryStream& in);
 
- protected:
-  DECODE_RESULT DecodeBody(rpc::Void& out);
-  DECODE_RESULT DecodeBody(bool& out);
-  DECODE_RESULT DecodeBody(int32& out);
-  DECODE_RESULT DecodeBody(uint32& out);
-  DECODE_RESULT DecodeBody(int64& out);
-  DECODE_RESULT DecodeBody(uint64& out);
-  DECODE_RESULT DecodeBody(double& out);
-  DECODE_RESULT DecodeBody(string& out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, rpc::Void* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, bool* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, int32* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, uint32* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, int64* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, uint64* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, double* out);
+  virtual DECODE_RESULT Decode(io::MemoryStream& in, string* out);
 
-  void Reset();
+  // these methods are public in the Decoder. But because of some compiler
+  // issue they need to be re-declared here.
+  template <typename T>
+  DECODE_RESULT Decode(io::MemoryStream& in, vector<T>* out) {
+    return Decoder::Decode(in, out);
+  }
+  template <typename K, typename V>
+  DECODE_RESULT Decode(io::MemoryStream& in, map<K, V>* out) {
+    return Decoder::Decode(in, out);
+  }
+  DECODE_RESULT Decode(io::MemoryStream& in, rpc::Custom* out) {
+    return Decoder::Decode(in, out);
+  }
+  DECODE_RESULT Decode(io::MemoryStream& in, rpc::Message* out) {
+    return Decoder::Decode(in, out);
+  }
 
-  // Read raw data of the next value. You don't have to know the type.
+  void Reset1() {
+    is_first_item_ = true;
+    decoding_map_key_ = false;
+  }
+
+  // Reads raw data of the next value. You don't have to know the type.
   // e.g. if <in> contains: "{a:2}{b:3" it reads & appends "{a:2}" to out,
   //      returns DECODE_RESULT_SUCCESS
   // e.g. if <in> contains: "\"abcdef\" , \"" it reads & appends "\"abcdef\""
@@ -89,35 +106,37 @@ class JsonDecoder : public rpc::Decoder {
   //      (out may contain junk)
   // e.g. if <in> contains: ", 14" it returns DECODE_RESULT_ERROR,
   //      input is not a value (out may contain junk)
-  // If out != null, it appends the value data to out.
-  // Otherwise, it just skips the value.
-  // Usefull for an unknown value type; to skip the value.
-  DECODE_RESULT DecodeRaw(io::MemoryStream* out);
-
- public:
-  DECODE_RESULT DecodePacket(rpc::Message& out);
+  virtual DECODE_RESULT ReadRawObject(io::MemoryStream& in, io::MemoryStream* out);
 
   template<class C>
   static bool DecodeObject(const string& s, C* obj) {
-    io::MemoryStream iomis;
-    iomis.Write(s.c_str(), s.size());
-    rpc::JsonDecoder decoder(iomis);
-    const rpc::DECODE_RESULT result = decoder.Decode(*obj);
-    return result == rpc::DECODE_RESULT_SUCCESS;
+    io::MemoryStream tmp;
+    tmp.Write(s.c_str(), s.size());
+    rpc::JsonDecoder decoder;
+    const rpc::DECODE_RESULT result = decoder.Decode(tmp, obj);
+    if ( result != DECODE_RESULT_SUCCESS ) {
+      LOG_ERROR << "DecodeObject failed for string: [" << s << "]"
+                   ", err: " << DecodeResultName(result);
+      return false;
+    }
+    return true;
   }
  private:
-  DECODE_RESULT DecodeElementContinue(bool& more_attribs,
+  DECODE_RESULT DecodeElementContinue(io::MemoryStream& in,
+                                      bool* more_attribs,
                                       const char* separator);
 
   // read next stuff and expect it to be a separator
-  DECODE_RESULT ReadExpectedSeparator(char expected);
+  DECODE_RESULT ReadExpectedSeparator(io::MemoryStream& in,
+                                      char expected);
 
   template <typename T>
-  DECODE_RESULT ReadNumber(T& out,
+  DECODE_RESULT ReadNumber(io::MemoryStream& in,
+                           T* out,
                            bool is_floating_point = false,
                            bool has_quotes = false) {
     string s;
-    const io::TokenReadError res = in_.ReadNextAsciiToken(&s);
+    const io::TokenReadError res = in.ReadNextAsciiToken(&s);
     switch ( res ) {
       case io::TOKEN_NO_DATA:
         return DECODE_RESULT_NOT_ENOUGH_DATA;
@@ -145,7 +164,7 @@ class JsonDecoder : public rpc::Decoder {
     if ( !is_floating_point ) {
       long long int l = strtoll(s.c_str(), &endp, 0);
       if ( !errno && s.c_str() != endp && *endp == '\0' ) {
-        out = l;
+        *out = l;
         return DECODE_RESULT_SUCCESS;
       } else {
         DLOG_ERROR << "Json: Got wrong data for int: " << s;
@@ -153,7 +172,7 @@ class JsonDecoder : public rpc::Decoder {
     } else {
       double d = strtod(s.c_str(), &endp);
       if ( !errno && s.c_str() != endp && *endp == '\0') {
-        out = d;
+        *out = d;
         return DECODE_RESULT_SUCCESS;
       }
       DLOG_ERROR << "Json: Got wrong data for double: " << s;

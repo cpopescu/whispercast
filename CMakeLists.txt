@@ -124,16 +124,11 @@ ADD_SUBDIRECTORY (whisperstreamlib)
 SET(whisperstreamlib_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/whisperstreamlib/libwhisper_streamlib.${LIB_EXT})
 SET(whisperstreamlib_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/whisperstreamlib)
 
-if (NOT APPLE)
-  if (WITH_GSTREAMER)
-    ADD_SUBDIRECTORY (whispermedialib)
-  endif (WITH_GSTREAMER)
-endif (NOT APPLE)
-SET(whispermedialib_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/whispermedialib/libwhisper_medialib.${LIB_EXT})
-SET(whispermedialib_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/whispermedialib)
+IF (IS_DIRECTORY "private")
+  ADD_SUBDIRECTORY (private)
+ENDIF (IS_DIRECTORY "private")
 
 ADD_SUBDIRECTORY (whispercast)
-ADD_SUBDIRECTORY (private)
 
 ######################################################################3
 ## CPack stuff

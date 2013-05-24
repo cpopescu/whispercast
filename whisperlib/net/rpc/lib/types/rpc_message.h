@@ -35,7 +35,8 @@
 #include <string>
 #include <whisperlib/common/base/types.h>
 #include <whisperlib/common/io/buffer/io_memory_stream.h>
-#include <whisperlib/net/rpc/lib/types/rpc_all_types.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_decoder.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_encoder.h>
 
 namespace rpc {
 
@@ -43,7 +44,7 @@ enum MESSAGE_TYPE {
   RPC_CALL = 0,
   RPC_REPLY = 1,
 };
-const char* MessageTypeName(int32 type);
+const char* MessageTypeName(MESSAGE_TYPE type);
 
 enum REPLY_STATUS {
   ///////////////////////////////////////////////////////////////////
@@ -75,41 +76,124 @@ enum REPLY_STATUS {
   RPC_CONN_ERROR       = 104,  // The transport layer was unable to send
                                //  the query.
 };
-const char* ReplyStatusName(int32 status);
+const char* ReplyStatusName(REPLY_STATUS status);
+bool IsValidReplyStatus(uint32 reply_status);
 
-// TODO(cosmin): this (packet) mark has 4 bytes: "rpc\0", while the handshake
-//               uses a 3 bytes mark: "rpc". Maybe unify convention?
-const char kMessageMark[4] = {'r', 'p', 'c', 0 };
+class Message {
+ public:
+  class Header {
+   public:
+    Header();
+    Header(int32 xid, MESSAGE_TYPE msgType);
 
-struct Message {
-  struct Header {
+    int32 xid() const { return xid_; }
+    MESSAGE_TYPE msgType() const { return msgType_; }
+
+    void set_xid(int32 xid) { xid_ = xid; }
+    void set_msgType(MESSAGE_TYPE msgType) { msgType_ = msgType; }
+
+    DECODE_RESULT SerializeLoad(Decoder& dec, io::MemoryStream& in);
+    void SerializeSave(Encoder& enc, io::MemoryStream* out) const;
+#ifdef _DEBUG
+    bool operator==(const Header& other) const {
+      return xid_ == other.xid_ && msgType_ == other.msgType_;
+    }
+#endif
+    string ToString() const;
+   private:
     // not needed here. The version is estabilished in initial handshake.
     // int32 versionHi_;
     // int32 versionLo_;
 
-    int32 xid_;              // call ID. The response will have the same ID.
-    int32 msgType_;          // CALL or REPLY
-    bool operator==(const Header& h) const;
-    string ToString() const;
+    // call ID. The response will have the same ID.
+    int32 xid_;
+    // CALL or REPLY
+    MESSAGE_TYPE msgType_;
   };
-  struct CallBody {
+
+  class CallBody {
+   public:
+    CallBody();
+    CallBody(const string& service, const string& method,
+             const io::MemoryStream* params = NULL);
+
+    const string& service() const { return service_; }
+    const string& method() const { return method_; }
+    const io::MemoryStream& params() const { return params_; }
+
+    void set_service(const string& service) { service_ = service; }
+    void set_method(const string& method) { method_ = method; }
+    io::MemoryStream* mutable_params() { return &params_; }
+
+    DECODE_RESULT SerializeLoad(Decoder& dec, io::MemoryStream& in);
+    void SerializeSave(Encoder& enc, io::MemoryStream* out) const;
+#ifdef _DEBUG
+    bool operator==(const CallBody& other) const {
+      return service_ == other.service_ &&
+             method_ == other.method_ &&
+             params_.Equals(other.params_);
+    }
+#endif
+    string ToString() const;
+   private:
     string service_;
     string method_;
     io::MemoryStream params_;
-    CallBody();
-    ~CallBody();
-    bool operator==(const CallBody& c) const;
-    string ToString() const;
   };
-  struct ReplyBody {
-    int32 replyStatus_;         // call status
-    io::MemoryStream result_;    // return value
+  class ReplyBody {
+   public:
     ReplyBody();
-    ~ReplyBody();
-    bool operator==(const ReplyBody& r) const;
+    ReplyBody(REPLY_STATUS replyStatus, const io::MemoryStream* result);
+
+    REPLY_STATUS replyStatus() const { return replyStatus_; }
+    const io::MemoryStream& result() const { return result_; }
+
+    void set_replyStatus(REPLY_STATUS replyStatus) {replyStatus_ = replyStatus;}
+    io::MemoryStream* mutable_result() { return &result_; }
+
+    DECODE_RESULT SerializeLoad(Decoder& dec, io::MemoryStream& in);
+    void SerializeSave(Encoder& enc, io::MemoryStream* out) const;
+#ifdef _DEBUG
+    bool operator==(const ReplyBody& other) const {
+      return replyStatus_ == other.replyStatus_ &&
+             result_.Equals(other.result_);
+    }
+#endif
     string ToString() const;
+   private:
+    REPLY_STATUS replyStatus_;   // call status
+    io::MemoryStream result_;    // return value
   };
 
+  Message() {}
+  Message(int32 xid, MESSAGE_TYPE msgType,
+          const string& service, const string& method,
+          const io::MemoryStream* params = NULL);
+  Message(int32 xid, MESSAGE_TYPE msgType,
+          REPLY_STATUS replyStatus,
+          const io::MemoryStream* result = NULL);
+
+  const Header& header() const { return header_; }
+  const CallBody& cbody() const { return cbody_; }
+  const ReplyBody& rbody() const { return rbody_; }
+
+  Header* mutable_header() { return &header_; }
+  CallBody* mutable_cbody() { return &cbody_; }
+  ReplyBody* mutable_rbody() { return &rbody_; }
+
+  DECODE_RESULT SerializeLoad(Decoder& dec, io::MemoryStream& in);
+  void SerializeSave(Encoder& enc, io::MemoryStream* out) const;
+#ifdef _DEBUG
+  bool operator==(const Message& other) const {
+    return  header_ == other.header_ &&
+            ((header().msgType() == RPC_CALL && cbody_ == other.cbody()) ||
+             (header().msgType() == RPC_REPLY && rbody_ == other.rbody()));
+  }
+#endif
+
+  string ToString() const;
+
+ private:
   Header header_;
 
   // These 2 below should be a union; only one of them must be used at a time.
@@ -117,17 +201,8 @@ struct Message {
   //  they cannot be part of an union.
   CallBody cbody_;
   ReplyBody rbody_;
-
-  static const char* name() { return "rpc_message"; }
-
-  bool operator==(const Message& msg) const;
-
-  string ToString() const;
 };
 
-inline string ToString(const rpc::Message& val) {
-  return val.ToString();
-}
 inline ostream& operator<<(ostream& os, const rpc::Message& m) {
   return os << m.ToString();
 }

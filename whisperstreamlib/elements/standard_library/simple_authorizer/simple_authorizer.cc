@@ -37,17 +37,14 @@ namespace streaming {
 
 const char SimpleAuthorizer::kAuthorizerClassName[] = "simple_authorizer";
 
-SimpleAuthorizer::SimpleAuthorizer(const char* name,
-                                   int32 reauthorize_interval_ms,
+SimpleAuthorizer::SimpleAuthorizer(const string& name,
                                    int32 time_limit_ms,
                                    io::StateKeepUser* state_keeper,
-                                   const char* rpc_path,
+                                   const string& rpc_path,
                                    rpc::HttpServer* rpc_server)
-    : Authorizer(SimpleAuthorizer::kAuthorizerClassName,
-                 name),
+    : Authorizer(name),
       ServiceInvokerSimpleAuthorizerService(
           ServiceInvokerSimpleAuthorizerService::GetClassName()),
-      reauthorize_interval_ms_(reauthorize_interval_ms),
       time_limit_ms_(time_limit_ms),
       authenticator_(name),
       state_keeper_(state_keeper),
@@ -70,33 +67,32 @@ bool SimpleAuthorizer::Initialize() {
   return state_loaded && (is_registered_ || rpc_server_ == NULL);
 }
 
-void SimpleAuthorizer::Authorize(
-    const AuthorizerRequest& req,
-    AuthorizerReply* reply,
-    Closure* completion) {
+void SimpleAuthorizer::Authorize(const AuthorizerRequest& req,
+                                 CompletionCallback* completion) {
   const string crypted_pass(crypt(req.passwd_.c_str(), "xX"));
-  if ( net::UserAuthenticator::Authenticated ==
-       authenticator_.Authenticate(req.user_, crypted_pass) ) {
-    *reply = AuthorizerReply(true, reauthorize_interval_ms_, time_limit_ms_);
-    completion->Run();
+  net::UserAuthenticator::Answer answer =
+      authenticator_.Authenticate(req.user_, crypted_pass);
+  if ( answer == net::UserAuthenticator::Authenticated ) {
+    completion->Run(AuthorizerReply(true, time_limit_ms_));
   } else {
-    *reply = AuthorizerReply(false);
-    completion->Run();
+    completion->Run(AuthorizerReply(false, 0));
   }
+}
+void SimpleAuthorizer::Cancel(CompletionCallback* completion) {
+  // nothing to do, this SimpleAuthorizer uses synchronous authorization
 }
 
 bool SimpleAuthorizer::LoadState() {
   if ( state_keeper_ == NULL ) {
-    LOG_WARNING << " No state keeper to Load State !!";
+    LOG_ERROR << " No state keeper to Load State !!";
     return true;
   }
-  map<string, string>::const_iterator begin, end;
-  state_keeper_->GetBounds("user:", &begin, &end);
-  for ( map<string, string>::const_iterator it = begin;
-        it != end; ++it ) {
+  map<string, string> keys;
+  state_keeper_->GetKeyValues("user:", &keys);
+  for ( map<string, string>::const_iterator it = keys.begin();
+        it != keys.end(); ++it ) {
     authenticator_.set_user_password(
-        it->first.substr(state_keeper_->prefix().length() +
-                         sizeof("user:") - 1),
+        it->first.substr(sizeof("user:") - 1),
         it->second);
   }
   return true;
@@ -107,44 +103,39 @@ bool SimpleAuthorizer::LoadState() {
 // RPC Interface
 //
 void SimpleAuthorizer::SetUserPassword(
-    rpc::CallContext< MediaOperationErrorData >* call,
+    rpc::CallContext< MediaOpResult >* call,
     const string& user, const string& passwd) {
-  MediaOperationErrorData ret;
   if ( state_keeper_ == NULL ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() =
-        "Cannot set anything in the state of this authenticator";
-  } else {
-    const string crypted_pass(crypt(passwd.c_str(), "xX"));
-    if ( !state_keeper_->SetValue(
-             strutil::StringPrintf("user:%s", user.c_str()),
-             crypted_pass) ) {
-      ret.error_.ref() = 1;
-      ret.description_.ref() = "Error saving the state";
-    } else {
-      authenticator_.set_user_password(user, crypted_pass);
-      ret.error_.ref() = 0;
-    }
+    call->Complete(MediaOpResult(false,
+        "Cannot set anything in the state of this authenticator"));
+    return;
   }
-  call->Complete(ret);
+  const string crypted_pass(crypt(passwd.c_str(), "xX"));
+  if ( !state_keeper_->SetValue(
+           strutil::StringPrintf("user:%s", user.c_str()),
+           crypted_pass) ) {
+    call->Complete(MediaOpResult(false, "Error saving the state"));
+    return;
+  }
+  authenticator_.set_user_password(user, crypted_pass);
+  call->Complete(MediaOpResult(true, ""));
 }
 void SimpleAuthorizer::DeleteUser(
-    rpc::CallContext< MediaOperationErrorData >* call,
+    rpc::CallContext< MediaOpResult >* call,
     const string& user) {
-  MediaOperationErrorData ret;
   if ( state_keeper_ == NULL ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() =
-        "Cannot set anything in the state of this authenticator";
-  } else if ( !state_keeper_->DeleteValue(
-                  strutil::StringPrintf("user:%s", user.c_str())) ) {
-    ret.error_.ref() = 1;
-    ret.description_.ref() = "Error saving the state or non existent user";
-  } else {
-    authenticator_.remove_user(user);
-    ret.error_.ref() = 0;
+    call->Complete(MediaOpResult(false,
+        "Cannot set anything in the state of this authenticator"));
+    return;
   }
-  call->Complete(ret);
+  if ( !state_keeper_->DeleteValue(
+          strutil::StringPrintf("user:%s", user.c_str())) ) {
+    call->Complete(MediaOpResult(false,
+        "Error saving the state or non existent user"));
+    return;
+  }
+  authenticator_.remove_user(user);
+  call->Complete(MediaOpResult(true, ""));
 }
 void SimpleAuthorizer::GetUsers(
     rpc::CallContext< map<string, string> >* call) {

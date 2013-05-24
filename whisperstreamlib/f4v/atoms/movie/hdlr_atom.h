@@ -57,6 +57,7 @@ class HdlrAtom : public VersionedAtom {
 
   ///////////////////////////////////////////////////////////////////////////
   // Methods from VersionedAtom
+  virtual bool EqualsVersionedBody(const VersionedAtom& other) const;
   virtual void GetSubatoms(vector<const BaseAtom*>& subatoms) const;
   virtual BaseAtom* Clone() const;
   virtual TagDecodeStatus DecodeVersionedBody(uint64 size, io::MemoryStream& in,

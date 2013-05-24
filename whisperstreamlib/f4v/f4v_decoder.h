@@ -61,11 +61,12 @@ class Decoder {
   Decoder();
   virtual ~Decoder();
 
-  void set_order_frames_by_timestamp(bool order_frames_by_timestamp);
   void set_split_raw_frames(bool split_raw_frames);
 
   // samplerate according to current MOOV
   uint64 timescale(bool audio) const;
+  // the frames from MDAT
+  const vector<FrameHeader*> frames() const;
 
   // Read next f4v tag from stream 'in' and store it in 'out'.
   // Returns read success.
@@ -154,40 +155,6 @@ class Decoder {
   // the previous frame returned by IOReadFrame(..)
   // Used for timestamp and internal offset checks.
   const FrameHeader* mdat_prev_frame_;
-
-  // the same list of frames
-  // ! ordered by timestamp (if mdat_order_frames_by_timestamp_ == true)
-  // ! ordered by offset (if mdat_order_frames_by_timestamp_ == false)
-  vector<FrameHeader*> mdat_order_frames_;
-  // the index in mdat_frames_ for the next frame to be read by ReadFrame
-  uint32 mdat_order_next_;
-
-  // Inside the f4v file, frames are ordered by offset. But we need to obtain
-  // them by timestamp order. So we stack here the frames we read but
-  // didn't return.
-  // When reading next frame, we check this cache first, then do io read
-  // until we reach it (intermediate frames are stacked here).
-  //
-  // map of [offset -> frame]
-  typedef map<uint64, Frame*> FrameMap;
-  FrameMap mdat_frame_cache_;
-
-  // map of [frame -> seek frame]
-  // If you want to seek to (ordered) frame index 'a' you need to set
-  // mdat_next_ = mdat_seek_order_to_offset_index_['a'];
-  // TODO(cosmin): the mdat_seek_order_to_offset_index_ vector and
-  //               the mdat_order_frames_ use same index order.
-  //               For a given ordered frame index: i,
-  //                mdat_order_frames_[i] // is the frame header
-  //                mdat_seek_order_to_offset_index_[i] // index in mdat_frames_
-  //               Combine these 2 vectors into a single vector of structures.
-  vector<uint32> mdat_seek_order_to_offset_index_;
-
-  // true => ReadFrame will fetch frames in timestamp order
-  // false => ReadFrame will fetch frames in offset order (physical file order)
-  // default: true (good for rtmp)
-  // for direct decoding: false
-  bool mdat_order_frames_by_timestamp_;
 
   // true => we read fixed size raw frames, without the need of the MOOV atom.
   //         Useful when the MDAT comes before the MOOV atom.

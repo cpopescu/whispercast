@@ -58,65 +58,93 @@ namespace streaming {
 
 class Saver {
  public:
+  // Saved filenames have this prefix.
+  static const string kFilePrefix;
+  // Saved filenames have this suffix.
+  static const string kFileSuffix;
+  // Saved filenames are identified by this Regular Expression.
+  static const string kFileRE;
+  // Temporary filenames end with this suffix.
+  static const string kTempFileSuffix;
+  // Temporary filenames are identified by this Regular Expression.
+  static const string kTempFileRE;
+  // the name of the file storing informations about the saved media
+  static const string kMediaInfoFile;
+
+  // Composes the base filename for saving. e.g.: "part_001335962291100C.part"
+  // That number is ts = milliseconds from Epoch.
+  // 'C' = continue chunk, 'N' = new chunk.
+  static string MakeFilename(int64 ts, bool is_new_chunk);
+  // Composes the base filename for saving, using the current system time.
+  static string MakeFilenameNow(bool is_new_chunk);
+  // Extracts the filename from the temporary filename.
+  // Useful when renaming the temporary file to the final file.
+  static string MakeFilename(const string& temp_filename);
+  // Composes a temporary filename.
+  static string MakeTempFilename(int64 ts, bool is_new_chunk);
+  // Composes a temporary filename using the current system time.
+  static string MakeTempFilenameNow(bool is_new_chunk);
+  // The reverse of MakeFilename(). Decomposes a saved filename into:
+  // timestamp + is_new_chunk.
+  // out_is_new_chunk: may be NULL, if you're not interested about it
+  static bool ParseFilename(const string& filename, int64* out_ts,
+      bool* out_is_new_chunk);
+
+ public:
   typedef Callback1<Saver*> StopCallback;
   Saver(const string& name,
         ElementMapper* mapper,          // mapps media for us - can be null
-        Tag::Type media_type,           // what to expect (if any..)
+        MediaFormat media_format,       // saved media format
         const string& media_name,       // what to save exactly
         const string& media_dir,        // we save exactly in this dir
-        int64 start_time,               // holder for 'start time' of saver
-        bool started_on_command,        // was started on user command
         StopCallback* stop_callback);   // we call this when element closes
   virtual ~Saver();
 
-  bool StartSaving();
+  // duration_sec: the saver automatically stops after these many seconds.
+  //               Use 0 if you wish to stop it manually.
+  bool StartSaving(uint32 duration_sec);
+  // Stop now, regardless of 'duration_sec' specified on StartSaving().
   void StopSaving();
   bool IsSaving() const { return current_file_.is_open(); }
 
   const string& name() const          { return name_; }
   const string& media_dir() const     { return media_dir_; }
 
-  bool started_on_command() const     { return started_on_command_; }
-  int64 start_time() const            { return start_time_; }
   const Request* request() const      { return req_; }
-  Request* mutable_request1() const    { return req_; }
 
   // Processes a tag - writes it to the internal buffer and may be
   // flushes the buffer if necessary
   void ProcessTag(const Tag* tag, int64 timestamp_ms);
 
-  bool CreateSignalingFile(const string& name, const string& content);
  private:
   // Writes the buffer to the disk
   void Flush();
-  // Looks in the media_dir and determines the name of the next file to save
-  // (finds out the sequence number).
-  string GetNextFileForSaving(bool new_chunk) const;
   // Creates the next file to save to..
   bool OpenNextFile(bool new_chunk);
   void CloseFile();
 
+  // rename all temp files, that were probably left behind by a previous crash
+  void RecoverTempFiles();
+
  public:
   void SaveBootstrap() {
-    vector<Bootstrapper::BootstrapTag> bootstrap;
+    vector<scoped_ref<const Tag> > bootstrap;
     bootstrapper_.GetBootstrapTags(&bootstrap);
     for ( int i = 0; i < bootstrap.size(); ++i ) {
-      serializer_->Serialize(
-        bootstrap[i].tag_.get(), bootstrap[i].timestamp_ms_, &buffer_);
+      serializer_->Serialize(bootstrap[i].get(), 0, &buffer_);
     }
   }
 
 
  private:
   const string name_;
-  ElementMapper* const mapper_;
-  const Tag::Type media_type_;
+  ElementMapper* const mapper_; // may be NULL
+  const MediaFormat media_format_;
   const string media_name_;
   const string media_dir_;
-  const int64  start_time_;
-  const bool started_on_command_;   // vs. started on schedule
   streaming::Request* req_;
-  StopCallback* stop_callback_;
+  ::util::Alarm* stop_alarm_; // stops the saver
+  StopCallback* stop_callback_; // external callback, called the saver stops.
 
   // current file being written
   io::File current_file_;
@@ -125,65 +153,16 @@ class Saver {
   // write buffer_ to file, when buffer_.Size() becomes GT this value
   static const int kDumpBufferSize = 1 << 17;  // 128K
 
+  // registered w/ element
   streaming::ProcessingCallback* processing_callback_;
-                                          // registered w/ element
 
-  Bootstrapper bootstrapper_;             // Stream boot. We save for every file.
+  // Stream boot. We save for every file.
+  Bootstrapper bootstrapper_;
 
   TagSerializer* serializer_;
-  char* tmp_buf[2 * kDumpBufferSize];
-
-  // A SOURCE_STARTED was encountered
-  bool source_started_;
 
   DISALLOW_EVIL_CONSTRUCTORS(Saver);
 };
-
-//
-// Here is the problem that this function resolves.
-// You have a saver, that save its files, and has whisperproc gets them and
-// puts them in a standard <prefix>_<start_date>_<end_date>.<ext> format.
-//
-// This function identifies the first file to play from those files
-// to play for the givven time.
-//
-// play_time - identifies the first file to play that starts from this
-//             particular time
-//
-// home_dir - we look for files in this dir
-// file_prefix - files have this prefix
-// root_media_path - for the file that we find we prepend this to get the media
-//                   path
-//
-// crt_media -- what was play before - to give us hints (from end_date above)
-// begin_file_timestamp -- we start from this timestamp in the file (i.e. seek
-//       in file)
-// playref_time -- the real time of the first tag in the file we play
-//
-// Returns the delay in which to start playing crt_media if you want to
-//        synchronize with given play_time (from now - ie to map the
-//        play_time with the first frame)
-//        if crt_media is empty - nothing to play ..
-//
-int64 GetNextStreamMediaFile(const timer::Date& play_time,
-                             const string& home_dir,
-                             const string& file_prefix,
-                             const string& root_media_path,
-			                 vector<string>* files,
-                             int* last_selected,
-                             string* crt_media,
-                             int64* begin_file_timestamp,
-                             int64* playref_time,
-                             int64* duration);
-
-static const char kWhisperProcFileTermination[] =
-    "_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-"
-    "[0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]"
-    "_"
-    "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-"
-    "[0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]"
-    ".*";
-
 }
 
 #endif  // __MEDIA_BASE_MEDIA_SAVER_H__

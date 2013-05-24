@@ -52,7 +52,7 @@ public:
   virtual ~StreamRequest();
 
  public:
-  void Play(string content_type, bool dec_ref = false);
+  void Play(bool dec_ref = false);
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -91,7 +91,7 @@ public:
 
   virtual void OnStreamNotFound();
   virtual void OnTooManyClients();
-  virtual void OnAuthorizationFailed(bool is_reauthorization);
+  virtual void OnAuthorizationFailed();
   virtual void OnAddRequestFailed();
   virtual void OnPlay();
 

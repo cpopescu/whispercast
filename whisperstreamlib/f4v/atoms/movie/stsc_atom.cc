@@ -23,6 +23,11 @@ StscRecord::StscRecord(const StscRecord& other)
 }
 StscRecord::~StscRecord() {
 }
+bool StscRecord::Equals(const StscRecord& other) const {
+  return first_chunk_ == other.first_chunk_ &&
+         samples_per_chunk_ == other.samples_per_chunk_ &&
+         sample_description_index_ == other.sample_description_index_;
+}
 StscRecord* StscRecord::Clone() const {
   return new StscRecord(*this);
 }

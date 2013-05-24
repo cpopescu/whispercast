@@ -326,13 +326,13 @@ int main(int argc, char* argv[]) {
   net::NetFactory net_factory(&selector);
   net::PROTOCOL net_protocol = net::PROTOCOL_TCP;
   http::Server server("Test Server", &selector, net_factory, params);
-  server.RegisterProcessor("/request",
+  server.RegisterProcessor("request",
                            NewPermanentCallback(&ProcessRequest),
                            true, true);
-  server.RegisterProcessor("/restricted_request",
+  server.RegisterProcessor("restricted_request",
                            NewPermanentCallback(&ProcessRequest),
                            false, true);
-  server.RegisterProcessor("/closeonme",
+  server.RegisterProcessor("closeonme",
                            NewPermanentCallback(&ProcessCloseOnMe,
                                                 &selector),
                            true, true);

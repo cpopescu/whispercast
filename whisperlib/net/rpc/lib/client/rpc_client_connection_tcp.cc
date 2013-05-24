@@ -29,14 +29,16 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/base/log.h"
-#include "common/base/errno.h"
-#include "common/base/timer.h"
-#include "common/base/scoped_ptr.h"
-#include "common/io/buffer/memory_stream.h"
-#include "net/rpc/lib/client/rpc_client_connection_tcp.h"
-#include "net/rpc/lib/codec/rpc_encoder.h"
-#include "net/rpc/lib/codec/rpc_decoder.h"
+#include <whisperlib/common/base/log.h>
+#include <whisperlib/common/base/errno.h>
+#include <whisperlib/common/base/timer.h>
+#include <whisperlib/common/base/scoped_ptr.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
+#include <whisperlib/net/rpc/lib/rpc_constants.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_encoder.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_decoder.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
+#include <whisperlib/net/rpc/lib/client/rpc_client_connection_tcp.h>
 
 // TODO(cpopescu): very important - all timeouts should be configurable
 
@@ -51,10 +53,10 @@ rpc::ClientConnectionTCP::ClientConnectionTCP(
     net::NetFactory& net_factory,
     net::PROTOCOL net_protocol,
     const net::HostPort& remote_addr,
-    rpc::CODEC_ID codec_id,
+    rpc::CodecId codec,
     int64 open_timeout_ms,
     uint32 max_paralel_queries)
-    : IClientConnection(selector, rpc::CONNECTION_TCP, codec_id),
+    : IClientConnection(selector, rpc::CONNECTION_TCP, codec),
       selector_(selector),
       net_factory_(net_factory),
       net_connection_(net_factory.CreateConnection(net_protocol)),
@@ -166,6 +168,7 @@ void ClientConnectionTCP::Shutdown(synch::Event* signal_me_when_done) {
   // if an asynchronous Open was in progress, clean it up.
   if ( is_opening_ ) {
     EndOpen("Disconnected");
+    return;
   }
   CHECK_NULL(open_callback_);
 
@@ -342,7 +345,7 @@ void ClientConnectionTCP::DoHandshake() {
       memcpy(clientHand, "rpc", 3);        // "rpc" head
       clientHand[3] = RPC_VERSION_MAJOR;   // version HI
       clientHand[4] = RPC_VERSION_MINOR;   // version LO
-      clientHand[5] = GetCodec().GetCodecID();
+      clientHand[5] = codec();
       memcpy(clientHand + 6,
              kHandshakeClientRandomData,
              HANDSHAKE_RANDOM_SIZE);  // 32 bytes client random data
@@ -390,9 +393,9 @@ void ClientConnectionTCP::DoHandshake() {
         EndHandshake(FAILURE, "Bad handshake version");
         return;
       }
-      if ( replyCodecID != GetCodec().GetCodecID() ) {
+      if ( replyCodecID != codec() ) {
         LOG_ERROR << "Hanshake: bad codec. Server has codec_id=" << replyCodecID
-                  << " while client has codec_id=" << GetCodec().GetCodecID();
+                  << " while client has codec_id=" << codec();
         EndHandshake(FAILURE, "Bad codec id");
         return;
       }
@@ -410,7 +413,7 @@ void ClientConnectionTCP::DoHandshake() {
       memcpy(clientHand, "rpc", 3);        // "rpc" head
       clientHand[3] = RPC_VERSION_MAJOR;   // version HI
       clientHand[4] = RPC_VERSION_MINOR;   // version LO
-      clientHand[5] = GetCodec().GetCodecID();  // codec identifier
+      clientHand[5] = codec();             // codec identifier
       memcpy(clientHand + 6, replyServerRandom,
              HANDSHAKE_RANDOM_SIZE);       // 32 bytes server random data
 
@@ -448,15 +451,11 @@ void ClientConnectionTCP::SendPacket(const rpc::Message* p) {
   ClientQuery* q = new ClientQuery(p);
 
   // encode the RPC message
-  GetCodec().EncodePacket(q->buf_, *p);
-
-  // Always keep a read marker on the stream begin,
-  // to be able to rewind on write error.
-  q->buf_.MarkerSet();
+  EncodeBy(codec(), *p, &q->buf_);
 
   // enqueue the packet for send
   pair<ClientQueryMap::iterator, bool>
-      result = queries_.insert(make_pair(p->header_.xid_, q));
+      result = queries_.insert(make_pair(p->header().xid(), q));
   CHECK(result.second) << "Duplicate XID";
 
   if ( !IsOpen() ) {
@@ -496,13 +495,13 @@ bool ClientConnectionTCP::ConnectionReadHandler() {
   }
   CHECK_EQ(handshake_state_, CONNECTED);
 
-  // read & decode & handle as many rpc::Message-s as possible
+  // read & decode & handle as many rpc::Messages as possible
   while ( true ) {
     // create a new rpc::Message to fill up
     scoped_ptr<rpc::Message> msg(new rpc::Message());
 
     in->MarkerSet();
-    DECODE_RESULT result = GetCodec().DecodePacket(*in, *msg);
+    DECODE_RESULT result = DecodeBy(codec(), *in, msg.get());
     if ( result == DECODE_RESULT_ERROR ) {
       // no need to restore data. But do it for logging the "in" buffer.
       in->MarkerRestore();
@@ -525,20 +524,12 @@ bool ClientConnectionTCP::ConnectionReadHandler() {
 }
 
 bool ClientConnectionTCP::ConnectionWriteHandler() {
-  if ( !net_connection_->outbuf()->IsEmpty() ) {
-    //
-    // wait for outbuf_ to be consumed
-    //
-    return true;
-  }
-
   if ( handshake_state_ != CONNECTED ) {
-    // handhshake incomplete and outbuf_ empty
+    // handhshake incomplete
     return true;
   }
 
   CHECK_EQ(handshake_state_, CONNECTED);
-  CHECK(net_connection_->outbuf()->IsEmpty());
 
   //
   // consume queries_
@@ -549,7 +540,7 @@ bool ClientConnectionTCP::ConnectionWriteHandler() {
       ClientQueryMap::iterator it = queries_.begin();
       active_query_ = it->second;
       queries_.erase(it);
-      LOG_INFO << "Sending query xid=" << active_query_->msg_->header_.xid_;
+      LOG_INFO << "Sending query xid=" << active_query_->msg_->header().xid();
     }
 
     // no active query? nothing to send
@@ -561,7 +552,6 @@ bool ClientConnectionTCP::ConnectionWriteHandler() {
     net_connection_->Write(&active_query_->buf_);
 
     // query sent, delete it
-    active_query_->buf_.MarkerClear();
     delete active_query_;
     active_query_ = NULL;
   }
@@ -591,15 +581,12 @@ void ClientConnectionTCP::ConnectionCloseHandler(
 }
 
 void ClientConnectionTCP::TimeoutHandler(int64 timeout_id) {
-  switch ( timeout_id ) {
-    case kOpenEvent:
-      LOG_ERROR << "Timeout connecting to " << net_connection_->remote_address();
-      EndOpen("Open Timeout");
-      break;
-    default:
-      LOG_FATAL << "Unknown timeout_id: " << timeout_id;
-      break;
+  if ( timeout_id == kOpenEvent ) {
+    LOG_ERROR << "Timeout connecting to " << net_connection_->remote_address();
+    EndOpen("Open Timeout");
+    return;
   }
+  LOG_FATAL << "Unknown timeout_id: " << timeout_id;
 }
 
 }

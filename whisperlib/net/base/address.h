@@ -180,31 +180,28 @@ class HostPort {
   HostPort(const IpAddress& ip, uint16 port)
       : host_(), ip_(ip), port_(port) {
   }
-  // Parsing constructor
-  // e.g.: "10.205.9.85:2345" -> HOST="", IP=10.205.9.85, PORT=2345
-  //       "10.205.9.85" -> HOST="", IP=10.205.9.85, PORT=0
-  //       "google.com" -> HOST="google.com", IP=0, PORT=0
-  //       "google.ro:80" -> HOST="google.ro", IP=0, PORT=80
-  HostPort(const string& hostport)
+  // Parsing constructor with default port
+  // e.g.: "10.205.9.85:2345", 80 -> HOST="", IP=10.205.9.85, PORT=2345
+  //       "10.205.9.85", 80 -> HOST="", IP=10.205.9.85, PORT=80
+  //       "google.com", 0 -> HOST="google.com", IP=0, PORT=0
+  //       "google.ro:80", 123 -> HOST="google.ro", IP=0, PORT=80
+  // separate host / port
+  HostPort(const string& hostport, uint16 default_port = kInvalidPort)
       : host_(), ip_(), port_(kInvalidPort) {
-    pair<string, string> a = strutil::SplitLast(hostport, ":");
+    pair<string, string> a = strutil::SplitFirst(hostport, ":");
     ip_ = IpAddress(a.first);
     if ( ip_.IsInvalid() ) {
       host_ = a.first;
     }
     long long int port = ::atoll(a.second.c_str());
-    port_ = (port <= 0 || port > kMaxUInt16) ? kInvalidPort : port;
-  }
-  // separate host / port
-  HostPort(const string& host, uint16 port)
-      : host_(), ip_(host), port_(port) {
-    if ( ip_.IsInvalid() ) {
-      host_ = host;
-    }
-    port_ = port;
+    port_ = (port <= 0 || port > kMaxUInt16) ? default_port : port;
   }
   HostPort(const HostPort& other)
       : host_(other.host_), ip_(other.ip_), port_(other.port_) {
+  }
+  HostPort(const HostPort& other, uint16 default_port)
+      : host_(other.host_), ip_(other.ip_), port_(other.port_) {
+    if ( port_ == kInvalidPort ) { port_ = default_port; }
   }
   // From net order of addr converts to machine order in HostPort
   explicit HostPort(const struct sockaddr_storage* addr);
@@ -228,7 +225,7 @@ class HostPort {
   void set_port(uint16 port) { port_ = port; }
 
   bool IsInvalid() const {
-    return ip_.IsInvalid() || IsInvalidPort();
+    return (ip_.IsInvalid() && host_ == "") || IsInvalidPort();
   }
   bool IsInvalidPort() const {
     return port_ == kInvalidPort;

@@ -96,31 +96,27 @@ struct  ElementSplitterStats {
 //
 class TagSplitter {
  public:
-  enum Type {
-    TS_F4V,
-    TS_FLV,
-    TS_RAW,
-    TS_MP3,
-    TS_AAC,
-    TS_INTERNAL,
-  };
-  static const char* TypeName(Type type);
- public:
-  TagSplitter(Type type, const string& name)
-      : type_(type),
+  TagSplitter(MediaFormat media_format, const string& name)
+      : media_format_(media_format),
         name_(name),
+        generic_tags_(true),
         next_tag_to_send_(),
+        next_tag_to_send_ts_(0),
         max_composition_tag_time_ms_(0),
-        crt_composed_tag_() {
+        crt_composed_tag_(),
+        crt_composed_tag_ts_(0),
+        stats_(),
+        media_info_(),
+        media_info_extracted_(false) {
   }
   virtual ~TagSplitter() {
   }
 
-  Type type() const {
-    return type_;
+  MediaFormat media_format() const {
+    return media_format_;
   }
-  const char* type_name() const {
-    return TypeName(type());
+  const char* media_format_name() const {
+    return MediaFormatName(media_format_);
   }
 
   int32 max_composition_tag_time_ms() const {
@@ -128,6 +124,10 @@ class TagSplitter {
   }
   void set_max_composition_tag_time_ms(int32 max_composition_tag_time_ms) {
     max_composition_tag_time_ms_ = max_composition_tag_time_ms;
+  }
+
+  void set_generic_tags(bool generic_tags) {
+    generic_tags_ = generic_tags;
   }
 
   const string& name() const {
@@ -162,41 +162,46 @@ class TagSplitter {
   }
 
  protected:
-  // splitter type
-  const Type type_;
+  // media format = splitter type
+  // (there's just 1 splitter implementation per media format)
+  const MediaFormat media_format_;
+
   // the name of this element
   const string name_;
 
+  // true: the splitter returns MediaInfo and generic tags
+  // false: the splitter returns tags according to the media being parsed
+  //        e.g. for .flv files, returns FlvTags, including Metadata
+  //             for .f4v files, returns F4vTags, including Moov
+  bool generic_tags_;
+
   // May be we have a next tag to send, from a previous GetNextTag
+  // Happens when current read tag is not composable: we need to remember
+  // the current tag and return the composed tag.
   scoped_ref<Tag> next_tag_to_send_;
+  int64 next_tag_to_send_ts_;
+
   // If this is over 0 we compose tags..
   int32 max_composition_tag_time_ms_;
   // If we compose this is the currently composing tag
   scoped_ref<ComposedTag> crt_composed_tag_;
+  int64 crt_composed_tag_ts_;
 
   // Statistics:
   ElementSplitterStats stats_;
 
   // Info for the media we're splitting. Every subclass should update this.
   MediaInfo media_info_;
+  bool media_info_extracted_;
 
   DISALLOW_EVIL_CONSTRUCTORS(TagSplitter);
 };
 
 //////////////////////////////////////////////////////////////////////
 
-// Abstract factory for splitters
-class SplitterCreator {
- public:
-  SplitterCreator() {}
-  virtual ~SplitterCreator() {}
+// Factory method for splitters
+TagSplitter* CreateSplitter(const string& name, MediaFormat media_format);
 
-  virtual TagSplitter* CreateSplitter(const string& name,
-                                      Tag::Type tag_type) = 0;
-
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(SplitterCreator);
-};
 }
 
 #endif  //  __MEDIA_SOURCE_TAG_SPLITTER_H__

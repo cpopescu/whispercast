@@ -61,21 +61,20 @@ const char* CObject::CoreTypeName(CObject::CoreType type) {
 string CNull::ToString() const {
   return "CNull";
 }
-AmfUtil::ReadStatus CNull::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  if ( in->Size() < sizeof(uint8) )
+AmfUtil::ReadStatus CNull::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
+  if ( in->Size() < sizeof(uint8) ) {
     return AmfUtil::READ_NO_DATA;
-  const Amf0Util::Type obtype =
-    Amf0Util::Type(io::NumStreamer::ReadByte(in));
+  }
+  uint8 obtype = io::NumStreamer::ReadByte(in);
   if ( obtype != Amf0Util::AMF0_TYPE_NULL &&
-       obtype != Amf0Util::AMF0_TYPE_UNDEFINED )
+       obtype != Amf0Util::AMF0_TYPE_UNDEFINED ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
   return AmfUtil::READ_OK;
 }
-void CNull::WriteToMemoryStream(io::MemoryStream* out,
-                                AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CNull::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   io::NumStreamer::WriteByte(out, Amf0Util::AMF0_TYPE_NULL);
 };
 
@@ -91,15 +90,16 @@ string CBoolean::ToString() const {
   return strutil::StringPrintf("CBoolean[%s]", value_ ? "true" : "false");
 }
 
-AmfUtil::ReadStatus CBoolean::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+AmfUtil::ReadStatus CBoolean::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
 
-  if ( in->Size() < 2 * sizeof(uint8) )
+  if ( in->Size() < 2 * sizeof(uint8) ) {
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) !=
-       Amf0Util::AMF0_TYPE_BOOLEAN )
+  }
+  uint8 obtype = io::NumStreamer::ReadByte(in);
+  if ( obtype != Amf0Util::AMF0_TYPE_BOOLEAN ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
 
   const uint8 value = io::NumStreamer::ReadByte(in);
   if ( value == Amf0Util::VALUE_TRUE ) {
@@ -107,14 +107,15 @@ AmfUtil::ReadStatus CBoolean::ReadFromMemoryStream(
   } else if ( value == Amf0Util::VALUE_FALSE ) {
     value_ = false;
   } else {
+    LOG_ERROR << "Illegal boolean value: "
+              << strutil::StringPrintf("%02x", value);
     return AmfUtil::READ_CORRUPTED_DATA;
   }
   return AmfUtil::READ_OK;
 }
 
-void CBoolean::WriteToMemoryStream(io::MemoryStream* out,
-                                   AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CBoolean::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   io::NumStreamer::WriteByte(out, Amf0Util::AMF0_TYPE_BOOLEAN);
   io::NumStreamer::WriteByte(
     out, value_? Amf0Util::VALUE_TRUE : Amf0Util::VALUE_FALSE);
@@ -133,21 +134,21 @@ string CNumber::ToString() const {
                                  static_cast<int>(value_));
   return strutil::StringPrintf("CNumber(%.4f)", value_);
 }
-AmfUtil::ReadStatus CNumber::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+AmfUtil::ReadStatus CNumber::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
 
-  if ( in->Size() < sizeof(uint8) + sizeof(value_) )
+  if ( in->Size() < sizeof(uint8) + sizeof(value_) ) {
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_NUMBER )
+  }
+  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_NUMBER ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
 
   value_ = io::NumStreamer::ReadDouble(in, common::BIGENDIAN);
   return AmfUtil::READ_OK;
 }
-void CNumber::WriteToMemoryStream(io::MemoryStream* out,
-                                  AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CNumber::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   io::NumStreamer::WriteByte(out, Amf0Util::AMF0_TYPE_NUMBER);
   io::NumStreamer::WriteDouble(out, value_, common::BIGENDIAN);
 }
@@ -162,18 +163,16 @@ bool CString::Equals(const CObject& obj) const {
 string CString::ToString() const {
   return "CString(\"" + value_ + "\")";
 }
-AmfUtil::ReadStatus CString::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+AmfUtil::ReadStatus CString::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   return Amf0Util::ReadString(in, &value_);
 }
-void CString::WriteToMemoryStream(io::MemoryStream* out,
-                                  AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CString::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   Amf0Util::WriteString(out, value_);
 }
-uint32 CString::EncodingSize(AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+uint32 CString::EncodingSize(AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   if ( value_.size() < Amf0Util::LONG_STRING_LENGTH ) {
     return 1 + 2 + value_.size(); // AMF0_TYPE_STRING + uint16 + data
   } else {
@@ -202,14 +201,14 @@ string CDate::ToString() const {
       static_cast<int>(t.tm_min),
       static_cast<int>(t.tm_sec));
 }
-AmfUtil::ReadStatus CDate::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  if ( in->Size() <
-       sizeof(uint8) + sizeof(timer_ms_) + sizeof(timezone_mins_) )
+AmfUtil::ReadStatus CDate::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
+  if ( in->Size() < sizeof(uint8) + sizeof(timer_ms_) + sizeof(timezone_mins_) ){
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_DATE )
+  }
+  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_DATE ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
 
   timer_ms_ = static_cast<int64>(io::NumStreamer::ReadDouble(in,
       common::BIGENDIAN));
@@ -217,9 +216,8 @@ AmfUtil::ReadStatus CDate::ReadFromMemoryStream(
 
   return AmfUtil::READ_OK;
 }
-void CDate::WriteToMemoryStream(io::MemoryStream* out,
-                                AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CDate::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   io::NumStreamer::WriteByte(out, Amf0Util::AMF0_TYPE_DATE);
   io::NumStreamer::WriteDouble(out, timer_ms_, common::BIGENDIAN);
   io::NumStreamer::WriteInt16(out, timezone_mins_, common::BIGENDIAN);
@@ -227,53 +225,56 @@ void CDate::WriteToMemoryStream(io::MemoryStream* out,
 
 //////////////////////////////////////////////////////////////////////
 
-AmfUtil::ReadStatus CRecordSet::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  if ( in->Size() < sizeof(uint8) )
+AmfUtil::ReadStatus CRecordSet::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
+  if ( in->Size() < sizeof(uint8) ) {
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) !=
-       Amf0Util::AMF0_TYPE_CLASS_OBJECT )
+  }
+  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_CLASS_OBJECT ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
   string tag;
   const AmfUtil::ReadStatus err = Amf0Util::ReadString(in, &tag);
-  if ( err != AmfUtil::READ_OK )
+  if ( err != AmfUtil::READ_OK ) {
     return err;
-  if ( tag != "RecordSet" )
+  }
+  if ( tag != "RecordSet" ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
   // Damn - read nothning now ..
   return AmfUtil::READ_OK;
 }
-void CRecordSet::WriteToMemoryStream(io::MemoryStream* out,
-                                     AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CRecordSet::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   Amf0Util::WriteClassObjectBegin(out);
   Amf0Util::WriteString(out, "RecordSet");
 }
 
 //////////////////////////////////////////////////////////////////////
 
-AmfUtil::ReadStatus CRecordSetPage::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
-  if ( in->Size() < sizeof(uint8) )
+AmfUtil::ReadStatus CRecordSetPage::Decode(io::MemoryStream* in,
+    AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
+  if ( in->Size() < sizeof(uint8) ) {
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) !=
-       Amf0Util::AMF0_TYPE_CLASS_OBJECT )
+  }
+  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_CLASS_OBJECT ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
   string tag;
   const AmfUtil::ReadStatus err = Amf0Util::ReadString(in, &tag);
-  if ( err != AmfUtil::READ_OK )
+  if ( err != AmfUtil::READ_OK ) {
     return err;
-  if ( tag != "RecordSetPage" )
+  }
+  if ( tag != "RecordSetPage" ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
   // Damn - read nothning now ..
   return AmfUtil::READ_OK;
 }
 
-void CRecordSetPage::WriteToMemoryStream(io::MemoryStream* out,
-                                         AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CRecordSetPage::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   Amf0Util::WriteClassObjectBegin(out);
   Amf0Util::WriteString(out, "RecordSetPage");
 }
@@ -301,14 +302,15 @@ string CArray::ToString() const {
   return s;
 }
 
-AmfUtil::ReadStatus CArray::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+AmfUtil::ReadStatus CArray::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   Clear();
-  if ( in->Size() < sizeof(uint8) + sizeof(int32) )
+  if ( in->Size() < sizeof(uint8) + sizeof(int32) ) {
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_ARRAY )
+  }
+  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_ARRAY ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
   const int32 size = io::NumStreamer::ReadInt32(in, common::BIGENDIAN);
   if ( size > AmfUtil::kMaximumArraySize ) {
     LOG_WARNING << " =======> Structure too long found : " << size;
@@ -326,13 +328,12 @@ AmfUtil::ReadStatus CArray::ReadFromMemoryStream(
   return AmfUtil::READ_OK;
 }
 
-void CArray::WriteToMemoryStream(io::MemoryStream* out,
-                                 AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CArray::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   io::NumStreamer::WriteByte(out, Amf0Util::AMF0_TYPE_ARRAY);
   io::NumStreamer::WriteInt32(out, data_.size(), common::BIGENDIAN);
   for ( int i = 0; i < data_.size(); i++ ) {
-    data_[i]->WriteToMemoryStream(out, version);
+    data_[i]->Encode(out, v);
   }
 }
 
@@ -372,15 +373,16 @@ string CStringMap::ToString() const {
   s += "\n} )";
   return s;
 }
-AmfUtil::ReadStatus CStringMap::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+AmfUtil::ReadStatus CStringMap::Decode(io::MemoryStream* in, AmfUtil::Version v) {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   Clear();
 
-  if ( in->Size() < sizeof(uint8) + sizeof(int16) )
+  if ( in->Size() < sizeof(uint8) + sizeof(int16) ) {
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_OBJECT )
+  }
+  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_OBJECT ) {
     return AmfUtil::READ_CORRUPTED_DATA;
+  }
 
   AmfUtil::ReadStatus err;
   string key;
@@ -405,16 +407,15 @@ AmfUtil::ReadStatus CStringMap::ReadFromMemoryStream(
   Clear();
   return err;
 }
-void CStringMap::WriteToMemoryStream(io::MemoryStream* out,
-                                     AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CStringMap::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   Amf0Util::WriteGenericObjectBegin(out);
   for ( list<string>::const_iterator it = keys_.begin();
         it != keys_.end(); ++it ) {
     Amf0Util::PutString(out, *it);
     Map::const_iterator itd = data_.find(*it);
     CHECK(itd != data_.end());
-    itd->second->WriteToMemoryStream(out, version);
+    itd->second->Encode(out, v);
   }
   Amf0Util::PutString(out, "");
   Amf0Util::WriteGenericObjectEnd(out);
@@ -529,51 +530,46 @@ string CMixedMap::ToString() const {
   s += " }) ";
   return s;
 }
-AmfUtil::ReadStatus CMixedMap::ReadFromMemoryStream(
-  io::MemoryStream* in, AmfUtil::Version version) {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+AmfUtil::ReadStatus CMixedMap::Decode(io::MemoryStream* in, AmfUtil::Version v){
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   Clear();
 
-  if ( in->Size() < sizeof(uint8) + sizeof(int32) )
+  if ( in->Size() < sizeof(uint8) + sizeof(int32) ) {
     return AmfUtil::READ_NO_DATA;
-  if ( io::NumStreamer::ReadByte(in) !=
-       Amf0Util::AMF0_TYPE_MIXED_ARRAY ) {
-    LOG_ERROR << " BAD TYPE !! ";
+  }
+  if ( io::NumStreamer::ReadByte(in) != Amf0Util::AMF0_TYPE_MIXED_ARRAY ) {
     return AmfUtil::READ_CORRUPTED_DATA;
   }
   // Skip one (it looks) unimportant uint32
   unknown_ = io::NumStreamer::ReadInt32(in, common::BIGENDIAN);
 
-  AmfUtil::ReadStatus err;
-  string key;
-  CObject* value = NULL;
-  do {
-    value = NULL;
-    err = Amf0Util::PickString(in, &key);
-    if ( err != AmfUtil::READ_OK )
-      goto Error;
-    if ( !key.empty() ) {
-      err = Amf0Util::ReadNextObject(in, &value);
-      if ( err != AmfUtil::READ_OK )
-        goto Error;
-      data_.insert(make_pair(key, value));
+  while ( true ) {
+    string key;
+    AmfUtil::ReadStatus err = Amf0Util::PickString(in, &key);
+    if ( err != AmfUtil::READ_OK ) {
+      LOG_ERROR << "PickString failed: " << AmfUtil::ReadStatusName(err);
+      return err;
     }
-  } while ( !key.empty() );
+    if ( key == "" ) {
+      break;
+    }
+    CObject* value = NULL;
+    err = Amf0Util::ReadNextObject(in, &value);
+    if ( err != AmfUtil::READ_OK ) {
+      LOG_ERROR << "ReadNextObject failed: " << AmfUtil::ReadStatusName(err);
+      return err;
+    }
+    data_[key] = value;
+  }
   return Amf0Util::ReadGenericObjectEnd(in);
-
-  Error:
-  delete value;
-  Clear();
-  return err;
 }
-void CMixedMap::WriteToMemoryStream(io::MemoryStream* out,
-                                     AmfUtil::Version version) const {
-  DCHECK_EQ(version, AmfUtil::AMF0_VERSION);
+void CMixedMap::Encode(io::MemoryStream* out, AmfUtil::Version v) const {
+  DCHECK_EQ(v, AmfUtil::AMF0_VERSION);
   io::NumStreamer::WriteByte(out, Amf0Util::AMF0_TYPE_MIXED_ARRAY);
   io::NumStreamer::WriteInt32(out, unknown_, common::BIGENDIAN);
   for ( Map::const_iterator it = data_.begin(); it != data_.end(); ++it ) {
     Amf0Util::PutString(out, it->first);
-    it->second->WriteToMemoryStream(out, version);
+    it->second->Encode(out, v);
   }
   Amf0Util::PutString(out, "");
   Amf0Util::WriteGenericObjectEnd(out);

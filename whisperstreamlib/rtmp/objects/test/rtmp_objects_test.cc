@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
     rtmp::CObject* p = initial[i];
     LOG_INFO << "Writing: " << *p;
     int32 start_size = ms.Size();
-    p->WriteToMemoryStream(&ms, rtmp::AmfUtil::AMF0_VERSION);
+    p->Encode(&ms, rtmp::AmfUtil::AMF0_VERSION);
     int32 encoding_size = ms.Size() - start_size;
     if ( encoding_size != p->EncodingSize(rtmp::AmfUtil::AMF0_VERSION) ) {
       LOG_FATAL << "Wrong size, obj.size: "

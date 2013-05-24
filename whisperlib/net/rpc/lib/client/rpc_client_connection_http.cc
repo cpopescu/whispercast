@@ -29,11 +29,12 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/base/strutil.h"
-#include "common/base/common.h"
-#include "common/base/scoped_ptr.h"
-#include "net/rpc/lib/client/rpc_client_connection_http.h"
-#include "net/rpc/lib/rpc_constants.h"
+#include <whisperlib/common/base/strutil.h>
+#include <whisperlib/common/base/common.h>
+#include <whisperlib/common/base/scoped_ptr.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
+#include <whisperlib/net/rpc/lib/client/rpc_client_connection_http.h>
+#include <whisperlib/net/rpc/lib/rpc_constants.h>
 
 namespace rpc {
 
@@ -43,9 +44,9 @@ ClientConnectionHTTP::ClientConnectionHTTP(
     net::PROTOCOL net_protocol,
     const http::ClientParams& params,
     const net::HostPort& addr,
-    rpc::CODEC_ID codec_id,
+    rpc::CodecId codec,
     const string& http_request_path)
-    : IClientConnection(selector, rpc::CONNECTION_HTTP, codec_id),
+    : IClientConnection(selector, rpc::CONNECTION_HTTP, codec),
       selector_(selector),
       net_factory_(net_factory),
       net_protocol_(net_protocol),
@@ -130,8 +131,8 @@ void ClientConnectionHTTP::Send(const rpc::Message* p) {
 
   // write codec ID
   bool success = req->request()->client_header()->AddField(
-    string(RPC_HTTP_FIELD_CODEC_ID),
-    strutil::StringPrintf("%d", GetCodec().GetCodecID()), false);
+    kHttpFieldCodec,
+    CodecName(codec()), false);
   CHECK(success);
 
   // write authentication header
@@ -139,7 +140,7 @@ void ClientConnectionHTTP::Send(const rpc::Message* p) {
       http_auth_user_, http_auth_pswd_);
 
   // write RPC message
-  GetCodec().EncodePacket(*req->request()->client_data(), *p);
+  EncodeBy(codec(), *p, req->request()->client_data());
 
   // IMPORTANT:
   //  The query result (or failure) MUST be delivered on a different call !
@@ -222,7 +223,7 @@ void ClientConnectionHTTP::CallbackRequestDone(http::ClientRequest* req) {
 
   // decode RPC message from inside http request
   rpc::Message* msg = new rpc::Message();
-  DECODE_RESULT result = GetCodec().DecodePacket(*in, *msg);
+  DECODE_RESULT result = DecodeBy(codec(), *in, msg);
   if ( result == DECODE_RESULT_ERROR ) {
     in->MarkerRestore();
     LOG_ERROR << "RPC Decode Message error, in http reply.";

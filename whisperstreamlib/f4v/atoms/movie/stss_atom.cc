@@ -15,6 +15,9 @@ StssRecord::StssRecord(const StssRecord& other)
 }
 StssRecord::~StssRecord() {
 }
+bool StssRecord::Equals(const StssRecord& other) const {
+  return sample_number_ == other.sample_number_;
+}
 StssRecord* StssRecord::Clone() const {
   return new StssRecord(*this);
 }

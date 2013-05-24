@@ -54,12 +54,12 @@ namespace streaming {
 class RandomPolicy : public Policy {
  public:
   static const char kPolicyClassName[];
-  RandomPolicy(const char* name,
+  RandomPolicy(const string& name,
                PolicyDrivenElement* element,
                bool is_temp_policy,
                io::StateKeepUser* global_state_keeper,
                io::StateKeepUser* local_state_keeper,
-               int max_history_size)
+               uint32 max_history_size)
       : Policy(kPolicyClassName, name, element),
         is_temp_policy_(is_temp_policy),
         global_state_keeper_(global_state_keeper),
@@ -97,10 +97,10 @@ class RandomPolicy : public Policy {
   }
   bool GoToNext() {
     if ( available_.empty() ) {
-      streaming::ElementDescriptions media;
+      vector<string> media;
       element_->ListElementMedia("", &media);
-      for ( int i = 0; i < media.size(); ++i ) {
-        available_.push_back(media[i].first);
+      for ( uint32 i = 0; i < media.size(); ++i ) {
+        available_.push_back(media[i]);
       }
       if ( available_.empty() ) {
         return false;
@@ -137,8 +137,7 @@ class RandomPolicy : public Policy {
   }
 
   bool AddToPlay(const string& media_name) {
-    streaming::Capabilities caps;
-    if ( !element_->HasElementMedia(media_name.c_str(), &caps) ) {
+    if ( !element_->HasElementMedia(media_name) ) {
       return false;
     }
     next_to_play_.push_back(media_name);
@@ -153,7 +152,7 @@ class RandomPolicy : public Policy {
   io::StateKeepUser* const local_state_keeper_;
   deque<string> next_to_play_;         // what to play next - if any
  private:
-  const int max_history_size_;
+  const uint32 max_history_size_;
   deque<string> history_;              // what we played so far
   string crt_;
 
@@ -168,15 +167,15 @@ class PlaylistPolicy : public Policy,
                        public ServiceInvokerPlaylistPolicyService {
  public:
   static const char kPolicyClassName[];
-  PlaylistPolicy(const char* name,
+  PlaylistPolicy(const string& name,
                  PolicyDrivenElement* element,
                  bool is_temp_policy,
                  io::StateKeepUser* global_state_keeper,
                  io::StateKeepUser* local_state_keeper,
                  const vector<string>& playlist,
                  bool loop_playlist,
-                 const char* rpc_path,
-                 const char* local_rpc_path,
+                 const string& rpc_path,
+                 const string& local_rpc_path,
                  rpc::HttpServer* rpc_server)
       : Policy(kPolicyClassName, name, element),
         ServiceInvokerPlaylistPolicyService(
@@ -244,15 +243,15 @@ class PlaylistPolicy : public Policy,
                 << " has empty playlist";
       return false;
     }
-    if ( next_to_play_ >= 0 && next_to_play_ < playlist_.size() ) {
+    if ( next_to_play_ >= 0 && next_to_play_ < (int)playlist_.size() ) {
       crt_ = next_to_play_;
-      if ( next_next_to_play_ >= 0 && next_next_to_play_ < playlist_.size() ) {
+      if ( next_next_to_play_ >= 0 && next_next_to_play_ < (int)playlist_.size() ) {
         next_to_play_ = next_next_to_play_;
         next_next_to_play_ = -1;
       } else {
         next_to_play_ = -1;
       }
-    } else if ( ++crt_ >= playlist_.size() ) {
+    } else if ( ++crt_ >= (int)playlist_.size() ) {
       if ( !loop_playlist_ ) {
         LOG_INFO << "End of playlist for " << element_->name();
         SaveState();
@@ -288,7 +287,7 @@ class PlaylistPolicy : public Policy,
     return element_->SwitchCurrentMedia(playlist_[crt_], NULL, true);
   }
   bool AddToPlay(const string& name) {
-    for ( int i = 0; i < playlist_.size(); ++i ) {
+    for ( uint32 i = 0; i < playlist_.size(); ++i ) {
       if ( name == playlist_[i] ) {
         next_to_play_ = i;
         if ( local_state_keeper_ != NULL ) {
@@ -307,7 +306,7 @@ class PlaylistPolicy : public Policy,
     return loop_playlist_;
   }
  protected:
-  virtual void SetPlaylist(rpc::CallContext< MediaOperationErrorData >* call,
+  virtual void SetPlaylist(rpc::CallContext< MediaOpResult >* call,
                            const SetPlaylistPolicySpec& playlist);
   virtual void GetPlaylist(rpc::CallContext< PlaylistPolicySpec >* call);
   virtual void GetPlayInfo(rpc::CallContext<PolicyPlayInfo>* call);
@@ -345,7 +344,7 @@ class TimedPlaylistPolicy : public Policy {
     POLICY_WAIT,     // we play nothing and wait for time completion
     NUM_EMPTY_POLICY,
   };
-  TimedPlaylistPolicy(const char* name,
+  TimedPlaylistPolicy(const string& name,
                       PolicyDrivenElement* element,
                       net::Selector* selector,
                       bool is_temp_policy,
@@ -420,15 +419,15 @@ class TimedPlaylistPolicy : public Policy {
                 << " has empty playlist";
       return false;
     }
-    if ( next_to_play_ >= 0 &&  next_to_play_ < playlist_.size() ) {
+    if ( next_to_play_ >= 0 &&  next_to_play_ < (int)playlist_.size() ) {
       crt_ = next_to_play_;
-      if ( next_next_to_play_ >= 0 && next_next_to_play_ < playlist_.size() ) {
+      if ( next_next_to_play_ >= 0 && next_next_to_play_ < (int)playlist_.size() ) {
         next_to_play_ = next_next_to_play_;
         next_next_to_play_ = -1;
       } else {
         next_to_play_ = -1;
       }
-    } else if ( ++crt_ >= playlist_.size() ) {
+    } else if ( ++crt_ >= (int)playlist_.size() ) {
       if ( !loop_playlist_ ) {
         SaveState();
         return false;
@@ -455,7 +454,7 @@ class TimedPlaylistPolicy : public Policy {
   }
 
   bool AddToPlay(const string& name) {
-    for ( int i = 0; i < playlist_.size(); ++i ) {
+    for ( uint32 i = 0; i < playlist_.size(); ++i ) {
       if ( name == playlist_[i].second ) {
         next_to_play_ = i;
         if ( local_state_keeper_ != NULL ) {
@@ -525,14 +524,14 @@ class OnCommandPolicy : public Policy,
                         public ServiceInvokerSwitchPolicyService {
  public:
   static const char kPolicyClassName[];
-  OnCommandPolicy(const char* name,
+  OnCommandPolicy(const string& name,
                   PolicyDrivenElement* element,
                   bool is_temp_policy,
                   io::StateKeepUser* global_state_keeper,
                   io::StateKeepUser* local_state_keeper,
                   const string& default_media_name,
-                  const char* rpc_path,
-                  const char* local_rpc_path,
+                  const string& rpc_path,
+                  const string& local_rpc_path,
                   rpc::HttpServer* rpc_server)
       : Policy(kPolicyClassName, name, element),
         ServiceInvokerSwitchPolicyService(
@@ -578,7 +577,7 @@ class OnCommandPolicy : public Policy,
   //////////////////////////////////////////////////////////////////////
   // ServiceInvokerSwitchPolicyService methods
   //
-  virtual void SwitchPolicy(rpc::CallContext< MediaOperationErrorData >* call,
+  virtual void SwitchPolicy(rpc::CallContext< MediaOpResult >* call,
                             const string& media_name,
                             const bool set_as_default,
                             const bool also_switch);

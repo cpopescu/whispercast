@@ -29,13 +29,14 @@
 //
 // Author: Cosmin Tudorache
 
-#include "common/base/errno.h"
-#include "common/base/scoped_ptr.h"
-#include "common/base/gflags.h"
-#include "common/io/file/file_input_stream.h"
-#include "net/rpc/lib/server/rpc_http_processor.h"
-#include "net/rpc/lib/server/rpc_service_invoker.h"
-#include "net/rpc/lib/rpc_constants.h"
+#include <whisperlib/common/base/errno.h>
+#include <whisperlib/common/base/scoped_ptr.h>
+#include <whisperlib/common/base/gflags.h>
+#include <whisperlib/common/io/file/file_input_stream.h>
+#include <whisperlib/net/rpc/lib/codec/rpc_codec.h>
+#include <whisperlib/net/rpc/lib/server/rpc_http_processor.h>
+#include <whisperlib/net/rpc/lib/server/rpc_service_invoker.h>
+#include <whisperlib/net/rpc/lib/rpc_constants.h>
 
 // Defined in rpc_http_server.cc
 DECLARE_string(rpc_js_form_path);
@@ -47,18 +48,6 @@ DEFINE_bool(rpc_enable_http_gzip, true,
             "False is useful for debugging.");
 
 namespace rpc {
-
-//////////////////////////////////////////////////////////////////////
-
-HttpProcessor::ExecutingRequest::ExecutingRequest(
-    http::ServerRequest* req, Codec& codec, uint32 xid)
-    : req_(req),
-      codec_(codec),
-      xid_(xid) {
-  CHECK_NOT_NULL(req);
-}
-HttpProcessor::ExecutingRequest::~ExecutingRequest() {
-}
 
 //////////////////////////////////////////////////////////////////////
 
@@ -240,8 +229,8 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
   // receives the RPC packet
   Message p;
 
-  // will be set to appropriate codec
-  Codec* codec = NULL;
+  // the decoder used to read the RPC Message from HTTP Data
+  CodecId codec = kCodecIdJson;
 
   ////////////////////////////////////////////////////////////////////
   //
@@ -259,17 +248,22 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
       return;
     }
 
-    // codec is always JSON
+    // on HTTP GET the decoder is always JSON
     //
-    codec = &json_codec_;
+    codec = kCodecIdJson;
 
     // service, method and params are encode inside URL
     //
     URL * url = req->request()->url();
     CHECK_NOT_NULL(url) << "NULL url on http request";
 
+    // fill in message
+    p.mutable_header()->set_msgType(RPC_CALL);
+    p.mutable_header()->set_xid(0);
+    p.mutable_cbody()->set_service(service_name);
+    p.mutable_cbody()->set_method(method_name);
     // receives call parameters
-    io::MemoryStream& params = p.cbody_.params_;
+    io::MemoryStream* params = p.mutable_cbody()->mutable_params();
 
     // GET parameters should be: ?params=[...]
     //
@@ -279,27 +273,21 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
         it = http_get_params.begin(); it != http_get_params.end(); ++it) {
       const std::string& key = (*it).first;
       const std::string& value = (*it).second;
-      if ( key == RPC_HTTP_FIELD_PARAMS ) {
-        params.Write(value);
+      if ( key == rpc::kHttpFieldParams ) {
+        params->Write(value);
         continue;
       }
       LOG_ERROR << "Ignoring unknown parameter: [" << key << "]"
                    " , value: [" << value << "]";
     }
-    if ( params.IsEmpty() ) {
-      LOG_ERROR << "Cannot find parameter: [" << RPC_HTTP_FIELD_PARAMS << "]."
+    if ( params->IsEmpty() ) {
+      LOG_ERROR << "Cannot find parameter: [" << rpc::kHttpFieldParams << "]."
                    " in url: [" << url->path() << "]";
       req->request()->server_data()->Write("Cannot find parameter: ["
-          + string(RPC_HTTP_FIELD_PARAMS) + "] in url: [" + url->path() + "]");
+          + rpc::kHttpFieldParams + "] in url: [" + url->path() + "]");
       req->ReplyWithStatus(http::BAD_REQUEST);
       return;
     }
-
-    p.header_.msgType_ = RPC_CALL;
-    p.header_.xid_ = 0;
-    p.cbody_.service_ = service_name;
-    p.cbody_.method_ = method_name;
-    // p.cbody_.params_ were filled directly
   }
 
   /////////////////////////////////////////////////////////////////
@@ -309,49 +297,25 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
   if ( req->request()->client_header()->method() == http::METHOD_POST ) {
     // find codec ID in HTTP header (every request should specify the rpc codec)
     //
-    do {
-      string strCodecID;
-      bool success = req->request()->client_header()->FindField(
-          string(RPC_HTTP_FIELD_CODEC_ID), &strCodecID);
-      if ( !success ) {
-        //  LOG_ERROR << "Cannot find field '" << RPC_HTTP_FIELD_CODEC_ID
-        //            << "'. Cannot decode rpc query from http request.";
-        //  req->ReplyWithStatus(http::BAD_REQUEST);
-        //  return;
-        LOG_ERROR << "Cannot find field '" << RPC_HTTP_FIELD_CODEC_ID
-                  << "'. Assuming CID_JSON(" << CID_JSON << ").";
-        codec = &json_codec_;
-        break;
-      }
-      // create codec
-      //
-      errno = 0; // required, to detect ::strtol failure
-      uint32 nCodecID = ::strtol(strCodecID.c_str(), NULL, 10);
-      if ( errno != 0 ) {
-        LOG_ERROR << "invalid codec_id, not a number: [" << strCodecID << "]";
-        req->ReplyWithStatus(http::BAD_REQUEST);
-        return;
-      }
-      switch ( nCodecID ) {
-        case CID_BINARY:
-          codec = &binary_codec_;
-          break;
-        case CID_JSON:
-          codec = &json_codec_;
-          break;
-        default:
-          LOG_ERROR << "invalid codec_id value: [" << strCodecID << "]";
-          req->ReplyWithStatus(http::BAD_REQUEST);
-          return;
-      }
-    } while( false );
+    string strCodecID;
+    bool success = req->request()->client_header()->FindField(
+        rpc::kHttpFieldCodec, &strCodecID);
+    if ( !success ) {
+      LOG_ERROR << "Cannot find field '" << rpc::kHttpFieldCodec
+                << "'. Assuming JSON";
+      strCodecID = rpc::kCodecNameJson;
+    }
+    if ( !GetCodecIdFromName(strCodecID, &codec) ) {
+      LOG_ERROR << "Invalid codec_id value: [" << strCodecID << "]"
+                   ", assuming JSON";
+      strCodecID = rpc::kCodecNameJson;
+    }
 
     // HTTP client data should contain the RPC packet
     //
     // decode rpc message
     //
-    DECODE_RESULT result = codec->DecodePacket(*req->request()->client_data(),
-                                               p);
+    DECODE_RESULT result = DecodeBy(codec, *req->request()->client_data(), &p);
     if ( result == DECODE_RESULT_ERROR ) {
       LOG_ERROR << "Error decoding RPC message. Bad data.";
       req->ReplyWithStatus(http::BAD_REQUEST);
@@ -364,7 +328,7 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
     }
     CHECK_EQ(result, DECODE_RESULT_SUCCESS);
 
-    if ( p.header_.msgType_ != RPC_CALL ) {
+    if ( p.header().msgType() != RPC_CALL ) {
       LOG_ERROR << "Received a non-CALL message! ignoring: " << p;
       req->request()->server_data()->Write("Ignoring no-CALL message!");
       req->ReplyWithStatus(http::BAD_REQUEST);
@@ -372,18 +336,11 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
     }
   }
 
-
-  // "codec" should be set
-  CHECK_NOT_NULL(codec);
-  // "p" should be filled
-  CHECK_EQ(p.header_.msgType_, RPC_CALL);
-
-
   ///////////////////////////////////////////////////////////
   //
   // handle rpc message
   //
-  LOG_DEBUG << "Handle received packet: " << p;
+  LOG_DEBUG << "Handle: " << p;
 
   // extract transport
   //
@@ -405,11 +362,11 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
 
   // extract call: service, method and arguments
   //
-  CHECK_EQ(p.header_.msgType_, RPC_CALL);
-  const uint32 xid = p.header_.xid_;
-  const string& service = p.cbody_.service_;
-  const string& method = p.cbody_.method_;
-  const io::MemoryStream& params = p.cbody_.params_;
+  CHECK_EQ(p.header().msgType(), RPC_CALL);
+  const uint32 xid = p.header().xid();
+  const string& service = p.cbody().service();
+  const string& method = p.cbody().method();
+  const io::MemoryStream& params = p.cbody().params();
 
   // create an internal query.
   //
@@ -421,7 +378,7 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
   intptr_t qid = intptr_t(req);
   // const int32 qid = static_cast<int32>();
   Query* query = new Query(transport, qid, service, method, params,
-                                     *codec, GetResultHandlerID());
+                           codec, GetResultHandlerID());
 
   // put the request on waiting list
   // RACE NOTE: ! do this before queueing the query for execution. Because the
@@ -432,8 +389,7 @@ void HttpProcessor::CallbackProcessHttpRequestAuthorized(
   {
     synch::MutexLocker lock(&access_requests_in_execution_);
     bit = requests_in_execution_.insert(
-        make_pair(qid, new ExecutingRequest(req, *codec, xid)));
-    codec = NULL;
+        make_pair(qid, new RpcRequest(req, codec, xid)));
   }
   CHECK(bit.second);   // the qid must not be already in execution.
   MapOfRequests::iterator it = bit.first;
@@ -477,10 +433,10 @@ void HttpProcessor::CallbackReplyToHTTPRequest(
 //   Methods available to any external thread (worker threads).
 //
 void HttpProcessor::WriteReply(uint32 qid,
-                                    REPLY_STATUS status,
-                                    const io::MemoryStream& result) {
+                               REPLY_STATUS status,
+                               const io::MemoryStream& result) {
   // [external/worker thread here]
-  scoped_ptr<ExecutingRequest> ereq;
+  scoped_ptr<RpcRequest> ereq;
   {
     synch::MutexLocker lock(&access_requests_in_execution_);
     MapOfRequests::iterator it = requests_in_execution_.find(qid);
@@ -491,36 +447,34 @@ void HttpProcessor::WriteReply(uint32 qid,
   CHECK_NOT_NULL(ereq.get());
   CHECK_NOT_NULL(ereq->req_);
 
-  http::ServerRequest* req = ereq->req_;
-  Codec& codec = ereq->codec_;
-  uint32 xid = ereq->xid_;
-
   // create a RPC result message, and serialize it in http
   // request -> server_data
-  Message p;
-
-  Message::Header& header = p.header_;
-  header.xid_ = xid;
-  header.msgType_ = RPC_REPLY;
-
-  Message::ReplyBody& body = p.rbody_;
-  body.replyStatus_ = status;
-  body.result_.AppendStreamNonDestructive(&result);
+  Message p(ereq->xid_, RPC_REPLY, status, &result);
 
   LOG_DEBUG << "WriteReply sending packet: " << p;
 
   // encode the RPC result message
   //
-  codec.EncodePacket(*req->request()->server_data(), p);
+  EncodeBy(ereq->codec_, p, ereq->req_->request()->server_data());
 
   // enable/disable gzip compression
-  req->request()->set_server_use_gzip_encoding(FLAGS_rpc_enable_http_gzip);
+  ereq->req_->request()->set_server_use_gzip_encoding(
+      FLAGS_rpc_enable_http_gzip);
+
+  switch ( ereq->codec_ ) {
+    case rpc::kCodecIdJson: ereq->req_->request()->server_header()->AddField(
+        http::kHeaderContentType, "application/json", true);
+        break;
+    case rpc::kCodecIdBinary: ereq->req_->request()->server_header()->AddField(
+        http::kHeaderContentType, "application/octet-stream", true);
+        break;
+  }
 
   // queue a closure that sends the response by replying to the http request
   //
   http_server_->selector()->RunInSelectLoop(
       NewCallback(this, &HttpProcessor::CallbackReplyToHTTPRequest,
-                  req, http::OK));
+                  ereq->req_, http::OK));
 }
 
 void HttpProcessor::HandleRPCResult(const Query& q) {

@@ -54,103 +54,32 @@ void ExtractFlvTags(const rtmp::Event& event, int64 timestamp_ms,
     tag->mutable_metadata_body().mutable_name()->set_value(
         streaming::kOnMetaData);
     tag->mutable_metadata_body().mutable_values()->SetAll(*str_map);
+    tag->LearnAttributes();
     out->push_back(tag);
     return;
   }
   if ( event.event_type() == rtmp::EVENT_VIDEO_DATA ) {
-    const rtmp::BulkDataEvent& bd =
-        static_cast<const rtmp::BulkDataEvent&>(event);
-    if ( bd.data().IsEmpty() ) {
-      // An empty EVENT_VIDEO_DATA, nothing to decode
-      return;
+    scoped_ref<streaming::FlvTag> tag;
+    static_cast<const rtmp::EventVideoData&>(event).DecodeTag(
+        timestamp_ms, &tag);
+    if ( tag.get() != NULL ) {
+      out->push_back(tag);
     }
-    scoped_ref<streaming::FlvTag> tag = new streaming::FlvTag(
-        0, streaming::kDefaultFlavourMask,
-        timestamp_ms, streaming::FLV_FRAMETYPE_VIDEO);
-    io::MemoryStream& bd_data = const_cast<io::MemoryStream&>(bd.data());
-    bd_data.MarkerSet();
-    streaming::TagReadStatus result = tag->mutable_body().Decode(
-        bd_data, bd_data.Size());
-    bd_data.MarkerRestore();
-    if ( result != streaming::READ_OK ) {
-      LOG_ERROR << "Failed to decode Video tag, result: "
-                << streaming::TagReadStatusName(result);
-      return;
-    }
-    out->push_back(tag);
     return;
   }
   if ( event.event_type() == rtmp::EVENT_AUDIO_DATA ) {
-    const rtmp::BulkDataEvent& bd =
-        static_cast<const rtmp::BulkDataEvent&>(event);
-    if ( bd.data().IsEmpty() ) {
-      // An empty EVENT_AUDIO_DATA, nothing to decode
-      return;
+    scoped_ref<streaming::FlvTag> tag;
+    static_cast<const rtmp::EventAudioData&>(event).DecodeTag(
+        timestamp_ms, &tag);
+    if ( tag.get() != NULL ) {
+      out->push_back(tag);
     }
-    scoped_ref<streaming::FlvTag> tag = new streaming::FlvTag(
-        0, streaming::kDefaultFlavourMask,
-        timestamp_ms, streaming::FLV_FRAMETYPE_AUDIO);
-    io::MemoryStream& bd_data = const_cast<io::MemoryStream&>(bd.data());
-    bd_data.MarkerSet();
-    streaming::TagReadStatus result = tag->mutable_body().Decode(
-        bd_data, bd_data.Size());
-    bd_data.MarkerRestore();
-    if ( result != streaming::READ_OK ) {
-      LOG_ERROR << "Failed to decode Audio tag, result: "
-                << streaming::TagReadStatusName(result);
-      return;
-    }
-    out->push_back(tag);
     return;
   }
   if ( event.event_type() == rtmp::EVENT_MEDIA_DATA ) {
-    const rtmp::BulkDataEvent& bd  =
-        static_cast<const rtmp::BulkDataEvent&>(event);
-    if ( bd.data().IsEmpty() ) {
-      // An empty EVENT_MEDIA_DATA, nothing to decode
-      return;
-    }
-    io::MemoryStream& bd_data = const_cast<io::MemoryStream&>(bd.data());
-    bd_data.MarkerSet();
-    while ( bd_data.Size() > 4 ) {
-      int8 type = io::NumStreamer::ReadByte(&bd_data);
-      int32 size = io::NumStreamer::ReadUInt24(&bd_data, common::BIGENDIAN);
-      int32 timestamp_delta_low =
-          io::NumStreamer::ReadUInt24(&bd_data, common::BIGENDIAN);
-      int32 timestamp_delta_hi = io::NumStreamer::ReadByte(&bd_data);
-      int32 timestamp = ((timestamp_delta_low & 0xFFFFFF) |
-                         ((timestamp_delta_hi & 0xFF) << 24));
-      int32 stream_id =
-          io::NumStreamer::ReadUInt24(&bd_data, common::BIGENDIAN);
-
-      if ( type != streaming::FLV_FRAMETYPE_AUDIO &&
-           type != streaming::FLV_FRAMETYPE_VIDEO &&
-           type != streaming::FLV_FRAMETYPE_METADATA ) {
-        LOG_ERROR << "Invalid tag type: " << strutil::StringPrintf("%02x", type)
-                  << " in event: " << event.ToString();
-        break;
-      }
-      streaming::FlvFrameType frame_type =
-          static_cast<streaming::FlvFrameType>(type);
-
-      scoped_ref<streaming::FlvTag> tag = new streaming::FlvTag(
-          0, streaming::kDefaultFlavourMask,
-          timestamp_ms + timestamp, frame_type);
-      tag->set_stream_id(stream_id);
-
-      streaming::TagReadStatus result = tag->mutable_body().Decode(
-          bd_data, size);
-      if ( result != streaming::READ_OK ) {
-        LOG_ERROR << "Failed to decode " << FlvFrameTypeName(frame_type)
-                  << " tag, result: " << streaming::TagReadStatusName(result);
-        break;
-      }
-      // skip unknown 4 bytes
-      bd_data.Skip(4);
-
-      out->push_back(tag);
-    }
-    bd_data.MarkerRestore();
+    static_cast<const rtmp::MediaDataEvent&>(event).DecodeTags(
+        timestamp_ms, out);
+    return;
   }
 }
 }

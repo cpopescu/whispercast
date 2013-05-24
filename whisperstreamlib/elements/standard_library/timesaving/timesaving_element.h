@@ -51,18 +51,17 @@ class TimeSavingElement : public FilteringElement {
  public:
   static const char kElementClassName[];
 
-  TimeSavingElement(const char* name,
-                    const char* id,
+  TimeSavingElement(const string& name,
                     ElementMapper* mapper,
                     net::Selector* selector,
                     io::StateKeepUser* state_keeper);
-  ~TimeSavingElement();
+  virtual ~TimeSavingElement();
 
  protected:
   //////////////////////////////////////////////////////////////////////
   // FilteringElement interface
   virtual bool Initialize();
-  virtual FilteringCallbackData* CreateCallbackData(const char* media_name,
+  virtual FilteringCallbackData* CreateCallbackData(const string& media_name,
                                                     Request* req);
  private:
   // From time to time we go through all our keys and delete the expired ones.

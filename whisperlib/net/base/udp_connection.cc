@@ -60,7 +60,8 @@ DECLARE_bool(net_connection_debug);
 namespace net {
 
 UdpConnection::UdpConnection(Selector* selector)
-  : Selectable(selector),
+  : Selectable(),
+    selector_(selector),
     read_handler_(NULL),
     write_handler_(NULL),
     close_handler_(NULL),

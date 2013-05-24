@@ -12,6 +12,9 @@ Co64Record::Co64Record(const Co64Record& other)
 }
 Co64Record::~Co64Record() {
 }
+bool Co64Record::Equals(const Co64Record& other) const {
+  return chunk_offset_ == other.chunk_offset_;
+}
 Co64Record* Co64Record::Clone() const {
   return new Co64Record(*this);
 }

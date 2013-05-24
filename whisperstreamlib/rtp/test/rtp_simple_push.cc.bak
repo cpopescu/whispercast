@@ -1,0 +1,345 @@
+// Copyright (c) 2009, Whispersoft s.r.l.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+// * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+// * Neither the name of Whispersoft s.r.l. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Cosmin Tudorache
+
+#include <whisperlib/common/base/types.h>
+#include <whisperlib/common/base/log.h>
+#include <whisperlib/common/base/system.h>
+#include <whisperlib/common/base/errno.h>
+#include <whisperlib/common/base/scoped_ptr.h>
+#include <whisperlib/common/io/ioutil.h>
+#include <whisperlib/common/io/file/file_input_stream.h>
+
+#include <whisperlib/net/base/selector.h>
+#include <whisperlib/net/base/udp_connection.h>
+
+#include <whisperstreamlib/f4v/f4v_tag.h>
+#include <whisperstreamlib/f4v/f4v_encoder.h>
+#include <whisperstreamlib/f4v/f4v_decoder.h>
+#include <whisperstreamlib/f4v/f4v_file_reader.h>
+#include <whisperstreamlib/f4v/atoms/movie/moov_atom.h>
+
+#include <whisperstreamlib/rtp/rtp_sdp.h>
+#include <whisperstreamlib/rtp/rtp_util.h>
+#include <whisperstreamlib/rtp/rtp_packetization.h>
+
+#define LOG_TEST LOG(-1)
+
+DEFINE_string(f4v_path,
+              "",
+              "Path to a f4v file for streaming.");
+DEFINE_string(udp_dst,
+              "",
+              "Destination address for UDP unicast.");
+DEFINE_string(sdp_path,
+              "",
+              "Path to the sdp file where we write stream description.");
+
+using namespace std;
+
+struct RtpHeader {
+  uint8 flags_;
+  uint8 payload_type_;
+  uint16 sequence_number_;
+  uint32 timestamp_;
+  uint32 ssrc_;
+  RtpHeader()
+    : flags_(0),
+      payload_type_(0),
+      sequence_number_(0),
+      timestamp_(0),
+      ssrc_(0) {
+  }
+  void set_flag_version(uint8 two_bit_version) {
+    flags_ = ((two_bit_version & 0x03) << 6) | (flags_ & 0x3f);
+  }
+  void set_flag_padding(uint8 one_bit_padding) {
+    flags_ = ((one_bit_padding & 0x01) << 5) | (flags_ & 0xdf);
+  }
+  void set_flag_extension(uint8 one_bit_extension) {
+    flags_ = ((one_bit_extension & 0x01) << 4) | (flags_ & 0xef);
+  }
+  void set_flag_cssid(uint8 four_bit_cssid) {
+    flags_ = ((four_bit_cssid & 0x0f) << 0) | (flags_ & 0xf0);
+  }
+  void set_payload_type_marker(uint8 one_bit_marker) {
+    payload_type_ = ((one_bit_marker & 0x01) << 7) | (flags_ & 0x7f);
+  }
+  void set_payload_type (uint8 seven_bit_payload_type) {
+    payload_type_ = ((seven_bit_payload_type & 0x7f) << 0) |
+                    (payload_type_ & 0x80);
+  }
+  void set_sequence_number(uint16 sequence_number) {
+    sequence_number_ = sequence_number;
+  }
+  void set_timestamp(uint32 timestamp) {
+    timestamp_ = timestamp;
+  }
+  void set_ssrc(uint32 ssrc) {
+    ssrc_ = ssrc;
+  }
+  void Encode(io::MemoryStream* out) {
+    io::NumStreamer::WriteByte(out, flags_);
+    io::NumStreamer::WriteByte(out, payload_type_);
+    io::NumStreamer::WriteUInt16(out, sequence_number_, common::BIGENDIAN);
+    io::NumStreamer::WriteUInt32(out, timestamp_, common::BIGENDIAN);
+    io::NumStreamer::WriteUInt32(out, ssrc_, common::BIGENDIAN);
+  }
+};
+
+class RtpPusher {
+public:
+  static const uint32 kRtpMaxDatagramSize = 1400;
+public:
+  RtpPusher(net::Selector* selector,
+            const net::HostPort& udp_dst)
+    : selector_(selector),
+      udp_connection_(NULL),
+      udp_audio_dst_(udp_dst),
+      udp_video_dst_(udp_dst.ip_object().ipv4(), udp_dst.port() + 2),
+      file_reader_(),
+      video_packetizer_(),
+      audio_packetizer_(),
+      rtp_audio_seq_number_(0),//58038),
+      rtp_audio_payload_(0),
+      rtp_video_seq_number_(0),//24455),
+      rtp_video_payload_(0),
+      rtp_video_clock_rate_(0),
+      first_tag_ts_(0),
+      next_tag_callback_(NewPermanentCallback(this, &RtpPusher::NextTag)) {
+  }
+  virtual ~RtpPusher() {
+    delete next_tag_callback_;
+    next_tag_callback_ = NULL;
+  }
+
+  bool OpenFile(const std::string& filename) {
+    if ( !file_reader_.Open(filename) ) {
+      LOG_ERROR << "Failed to open file: [" << filename << "]";
+      return false;
+    }
+    file_reader_.decoder().set_order_frames_by_timestamp(false);
+    return true;
+  }
+  void Start() {
+    CHECK_NULL(udp_connection_);
+    udp_connection_ = new net::UdpConnection(selector_);
+    udp_connection_->SetReadHandler(NewPermanentCallback(this,
+        &RtpPusher::ConnectionReadHandler), true);
+    udp_connection_->SetWriteHandler(NewPermanentCallback(this,
+        &RtpPusher::ConnectionWriteHandler), true);
+    udp_connection_->SetCloseHandler(NewPermanentCallback(this,
+        &RtpPusher::ConnectionCloseHandler), true);
+    if ( !udp_connection_->Open(net::HostPort()) ) {
+      LOG_ERROR << "Failed to open udp_connection";
+      Stop();
+      return;
+    }
+    LOG_TEST << "Start streaming audio to: " << udp_audio_dst_
+             << ", video to: " << udp_video_dst_;
+    NextTag();
+  }
+  void Stop() {
+    LOG_TEST << "Stop, stopping selector..";
+    delete udp_connection_;
+    udp_connection_ = NULL;
+    selector_->MakeLoopExit();
+  }
+  void NextTag() {
+    streaming::f4v::Tag* tag = NULL;
+    streaming::f4v::TagDecodeStatus result = file_reader_.Read(&tag);
+    if ( result == streaming::f4v::TAG_DECODE_ERROR ) {
+      LOG_ERROR << "Error decoding next tag.";
+      Stop();
+      return;
+    }
+    if ( result == streaming::f4v::TAG_DECODE_NO_DATA ) {
+      LOG_INFO << "EOF reached";
+      Stop();
+      return;
+    }
+    CHECK_EQ(result, streaming::f4v::TAG_DECODE_SUCCESS);
+    scoped_ptr<streaming::f4v::Tag> auto_del_tag(tag);
+
+    if ( tag->is_atom() &&
+         tag->atom()->type() == streaming::f4v::ATOM_MOOV ) {
+      OutputSdp(static_cast<const streaming::f4v::MoovAtom&>(*tag->atom()));
+    }
+    if ( tag->is_frame() ) {
+      RtpSend(*tag->frame());
+    }
+
+    int64 now = timer::TicksMsec();
+    if ( first_tag_ts_ == 0 ) {
+      first_tag_ts_ = now;
+    }
+
+    int64 real_delay = now - first_tag_ts_;
+    int64 stream_delay = tag->timestamp();
+    int64 delay = stream_delay - real_delay;
+
+    selector_->RegisterAlarm(next_tag_callback_, delay);
+  }
+  void RtpSend(const streaming::f4v::Frame& frame) {
+    if ( frame.header().type() == streaming::f4v::FrameHeader::RAW_FRAME ) {
+      // ignore RAW frames
+      return;
+    }
+    if ( frame.header().type() == streaming::f4v::FrameHeader::VIDEO_FRAME ) {
+      // ignore VIDEO frames, for now
+      //return;
+    }
+    const bool is_audio = (frame.header().type() ==
+            streaming::f4v::FrameHeader::AUDIO_FRAME);
+    io::MemoryStream& frame_data = const_cast<io::MemoryStream&>(frame.data());
+    streaming::rtp::Packetizer* packetizer = (is_audio ?
+          (streaming::rtp::Packetizer*)&audio_packetizer_ :
+          (streaming::rtp::Packetizer*)&video_packetizer_);
+
+    vector<io::MemoryStream*> rtp_packets;
+    if ( !packetizer->Packetize(frame_data, &rtp_packets) ) {
+      LOG_ERROR << "Packetize failed, corrupted data in stream";
+      Stop();
+      return;
+    }
+
+    for ( uint32 i = 0 ; i < rtp_packets.size(); i++ ) {
+      bool mark = (is_audio || i == rtp_packets.size() - 1);
+      RtpHeader rtp_header;
+      rtp_header.set_flag_version(2);
+      rtp_header.set_flag_padding(0);
+      rtp_header.set_flag_extension(0);
+      rtp_header.set_flag_cssid(0);
+      rtp_header.set_payload_type_marker(mark ? 1 : 0);
+      rtp_header.set_payload_type(is_audio ? rtp_audio_payload_
+                                           : rtp_video_payload_);
+      rtp_header.set_sequence_number(is_audio ? rtp_audio_seq_number_
+                                              : rtp_video_seq_number_);
+      rtp_header.set_timestamp(is_audio ? frame.header().sample_index()
+                                        : frame.header().composition_timestamp()
+                                          * (rtp_video_clock_rate_ / 1000));
+      rtp_header.set_ssrc(is_audio ? 0xceafa03c : 0x52d8e95a);
+
+      io::MemoryStream ms;
+      rtp_header.Encode(&ms);
+      LOG_WARNING << "Sending " << (is_audio ? "Audio" : "Video")
+                  << " datagram: " << rtp_packets[i]->DumpContentInline();
+      ms.AppendStreamNonDestructive(rtp_packets[i]);
+
+      udp_connection_->SendDatagram(ms, is_audio ? udp_audio_dst_
+                                                 : udp_video_dst_);
+      LOG_DEBUG << (is_audio ? "Audio" : "Video") << " datagram sent.. "
+                << ms.Size() << " bytes";
+      if ( is_audio ) {
+        rtp_audio_seq_number_++;
+      } else {
+        rtp_video_seq_number_++;
+      }
+
+      delete rtp_packets[i];
+      rtp_packets[i] = NULL;
+    }
+  }
+  void OutputSdp(const streaming::f4v::MoovAtom& moov) {
+    streaming::rtp::Sdp sdp;
+    streaming::rtp::util::ExtractSdpFromMoov(udp_audio_dst_.port(),
+        udp_video_dst_.port(), moov, &sdp);
+    sdp.set_session_name("rtp_simple_push test");
+    sdp.set_remote_addr(udp_audio_dst_.ip_object());
+    sdp.WriteFile(FLAGS_sdp_path);
+
+    const streaming::rtp::Sdp::Media* audio_media = sdp.media(true);
+    if ( audio_media != NULL ) {
+      rtp_audio_payload_ = audio_media->avp_payload_type_;
+    }
+    const streaming::rtp::Sdp::Media* video_media = sdp.media(false);
+    if ( video_media != NULL ) {
+      rtp_video_payload_ = video_media->avp_payload_type_;
+      rtp_video_clock_rate_ = video_media->clock_rate_;
+    }
+  }
+
+  bool ConnectionReadHandler() {
+    LOG_TEST << "ConnectionReadHandler()";
+    udp_connection_->RequestReadEvents(false);
+    return true;
+  }
+  bool ConnectionWriteHandler() {
+    //LOG_TEST << "ConnectionWriteHandler()";
+    return true;
+  }
+  void ConnectionCloseHandler(int err) {
+    LOG_TEST << "ConnectionCloseHandler(), err: " << err;
+  }
+private:
+  net::Selector* selector_;
+  net::UdpConnection* udp_connection_;
+  net::HostPort udp_audio_dst_;
+  net::HostPort udp_video_dst_;
+
+  streaming::f4v::FileReader file_reader_;
+
+  streaming::rtp::H264Packetizer video_packetizer_;
+  streaming::rtp::Mp4aPacketizer audio_packetizer_;
+
+  uint32 rtp_audio_seq_number_;
+  uint32 rtp_audio_payload_;
+  uint32 rtp_video_seq_number_;
+  uint32 rtp_video_payload_;
+  uint32 rtp_video_clock_rate_;
+
+  int64 first_tag_ts_;
+
+  Closure* next_tag_callback_;
+};
+
+int main(int argc, char ** argv) {
+  common::Init(argc, argv);
+  LOG_TEST << "Test start";
+
+  net::HostPort udp_dst(FLAGS_udp_dst.c_str());
+  if ( udp_dst.IsInvalid() ) {
+    LOG_ERROR << "Invalid UDP destination address: [" << FLAGS_udp_dst << "]";
+    common::Exit(1);
+  }
+
+  net::Selector selector;
+  RtpPusher pusher(&selector, udp_dst);
+  if ( !pusher.OpenFile(FLAGS_f4v_path) ) {
+    LOG_ERROR << "Failed to read file: [" << FLAGS_f4v_path << "]";
+    common::Exit(1);
+  }
+  pusher.Start();
+
+  selector.Loop();
+
+  LOG_TEST << "Test end";
+  common::Exit(0);
+}

@@ -32,8 +32,30 @@
 #ifndef __NET_RPC_LIB_RPC_CONSTANTS_H__
 #define __NET_RPC_LIB_RPC_CONSTANTS_H__
 
+#include <string>
+#include <whisperlib/common/base/types.h>
+
+namespace rpc {
+
+// 2 uses:
+// - internal type (both JsonEncoder and JsonDecoder have type: kCodecIdJson)
+// - codec id in binary protocol (e.g. in TCP protocol)
+enum CodecId {
+  kCodecIdBinary = 1,
+  kCodecIdJson = 2,
+};
+
+// for textual representation of the codec (e.g. in HTTP protocol)
+extern const string kCodecNameJson;
+extern const string kCodecNameBinary;
+const string& CodecName(CodecId id);
+bool GetCodecIdFromName(const string& codec_name, CodecId* out_codec_id);
+
 // beware of the normalization of http fields: content-lengTH -> Content-Length
-static const char RPC_HTTP_FIELD_CODEC_ID[] = "Rpc_Codec_Id";
-static const char RPC_HTTP_FIELD_PARAMS[] = "params";
+extern const string kHttpFieldCodec;
+extern const string kHttpFieldParams;
+
+}
+
 
 #endif  // __NET_RPC_LIB_RPC_CONSTANTS_H__

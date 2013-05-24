@@ -137,12 +137,12 @@ void Selector::Loop() {
 #endif
     for ( int i = 0; i < events.size(); ++i ) {
       const SelectorEventData& event = events[i];
-      Selectable* const s = reinterpret_cast<Selectable *>(event.data_);
+      Selectable* const s = static_cast<Selectable *>(event.data_);
       if ( s == NULL ) {
         // was probably a wake signal..
         continue;
       }
-      if ( s->selector() == NULL ) {
+      if ( s->registered_selector() == NULL ) {
         // already unregistered
         continue;
       }
@@ -402,8 +402,8 @@ void Selector::SendWakeSignal() {
 
 bool Selector::Register(Selectable* s) {
   DCHECK(IsInSelectThread() || tid_ == 0);
-  CHECK(s->selector() == this);
   const int fd = s->GetFd();
+  CHECK_NULL(s->registered_selector());
 
   SelectableSet::const_iterator it = registered_.find(s);
   if ( it != registered_.end() ) {
@@ -413,13 +413,14 @@ bool Selector::Register(Selectable* s) {
   }
   // Insert in the local set of registered objs
   registered_.insert(s);
+  s->set_registered_selector(this);
 
   return base_->Add(fd, s, s->desire_);
 }
 
 void Selector::Unregister(Selectable* s) {
   DCHECK(IsInSelectThread() || tid_ == 0);
-  CHECK(s->selector() == this);
+  CHECK_EQ(s->registered_selector(), this);
   const int fd = s->GetFd();
 
   const SelectableSet::iterator it = registered_.find(s);
@@ -427,13 +428,14 @@ void Selector::Unregister(Selectable* s) {
 
   base_->Delete(fd);
   registered_.erase(it);
-  s->set_selector(NULL);
+  s->set_registered_selector(NULL);
 }
 
 //////////////////////////////////////////////////////////////////////
 
 void Selector::UpdateDesire(Selectable* s, bool enable, int32 desire) {
   // DCHECK(registered_.find(s) != registered_.end()) << fd;
+  CHECK_EQ(s->registered_selector(), this);
   if ( ((s->desire_ & desire) && enable) ||
        ((~s->desire_ & desire) && !enable) ) {
     return;  // already set ..

@@ -46,7 +46,6 @@
 #include <whisperstreamlib/base/tag.h>
 #include <whisperstreamlib/base/consts.h>
 #include <whisperstreamlib/flv/flv_tag.h>
-#include <whisperstreamlib/rtmp/rtmp_protocol_data.h>
 #include <whisperstreamlib/rtmp/rtmp_coder.h>
 #include <whisperstreamlib/rtmp/rtmp_util.h>
 
@@ -129,12 +128,11 @@ class SimpleClient {
   void ConnectionCloseHandler(int err, net::NetConnection::CloseWhat what);
 
   // send rtmp Event
-  void Send(Event* event);
+  void Send(const Event& event);
 
  private:
   net::Selector * selector_;
   net::NetConnection* net_connection_;
-  rtmp::ProtocolData protocol_data_;
   rtmp::Coder coder_;
 
   string app_name_;

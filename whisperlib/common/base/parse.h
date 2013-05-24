@@ -194,28 +194,28 @@ class TBooleanTraits : public TSimpleTraits<bool> {
     char* _next = const_cast<char*>(in);
     value = true;
     if (*in != '\0') {
-      if (strutil::StrCasePrefix(in, "true")) {
+      if (strutil::StrIStartsWith(in, "true")) {
         value = true;
         _next += 4;
-      } else if (strutil::StrCasePrefix(in, "false")) {
+      } else if (strutil::StrIStartsWith(in, "false")) {
         value = false;
         _next += 5;
-      } else if (strutil::StrCasePrefix(in, "on")) {
+      } else if (strutil::StrIStartsWith(in, "on")) {
         value = true;
         _next += 2;
-      } else if (strutil::StrCasePrefix(in, "off")) {
+      } else if (strutil::StrIStartsWith(in, "off")) {
         value = false;
         _next += 3;
-      } else if (strutil::StrCasePrefix(in, "yes")) {
+      } else if (strutil::StrIStartsWith(in, "yes")) {
         value = true;
         _next += 3;
-      } else if (strutil::StrCasePrefix(in, "no")) {
+      } else if (strutil::StrIStartsWith(in, "no")) {
         value = false;
         _next += 2;
-      } else if (strutil::StrCasePrefix(in, "1")) {
+      } else if (strutil::StrIStartsWith(in, "1")) {
         value = true;
         _next += 1;
-      } else if (strutil::StrCasePrefix(in, "0")) {
+      } else if (strutil::StrIStartsWith(in, "0")) {
         value = false;
         _next += 1;
       } else {

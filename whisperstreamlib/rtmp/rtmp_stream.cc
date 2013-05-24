@@ -38,25 +38,11 @@
 
 namespace rtmp {
 
-synch::Mutex g_sync_stream_count;
-int64 g_stream_count = 0;
-void IncStreamCount() {
-  synch::MutexLocker lock(&g_sync_stream_count);
-  g_stream_count++;
-  LOG_WARNING << "++Stream " << g_stream_count;
-}
-void DecStreamCount() {
-  synch::MutexLocker lock(&g_sync_stream_count);
-  g_stream_count--;
-  LOG_WARNING << "--Stream " << g_stream_count;
-}
-
 Stream::Stream(const StreamParams& params,
                ServerConnection* const connection)
     : params_(params),
       connection_(connection),
       ref_count_(0) {
-  IncStreamCount();
   connection_->IncRef();
   for (int i = 0; i < kMaxNumChannels; ++i) {
     first_timestamp_ms_[i] = -1;
@@ -64,7 +50,6 @@ Stream::Stream(const StreamParams& params,
   }
 }
 Stream::~Stream() {
-  DecStreamCount();
   CHECK_EQ(ref_count_, 0);
   connection_->DecRef();
 }
@@ -83,7 +68,7 @@ void Stream::SendEvent(scoped_ref<Event> event,
   }
   CHECK(connection_->net_selector()->IsInSelectThread());
   if ( event.get() != NULL ) {
-    uint32 channel_id = event->header()->channel_id();
+    uint32 channel_id = event->header().channel_id();
     DCHECK(channel_id < kMaxNumChannels);
 
     if ( timestamp_ms < 0 ) {
@@ -116,27 +101,49 @@ void Stream::SendEvent(scoped_ref<Event> event,
     last_timestamp_ms_[channel_id] = timestamp_ms;
   }
 
-  connection_->SendEvent(event.get(), buffer, force_write);
+  connection_->SendEvent(*event.get(), buffer, force_write);
 
   if ( dec_ref ) {
     DecRef();
   }
 }
-bool Stream::ReceiveEvent(rtmp::Event* event) {
+void Stream::SendEventOnSystemStream(scoped_ref<Event> event,
+                                     int64 timestamp_ms,
+                                     const io::MemoryStream* buffer,
+                                     bool force_write,
+                                     bool dec_ref) {
+  if ( !connection_->net_selector()->IsInSelectThread() ) {
+    CHECK_NULL(buffer);
+    IncRef();
+    connection_->net_selector()->RunInSelectLoop(NewCallback(this,
+        &Stream::SendEventOnSystemStream, event, timestamp_ms, buffer,
+        force_write, true));
+    return;
+  }
   CHECK(connection_->net_selector()->IsInSelectThread());
-  const uint32 channel_id = event->header()->channel_id();
+  if ( connection_->system_stream() != NULL ) {
+    connection_->system_stream()->SendEvent(event, timestamp_ms, buffer,
+        force_write);
+  }
+  if ( dec_ref ) {
+    DecRef();
+  }
+}
+bool Stream::ReceiveEvent(const rtmp::Event* event) {
+  CHECK(connection_->net_selector()->IsInSelectThread());
+  const uint32 channel_id = event->header().channel_id();
   DCHECK(channel_id < kMaxNumChannels);
 
   int64 timestamp_ms = 0;
-  if ( event->header()->is_timestamp_relative() ) {
+  if ( event->header().is_timestamp_relative() ) {
     if (last_timestamp_ms_[channel_id] < 0) {
-      timestamp_ms = event->header()->timestamp_ms();
+      timestamp_ms = event->header().timestamp_ms();
     } else {
       timestamp_ms = last_timestamp_ms_[channel_id] +
-                     event->header()->timestamp_ms();
+                     event->header().timestamp_ms();
     }
   } else {
-    timestamp_ms = event->header()->timestamp_ms();
+    timestamp_ms = event->header().timestamp_ms();
   }
 
   if (first_timestamp_ms_[channel_id] < 0) {

@@ -112,8 +112,6 @@ class ElementLibrary {
     NEED_RPC_SERVER       = 0x0004,
     NEED_STATE_KEEPER     = 0x0008,
     NEED_AIO_FILES        = 0x0010,
-    NEED_SPLITTER_CREATOR = 0x0020,
-    NEED_HOST2IP_MAP      = 0x0040,
     NEED_MEDIA_DIR        = 0x0080,
   };
   // Returns a combination of Needs (OR-ed), for what is needed in order
@@ -140,11 +138,7 @@ class ElementLibrary {
     rpc::HttpServer* rpc_server_;        // NULL if NEED_RPC_SERVER is off
     map<string, io::AioManager*>* aio_managers_;
                                          // NULL if NEED_AIO_FILES is off
-    io::BufferManager* buffer_manager_;
-                                         // NULL if NEED_AIO_FILES is off
-    const map<string, string>* host_aliases_;
-                                         // NULL if NEED_HOST2IP_MAP is off
-                                         // or no aliases available
+    io::BufferManager* buffer_manager_;  // NULL if NEED_AIO_FILES is off
     string media_dir_;                   // Root of all media that can be
                                          // served
     // THINGS YOU OWN -- responsible for deleting them..
@@ -152,19 +146,15 @@ class ElementLibrary {
     io::StateKeepUser* local_state_keeper_;
                                          // NULL if NEED_STATE_KEEPER is off
                                          // or for global playlists
-    streaming::SplitterCreator* splitter_creator_;
-                                         // NULL if NEED_SPLITTER_CREATOR is off
     CreationObjectParams()
         : selector_(NULL),
           http_server_(NULL),
           rpc_server_(NULL),
           aio_managers_(NULL),
           buffer_manager_(NULL),
-          host_aliases_(NULL),
           media_dir_(),
           state_keeper_(NULL),
-          local_state_keeper_(NULL),
-          splitter_creator_(NULL) {
+          local_state_keeper_(NULL) {
     }
   };
 
@@ -195,6 +185,7 @@ class ElementLibrary {
       const string& element_params,
       const streaming::Request* req,
       const CreationObjectParams& params,
+      bool is_temporary_template,
       // Output:
       vector<string>* needed_policies,
       string* error_description) = 0;
@@ -307,8 +298,6 @@ class ElementLibrary {
 // #include "net/rpc/lib/codec/json/rpc_json_encoder.h"
 // #include "net/rpc/lib/codec/json/rpc_json_decoder.h"
 // #include "common/io/buffer/io_memory_stream.h"
-// and declare
-// streaming::Element* ret = NULL;
 
 #define CREATE_ELEMENT_HELPER(type)                                     \
   do {                                                                  \
@@ -321,6 +310,7 @@ class ElementLibrary {
     }                                                                   \
     ret = Create##type##Element(name, spec, req,                        \
                                 params, needed_policies,                \
+                                is_temporary_template,                  \
                                 error_description);                     \
   } while ( false )
 
@@ -352,52 +342,34 @@ class ElementLibrary {
 
 #define STANDARD_RPC_ELEMENT_ADD(type)                                  \
   do {                                                                  \
-    MediaOperationErrorData ret;                                        \
     streaming::ElementLibrary::ElementSpecCreateParams params;          \
     params.name_ = name;                                                \
     params.type_ = type##Element::kElementClassName;                    \
     params.is_global_ = is_global;                                      \
     params.disable_rpc_ = disable_rpc;                                  \
     params.element_params_ = rpc::JsonEncoder::EncodeObject(spec);      \
-    if ( !create_element_spec_callback_->Run(&params) ) {               \
-      ret.error_.ref() = 1;                                             \
-      ret.description_.ref() = params.error_;                           \
-    } else {                                                            \
-      ret.error_.ref() = 0;                                             \
-    }                                                                   \
-    call->Complete(ret);                                                \
+    bool success = create_element_spec_callback_->Run(&params);         \
+    call->Complete(MediaOpResult(success, params.error_));              \
   } while ( false );
 
 #define STANDARD_RPC_POLICY_ADD(type)                                   \
   do {                                                                  \
-    MediaOperationErrorData ret;                                        \
     streaming::ElementLibrary::PolicySpecCreateParams params;           \
     params.name_ = name;                                                \
     params.type_ = type##Policy::kPolicyClassName;                      \
     params.policy_params_ = rpc::JsonEncoder::EncodeObject(spec);       \
-    if ( !create_policy_spec_callback_->Run(&params) ) {                \
-      ret.error_.ref() = 1;                                             \
-      ret.description_.ref() = params.error_;                           \
-    } else {                                                            \
-      ret.error_.ref() = 0;                                             \
-    }                                                                   \
-    call->Complete(ret);                                                \
+    bool success = create_policy_spec_callback_->Run(&params);          \
+    call->Complete(MediaOpResult(success, params.error_));              \
   } while ( false );
 
 #define STANDARD_RPC_AUTHORIZER_ADD(type)                               \
   do {                                                                  \
-    MediaOperationErrorData ret;                                        \
     streaming::ElementLibrary::AuthorizerSpecCreateParams params;       \
     params.name_ = name;                                                \
     params.type_ = type##Authorizer::kAuthorizerClassName;              \
     params.authorizer_params_ = rpc::JsonEncoder::EncodeObject(spec);   \
-    if ( !create_authorizer_spec_callback_->Run(&params) ) {            \
-      ret.error_.ref() = 1;                                             \
-      ret.description_.ref() = params.error_;                           \
-    } else {                                                            \
-      ret.error_.ref() = 0;                                             \
-    }                                                                   \
-    call->Complete(ret);                                                \
+    bool success = create_authorizer_spec_callback_->Run(&params);      \
+    call->Complete(MediaOpResult(success, params.error_));              \
   } while ( false );
 
 #endif //  __STREAMING_ELEMENTS_LIBRARY_ELEMENT_LIBRARY_H__

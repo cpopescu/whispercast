@@ -100,7 +100,7 @@ int main(int argc, char ** argv) {
     NewPermanentCallback(&http::SimpleServerConnectionFactory));
   httpServer.AddAcceptor(net::PROTOCOL_TCP, net::HostPort(0, 8123));
 
-  rpc::HttpServer rpcProcessor(&selector, &httpServer, NULL, "/rpc", true,
+  rpc::HttpServer rpcProcessor(&selector, &httpServer, NULL, "rpc", true,
                                true, 100, "");
   RPCServiceService1 service1("service1");
   RPCServiceService2 service2("service2");

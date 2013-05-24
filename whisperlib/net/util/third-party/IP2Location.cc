@@ -642,7 +642,6 @@ uint32 IP2Location_ip2no(const char* ipstring) {
 }
 
 char* IP2Location_mp2string (mpz mp) {
-  mpz test = mp;
   char* result = reinterpret_cast<char*>(malloc(sizeof(char) * 128));
   memset(result, 0, 128);
   mp_int_to_string(&mp, 10, result, 128);

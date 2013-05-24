@@ -39,65 +39,68 @@ namespace rpc {
 
 class BinaryEncoder : public rpc::Encoder {
  public:
-  explicit BinaryEncoder(io::MemoryStream& out)
-      : rpc::Encoder(out) {
-  }
-  virtual ~BinaryEncoder() {
-  }
+  BinaryEncoder() : Encoder(kCodecIdBinary) {}
+  virtual ~BinaryEncoder() {}
 
   //////////////////////////////////////////////////////////////////////
   //
   //                   rpc::Encoder interface methods
   //
-  void EncodeStructStart(uint32 nAttribs) {  Encode(nAttribs); }
-  void EncodeStructContinue()             {  }
-  void EncodeStructEnd()                  {  }
-  void EncodeStructAttribStart()          {  }
-  void EncodeStructAttribMiddle()         {  }
-  void EncodeStructAttribEnd()            {  }
-  void EncodeArrayStart(uint32 nElements) {  Encode(nElements); }
-  void EncodeArrayContinue()              {  }
-  void EncodeArrayEnd()                   {  }
-  void EncodeArrayElementStart()          {  }
-  void EncodeArrayElementEnd()            {  }
-  void EncodeMapStart(uint32 nPairs)      {   Encode(nPairs);  }
-  void EncodeMapContinue()                {  }
-  void EncodeMapEnd()                     {  }
-  void EncodeMapPairStart()               {  }
-  void EncodeMapPairMiddle()              {  }
-  void EncodeMapPairEnd()                 {  }
+  virtual void EncodeStructStart(uint32 nAttribs, io::MemoryStream* out) { Encode(nAttribs, out); }
+  virtual void EncodeStructContinue(io::MemoryStream* out)               { }
+  virtual void EncodeStructEnd(io::MemoryStream* out)                    { }
+  virtual void EncodeStructAttribStart(io::MemoryStream* out)            { }
+  virtual void EncodeStructAttribMiddle(io::MemoryStream* out)           { }
+  virtual void EncodeStructAttribEnd(io::MemoryStream* out)              { }
+  virtual void EncodeArrayStart(uint32 nElements, io::MemoryStream* out) { Encode(nElements, out); }
+  virtual void EncodeArrayContinue(io::MemoryStream* out)                { }
+  virtual void EncodeArrayEnd(io::MemoryStream* out)                     { }
+  virtual void EncodeMapStart(uint32 nPairs, io::MemoryStream* out)      { Encode(nPairs, out); }
+  virtual void EncodeMapContinue(io::MemoryStream* out)                  { }
+  virtual void EncodeMapEnd(io::MemoryStream* out)                       { }
+  virtual void EncodeMapPairStart(io::MemoryStream* out)                 { }
+  virtual void EncodeMapPairMiddle(io::MemoryStream* out)                { }
+  virtual void EncodeMapPairEnd(io::MemoryStream* out)                   { }
 
- protected:
-  void EncodeBody(const rpc::Void& obj)    {
-    UNUSED_ALWAYS(obj);
-    io::NumStreamer::WriteByte(out_, 0xff);
+  virtual void Encode(const rpc::Void&, io::MemoryStream* out)    {
+    io::NumStreamer::WriteByte(out, 0xff);
   }
-  void EncodeBody(const bool& obj)    {
-    io::NumStreamer::WriteByte(out_, obj == true ? 1 : 0);
+  virtual void Encode(const bool v, io::MemoryStream* out)    {
+    io::NumStreamer::WriteByte(out, v ? 1 : 0);
   }
- private:
-  // A simple helper function..
+  virtual void Encode(const int32 v, io::MemoryStream* out)  { EncodeNumeric(v, out); }
+  virtual void Encode(const uint32 v, io::MemoryStream* out) { EncodeNumeric(v, out); }
+  virtual void Encode(const int64 v, io::MemoryStream* out)  { EncodeNumeric(v, out); }
+  virtual void Encode(const uint64 v, io::MemoryStream* out) { EncodeNumeric(v, out); }
+  virtual void Encode(const double v, io::MemoryStream* out) { EncodeNumeric(v, out); }
+
+  virtual void Encode(const string& str, io::MemoryStream* out)  {
+    io::NumStreamer::WriteInt32(out, str.size(), rpc::kBinaryByteOrder);
+    out->Write(str.data(), str.size());
+  }
+  virtual void WriteRawObject(const io::MemoryStream& obj, io::MemoryStream* out) {
+    uint32 size = obj.Size();
+    EncodeNumeric(size, out);
+    out->AppendStreamNonDestructive(&obj);
+  }
+
+  // these methods are public in the base class, but because of some compiler
+  // issue they need to be re-declared here.
   template <typename T>
-  void EncodeNumeric(const T& val) {
-    io::NumStreamer::WriteNumber<T>(
-        out_, val, rpc::kBinaryByteOrder);
-  }
- protected:
-  void EncodeBody(const int32& obj)  { EncodeNumeric(obj); }
-  void EncodeBody(const uint32& obj) { EncodeNumeric(obj); }
-  void EncodeBody(const int64& obj)  { EncodeNumeric(obj); }
-  void EncodeBody(const uint64& obj) { EncodeNumeric(obj); }
-  void EncodeBody(const double& obj) { EncodeNumeric(obj); }
+  void Encode(const vector<T>& v, io::MemoryStream* out)    { Encoder::Encode(v, out); }
+  template <typename K, typename V>
+  void Encode(const map<K,V>& m, io::MemoryStream* out)     { Encoder::Encode(m, out); }
+  void Encode(const rpc::Custom& c, io::MemoryStream* out)  { Encoder::Encode(c, out); }
+  void Encode(const rpc::Message& m, io::MemoryStream* out) { Encoder::Encode(m, out); }
 
-  void EncodeBody(const string& obj)  {
-    io::NumStreamer::WriteInt32(out_, obj.size(), rpc::kBinaryByteOrder);
-    out_->Write(obj.data(), obj.size());
+
+ private:
+  // helper function for encoding numeric types
+  template <typename T>
+  void EncodeNumeric(const T& val, io::MemoryStream* out) {
+    io::NumStreamer::WriteNumber<T>(out, val, rpc::kBinaryByteOrder);
   }
-  void EncodeBody(const char* obj)  {
-    const int32 len = strlen(obj);
-    io::NumStreamer::WriteInt32(out_, len, rpc::kBinaryByteOrder);
-    out_->Write(obj, len);
-  }
+
  private:
   DISALLOW_EVIL_CONSTRUCTORS(BinaryEncoder);
 };

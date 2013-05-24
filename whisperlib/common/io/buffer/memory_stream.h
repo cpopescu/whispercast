@@ -54,9 +54,13 @@ namespace io {
 class MemoryStream {
  public:
   MemoryStream(BlockSize block_size = DataBlock::kDefaultBufferSize);
+  MemoryStream(const MemoryStream& other);
   ~MemoryStream();
 
   BlockSize block_size() const { return block_size_; }
+
+  void operator=(const MemoryStream& other);
+
   //////////////////////////////////////////////////////////////////////
   //
   // "FAST" interface - works mostly by actioning on the underneath
@@ -98,8 +102,9 @@ class MemoryStream {
   }
 
   // Returns the total amount of data in the buffer
-  int32 Size() const {
-    return size_;
+  uint32 Size() const {
+    CHECK_GE(size_, 0);
+    return (uint32)size_;
   }
 
   // Appends a portion of the given data block to our list (makes a copy)
@@ -109,38 +114,43 @@ class MemoryStream {
 
   //////////////////////////////////////////////////////////////////////
   //
-  // "MEDIUM" inteface functions - these may take a long time, or a small
-  //                               time, depending on conditions..
+  // "MEDIUM" interface functions - these may take a long time, or a small
+  //                                time, depending on conditions..
 
   // Appends a full buffer to this one -
   void AppendStream(MemoryStream* buffer, int32 size = -1);
 
-  // Appends without destroying the buffer - appends just size bytes
-  // (or the entire buffer if size == -1)
-  void AppendStreamNonDestructive(const MemoryStream* buffer,
+  // Appends without destroying the buffer.
+  // offset - skip this many bytes before reading from 'in'
+  // size - append just size bytes (or until the end of in buffer if size == -1)
+  void AppendStreamNonDestructive(const MemoryStream* in,
+                                  int32 offset = 0,
                                   int32 size = -1);
 
+ private:
   // As above, but appends between the pointers of the same owner
   void AppendStreamNonDestructive(DataBlockPointer* begin,
                                   const DataBlockPointer* end);
 
+ public:
   //////////////////////////////////////////////////////////////////////
   //
   // "SLOWER" inteface functions - these may take longer as they involve
   //                               data copying and buffer allocation
 
-  // Reads "len" bytes of data into the given "buffer".
+  // Reads "len" bytes of data into the 'out' buffer
   // Returns the number of bytes read. Can be less than "len" if less bytes
   // are available.
-  int32 Read(void* buffer, int32 len) {
-    if ( len == 0 ) return 0;
-    return ReadInternal(buffer, len, true);
+  int32 Read(void* out, int32 len) {
+    return ReadInternal(out, len, true);
   }
 
   // Same as read, but w/ strings - this tends to be slower..
   // If len == -1 read to the end of input, else read len bytes.
   // Returns anyway the number of read bytes
   int32 ReadString(string* s, int32 len = -1);
+  // Reads without destroying the stream.
+  int32 PeekString(string* s, int32 len = -1) const;
 
   bool Equals(const io::MemoryStream& other) const;
 
@@ -163,21 +173,9 @@ class MemoryStream {
 #endif
   }
 
-  // Utility to read from the pointer to a CRLF. Will leave the pointer
-  // after the CRLF or at the end of the buffer. Returns true (and reads)
-  // a line if found. On true, s will contain the line *and* the CRLF
-  bool ReadCRLFLine(string* s) {
-    if ( !MaybeInitReadPointer() ) {
-      return false;
-    }
-    if ( read_pointer_.ReadCRLFLine(s) ) {
-      size_ -= s->size();
-      return true;
-    }
-    return false;
-  }
-
-  // Same as above, but looks only for \n
+  // Utility to read from the pointer to a LF. Will leave the pointer
+  // after the LF at the end of the buffer. Returns true (and reads)
+  // a line if found. On true, s will contain the line *and* the CR/LF
   bool ReadLFLine(string* s) {
     if ( !MaybeInitReadPointer() ) {
       return false;
@@ -189,17 +187,13 @@ class MemoryStream {
     return false;
   }
 
-  // Reads a line until CRLF. Leaves the stream pointer after CRLF, but does
-  // not return the CRLF.
+  // Reads a line until CR/LF.
+  // Leaves the stream pointer after LF, but does not return the CR/LF.
   bool ReadLine(string* s) {
-    if ( !ReadCRLFLine(s) ) {
+    if ( !ReadLFLine(s) ) {
       return false;
     }
-    const char* p = s->c_str() + s->size() - 1;
-    while ( p >= s->c_str() && (*p == 0x0a || *p == 0x0d) ) {
-      p--;
-    }
-    s->erase(p - s->c_str() + 1);
+    strutil::StrTrimCRLFInPlace(*s);
     return true;
   }
 
@@ -219,14 +213,14 @@ class MemoryStream {
     return ret;
   }
 
-  // Not acutlly reading len bytes into buffer :)
-  int32 Peek(void* buffer, int32 len) const {
+  // Not actually reading len bytes into 'out' buffer :)
+  int32 Peek(void* out, int32 len) const {
     DataBlockPointer reader(GetReadPointer());
     if ( reader.IsNull() ) {
       return 0;
     }
     return static_cast<int32>(
-        reader.ReadData(reinterpret_cast<char*>(buffer), len));
+        reader.ReadData(reinterpret_cast<char*>(out), len));
   }
 
   // Passes over "len" bytes. (Advances the read head by the "len" number of
@@ -256,14 +250,14 @@ class MemoryStream {
   // MARKER interface (reasonaby fast, w/ exception of Restore()
   //
 
-  // Sets the marker in the current stream possition
+  // Sets the marker in the current stream position
   void MarkerSet() {
     if ( markers_.empty() ) {
       invalid_markers_size_ = false;
     }
     markers_.push_back(make_pair(size_, new DataBlockPointer(read_pointer_)));
   }
-  // Returns true iff the some marker is set
+  // Test if a marker is set
   bool MarkerIsSet() const {
     return !markers_.empty();
   }
@@ -275,11 +269,7 @@ class MemoryStream {
     if ( invalid_markers_size_ ) {
       // unfortunately no smarter way for doing this, so we basically invalidate
       // it..
-      if ( !MaybeInitReadPointer() ) {
-        size_ = 0;
-      } else {
-        size_ = read_pointer_.Distance(write_pointer_);
-      }
+      MaybeInitReadPointer();
       size_ = read_pointer_.Distance(write_pointer_);
     } else {
       size_ = markers_.back().first;
@@ -299,9 +289,9 @@ class MemoryStream {
   // DEBUG functions (terribly slow)
 
   // Utility debug function
-  string DumpContent(int32 max_size = -1) const;
-  string DumpContentHex(int32 max_size = -1) const;
-  string DumpContentInline(int32 max_size = -1) const;
+  string DumpContent(uint32 max_size = kMaxUInt32) const;
+  string DumpContentHex(uint32 max_size = kMaxUInt32) const;
+  string DumpContentInline(uint32 max_size = kMaxUInt32) const;
 
   string DetailedContent() const;
 
@@ -348,9 +338,6 @@ class MemoryStream {
   // utmost importance in maintaining a fast response.
   // (At all times size_ == read_pointer_.Distance(write_pointer_);
   int32 size_;
-
- private:
-  DISALLOW_EVIL_CONSTRUCTORS(MemoryStream);
 };
 
 typedef BaseNumStreamer<MemoryStream, MemoryStream> NumStreamer;

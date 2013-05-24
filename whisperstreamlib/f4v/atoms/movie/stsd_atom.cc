@@ -57,6 +57,10 @@ void StsdAtom::EncodeData(io::MemoryStream& out,
 uint64 StsdAtom::MeasureDataSize() const {
   return kDataSize;
 }
+bool StsdAtom::EqualsData(const ContainerVersionedAtom& other) const {
+  const StsdAtom& a = static_cast<const StsdAtom&>(other);
+  return count_ == a.count_;
+}
 string StsdAtom::ToStringData(uint32 indent) const {
   ostringstream oss;
   oss << "count_: " << count_;

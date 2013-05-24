@@ -56,8 +56,7 @@ class RemoteResolverElement : public Element {
   typedef map<string, string>  Host2IpMap;
 
   RemoteResolverElement(
-      const char* name,
-      const char* id,
+      const string& name,
       ElementMapper* mapper,
       net::Selector* selector,
       int64 cache_expiration_time_ms,
@@ -68,18 +67,17 @@ class RemoteResolverElement : public Element {
       int lookup_req_timeout_ms,
       bool local_lookup_first,
       const string& auth_user,
-      const string& auth_pass,
-      const Capabilities& default_caps);
+      const string& auth_pass);
 
-  ~RemoteResolverElement();
+  virtual ~RemoteResolverElement();
 
   // streaming::Element interface methods
   virtual bool Initialize();
-  virtual bool AddRequest(const char* media, streaming::Request* req,
-                          streaming::ProcessingCallback* callback);
+  virtual bool AddRequest(const string& media, Request* req,
+                          ProcessingCallback* callback);
   virtual void RemoveRequest(streaming::Request* req);
-  virtual bool HasMedia(const char* media, Capabilities* out);
-  virtual void ListMedia(const char* media_dir, ElementDescriptions* medias);
+  virtual bool HasMedia(const string& media);
+  virtual void ListMedia(const string& media_dir, vector<string>* out);
   virtual bool DescribeMedia(const string& media, MediaInfoCallback* callback);
   virtual void Close(Closure* call_on_close);
 
@@ -115,7 +113,7 @@ class RemoteResolverElement : public Element {
     bool is_processing_;
     bool source_start_sent_;
     string crt_media_;
-    RequestStruct(const char* media,
+    RequestStruct(const string& media,
                   streaming::Request* req,
                   streaming::ProcessingCallback* callback)
         : media_name_(media),
@@ -162,7 +160,6 @@ class RemoteResolverElement : public Element {
 
   const int64 cache_expiration_time_ms_;
   const bool local_lookup_first_;
-  const Capabilities default_caps_;
 
   http::ClientParams client_params_;
   ResultClosure<http::BaseClientConnection*>* connection_factory_;

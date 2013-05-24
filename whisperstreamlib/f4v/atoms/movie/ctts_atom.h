@@ -53,6 +53,7 @@ struct CttsRecord {
   CttsRecord(const CttsRecord& other);
   ~CttsRecord();
 
+  bool Equals(const CttsRecord& other) const;
   CttsRecord* Clone() const;
 
   bool Decode(io::MemoryStream& in);

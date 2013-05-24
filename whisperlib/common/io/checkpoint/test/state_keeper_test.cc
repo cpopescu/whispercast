@@ -324,7 +324,7 @@ void PerformTimingTest() {
 void ClearAllFiles() {
   vector<string> files;
   re::RE re(strutil::StringPrintf("%s_.*", FLAGS_file_base.c_str()));
-  io::DirList(FLAGS_dir, &files, false, &re);
+  io::DirList(FLAGS_dir, io::LIST_FILES, &re, &files);
   LOG_INFO << "Clearing " << files.size() << " old files..";
   for ( uint32 i = 0; i < files.size(); i++ ) {
     io::Rm(strutil::JoinPaths(FLAGS_dir, files[i]));

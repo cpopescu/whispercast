@@ -124,7 +124,7 @@ struct NetAcceptorParams {
     return chosen;
   }
  private:
-  int next_client_thread_;
+  uint32 next_client_thread_;
   const vector<SelectorThread*>* client_threads_;
 };
 
@@ -276,9 +276,9 @@ class NetConnection {
   }
 
  public:
-  NetConnection(Selector* net_selector,
+  NetConnection(Selector* selector,
                 const NetConnectionParams& params)
-      : net_selector_(net_selector),
+      : selector_(selector),
         state_(DISCONNECTED),
         last_error_code_(0),
         connect_handler_(NULL),
@@ -351,8 +351,8 @@ class NetConnection {
   void InvokeCloseHandler(int err, CloseWhat what);
 
  public:
-  Selector* net_selector() const {
-    return net_selector_;
+  Selector* selector() const {
+    return selector_;
   }
   State state() const {
     return state_;
@@ -386,9 +386,9 @@ class NetConnection {
   int last_error_code() const { return last_error_code_; }
 
  protected:
-  void set_net_selector(Selector* net_selector) {
-    CHECK(net_selector_ == NULL);
-    net_selector_ = net_selector;
+  void set_selector(Selector* selector) {
+    CHECK_NULL(selector_);
+    selector_ = selector;
   }
   void set_state(State state) {
     state_ = state;
@@ -404,7 +404,7 @@ class NetConnection {
   }
 
  private:
-  Selector* net_selector_;
+  Selector* selector_;
   // connection state
   State state_;
 
@@ -519,6 +519,8 @@ class TcpAcceptor : public NetAcceptor, private Selectable {
   void InternalClose(int err);
 
  private:
+  net::Selector* selector_;
+
   TcpAcceptorParams tcp_params_;
 
   // The fd of the socket
@@ -539,6 +541,9 @@ class TcpConnection : public NetConnection, private Selectable {
   virtual ~TcpConnection();
 
   void Close(CloseWhat what);
+
+  // test if the connection was unregistered from selector
+  //bool IsUnregistered() const { return debug_selector() == NULL; }
 
  private:
   // Use an already connected fd. Usually obtained by an acceptor.

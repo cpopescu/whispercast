@@ -30,8 +30,8 @@
 // Author: Catalin Popescu & Cosmin Tudorache
 
 #include <sys/types.h>
-
-#include "common/io/num_streaming.h"
+#include <whisperlib/common/io/num_streaming.h>
+#include <whisperlib/common/io/buffer/memory_stream.h>
 
 namespace io {
 
@@ -55,12 +55,19 @@ void BitArray::Wrap(const void* data, uint32 size) {
   head_ = 0;
   head_bit_ = 7;
 }
-void BitArray::Put(const void* data, uint32 size) {
-  uint8* data_copy = new uint8[size];
-  ::memcpy(data_copy, data, size);
+void BitArray::Put(const void* data, uint32 size_in_bytes) {
   delete data_;
-  data_ = data_copy;
-  data_size_ = size;
+  data_ = new uint8[size_in_bytes];
+  ::memcpy(const_cast<uint8*>(data_), data, size_in_bytes);
+  data_size_ = size_in_bytes;
+  data_owned_ = true;
+  head_ = 0;
+  head_bit_ = 7;
+}
+void BitArray::PutMS(io::MemoryStream& ms, uint32 size_in_bytes) {
+  delete data_;
+  data_ = new uint8[size_in_bytes];
+  data_size_ = ms.Read(const_cast<uint8*>(data_), size_in_bytes);
   data_owned_ = true;
   head_ = 0;
   head_bit_ = 7;

@@ -96,6 +96,12 @@ class Tag : public streaming::Tag {
     return is_atom() ? 0LL : frame()->header().timestamp();
   }
 
+  bool Equals(const Tag& t) const {
+    if ( is_atom() && t.is_atom() ) { return atom()->Equals(*t.atom()); }
+    if ( is_frame() && t.is_frame() ) { return frame()->Equals(*t.frame()); }
+    return false;
+  }
+
   //////////////////////////////////////////////////////////////////////
   //
   // Methods from Tag
@@ -106,6 +112,12 @@ class Tag : public streaming::Tag {
   }
   virtual uint32 size() const {
     return is_atom() ? atom()->size() : frame()->header().size();
+  }
+  virtual int64 composition_offset_ms() const {
+    return is_atom() ? 0 : frame()->header().composition_offset_ms();
+  }
+  virtual const io::MemoryStream* Data() const {
+    return is_frame() ? &frame()->data() : NULL;
   }
   virtual streaming::Tag* Clone() const {
     return new Tag(*this);

@@ -33,7 +33,6 @@
 #include "common/sync/thread.h"
 
 namespace {
-
 void* InternalThreadRun(void* param) {
   Closure* closure = reinterpret_cast<Closure*>(param);
   closure->Run();
@@ -55,12 +54,27 @@ Thread::~Thread() {
 }
 bool Thread::Start() {
   CHECK(thread_function_ != NULL);
-  return pthread_create(&thread_, &attr_,
-                        InternalThreadRun, thread_function_) == 0;
+  const int err = pthread_create(&thread_, &attr_, InternalThreadRun,
+      thread_function_);
+  if ( err != 0 ) {
+    LOG_ERROR << "pthread_create failed: " << GetSystemErrorDescription(err);
+    thread_ = 0;
+    return false;
+  }
+  return true;
 }
 bool Thread::Join() {
   void* status;
-  return pthread_join(thread_, &status) == 0;
+  int err = pthread_join(thread_, &status);
+  if ( err != 0 ) {
+    LOG_ERROR << "pthread_join failed: " << GetSystemErrorDescription(err);
+    return false;
+  }
+  thread_ = 0;
+  return true;
+}
+bool Thread::IsRunning() const {
+  return thread_ != 0;
 }
 bool Thread::SetJoinable() {
   return pthread_attr_setdetachstate(&attr_, PTHREAD_CREATE_JOINABLE) == 0;

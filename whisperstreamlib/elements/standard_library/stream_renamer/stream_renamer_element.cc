@@ -113,13 +113,12 @@ class StreamRenamerCallbackData : public streaming::FilteringCallbackData {
 //  StreamRenamerElement
 //
 StreamRenamerElement::StreamRenamerElement(
-    const char* name,
-    const char* id,
+    const string& name,
     ElementMapper* mapper,
     net::Selector* selector,
     const string& pattern,
     const string& replace)
-    : FilteringElement(kElementClassName, name, id, mapper, selector),
+    : FilteringElement(kElementClassName, name, mapper, selector),
       pattern_(pattern),
       replace_(replace),
       re_(pattern_) {
@@ -132,16 +131,15 @@ bool StreamRenamerElement::Initialize() {
 }
 
 FilteringCallbackData* StreamRenamerElement::CreateCallbackData(
-    const char* media_name,
+    const string& media_name,
     streaming::Request* req) {
   return new StreamRenamerCallbackData(re_, replace_);
 }
 
-bool StreamRenamerElement::AddRequest(const char* media,
-                                      streaming::Request* req,
-                                      streaming::ProcessingCallback* callback) {
+bool StreamRenamerElement::AddRequest(const string& media, Request* req,
+                                      ProcessingCallback* callback) {
   VLOG(10) << "StreamRenamerElement adding callback for name: ["
-          << name() << "]";
+           << name() << "]";
   if ( !FilteringElement::AddRequest(media, req, callback) ) {
     return false;
   }

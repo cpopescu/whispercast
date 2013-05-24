@@ -49,6 +49,7 @@ struct StssRecord {
   StssRecord(const StssRecord& other);
   ~StssRecord();
 
+  bool Equals(const StssRecord& other) const;
   StssRecord* Clone() const;
 
   bool Decode(io::MemoryStream& in);
