@@ -124,9 +124,9 @@ ADD_SUBDIRECTORY (whisperstreamlib)
 SET(whisperstreamlib_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/whisperstreamlib/libwhisper_streamlib.${LIB_EXT})
 SET(whisperstreamlib_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/whisperstreamlib)
 
-IF (IS_DIRECTORY "private")
+IF (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/private)
   ADD_SUBDIRECTORY (private)
-ENDIF (IS_DIRECTORY "private")
+ENDIF (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/private)
 
 ADD_SUBDIRECTORY (whispercast)
 
